@@ -7,6 +7,8 @@ import FeedPage from "@/pages/FeedPage";
 import ProfilePage from "@/pages/ProfilePage";
 import FriendsPage from "@/pages/FriendsPage";
 import AuthPage from "@/pages/AuthPage";
+import CommunitiesPage from "@/pages/CommunitiesPage";
+import ChatPage from "@/pages/ChatPage";
 import Layout from "@/components/layout/Layout";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 
@@ -34,6 +36,8 @@ function Router() {
         <Route path="/" component={FeedPage} />
         <Route path="/profile/:id" component={ProfilePage} />
         <Route path="/friends" component={FriendsPage} />
+        <Route path="/communities" component={CommunitiesPage} />
+        <Route path="/community/:id" component={ChatPage} />
         <Route path="/create" component={() => <div className="p-8 text-center">Coming Soon: Create Module</div>} />
         <Route component={NotFound} />
       </Switch>
