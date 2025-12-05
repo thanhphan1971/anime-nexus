@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Home, Users, User, LogOut, PlusSquare, Search, Zap, MessageSquare } from "lucide-react";
+import { Home, Users, User, LogOut, PlusSquare, Search, Zap, MessageSquare, PlayCircle, Gift } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { icon: Home, label: "Feed", path: "/" },
     { icon: Users, label: "Friends", path: "/friends" },
     { icon: MessageSquare, label: "Communities", path: "/communities" },
+    { icon: PlayCircle, label: "Watch List", path: "/watchlist" },
+    { icon: Gift, label: "Daily Gacha", path: "/gacha" },
     { icon: PlusSquare, label: "Create", path: "/create" },
     { icon: User, label: "Profile", path: `/profile/${user.id}` },
   ];
@@ -83,7 +85,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       {/* Mobile Bottom Nav */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-card/90 backdrop-blur-xl border-t border-border/40 h-16 flex items-center justify-around z-50 px-2">
-        {navItems.map((item) => (
+        {navItems.slice(0, 5).map((item) => (
           <Link key={item.path} href={item.path}>
             <div className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-colors ${
                location === item.path ? "text-primary" : "text-muted-foreground"

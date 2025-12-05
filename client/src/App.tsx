@@ -9,6 +9,8 @@ import FriendsPage from "@/pages/FriendsPage";
 import AuthPage from "@/pages/AuthPage";
 import CommunitiesPage from "@/pages/CommunitiesPage";
 import ChatPage from "@/pages/ChatPage";
+import AnimeListPage from "@/pages/AnimeListPage";
+import GachaPage from "@/pages/GachaPage";
 import Layout from "@/components/layout/Layout";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 
@@ -38,6 +40,8 @@ function Router() {
         <Route path="/friends" component={FriendsPage} />
         <Route path="/communities" component={CommunitiesPage} />
         <Route path="/community/:id" component={ChatPage} />
+        <Route path="/watchlist" component={AnimeListPage} />
+        <Route path="/gacha" component={GachaPage} />
         <Route path="/create" component={() => <div className="p-8 text-center">Coming Soon: Create Module</div>} />
         <Route component={NotFound} />
       </Switch>
