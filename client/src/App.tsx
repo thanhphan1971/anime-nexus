@@ -14,6 +14,7 @@ import GachaPage from "@/pages/GachaPage";
 import PremiumPage from "@/pages/PremiumPage";
 import CreatePostPage from "@/pages/CreatePostPage";
 import MarketplacePage from "@/pages/MarketplacePage";
+import AdminPage from "@/pages/AdminPage";
 import Layout from "@/components/layout/Layout";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 
@@ -39,6 +40,7 @@ function Router() {
         <Route path="/market" component={MarketplacePage} />
         <Route path="/premium" component={PremiumPage} />
         <Route path="/create" component={CreatePostPage} />
+        <Route path="/admin" component={AdminPage} />
         <Route component={NotFound} />
       </Switch>
     </Layout>
