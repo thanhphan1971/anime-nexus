@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Home, Users, User, LogOut, PlusSquare, Search, Zap, MessageSquare, PlayCircle, Gift, Crown, ShoppingBag, Settings } from "lucide-react";
+import { Home, Users, User, LogOut, PlusSquare, Search, Zap, MessageSquare, PlayCircle, Gift, Crown, ShoppingBag, Settings, Layers } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -11,15 +11,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   if (!user) return <>{children}</>;
 
   const navItems = [
-    { icon: Home, label: "Feed", path: "/" },
-    { icon: Users, label: "Friends", path: "/friends" },
+    { icon: Home, label: "Home", path: "/" },
+    { icon: Users, label: "Find Nakama", path: "/friends" },
     { icon: MessageSquare, label: "Communities", path: "/communities" },
+    { icon: Layers, label: "Cards", path: "/cards" },
     { icon: PlayCircle, label: "Watch List", path: "/watchlist" },
-    { icon: Gift, label: "Daily Gacha", path: "/gacha" },
-    { icon: ShoppingBag, label: "Market", path: "/market" },
-    { icon: Crown, label: "S-Class", path: "/premium" },
     { icon: PlusSquare, label: "Create", path: "/create" },
     { icon: User, label: "Profile", path: `/profile/${user.id}` },
+    { icon: Crown, label: "S-Class", path: "/sclass" },
     { icon: Settings, label: "Admin", path: "/admin" },
   ];
 
@@ -31,7 +30,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <div className="h-8 w-8 rounded bg-primary flex items-center justify-center shadow-[0_0_15px_hsl(var(--primary))]">
             <Zap className="text-white h-5 w-5 fill-white" />
           </div>
-          <h1 className="text-2xl font-bold tracking-wider neon-text font-display">ANIVERSE REALM</h1>
+          <h1 className="text-2xl font-bold tracking-wider neon-text font-display">ANIREALM</h1>
         </div>
 
         <nav className="flex-1 space-y-2">
@@ -41,10 +40,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 variant="ghost"
                 className={`w-full justify-start gap-3 text-lg h-12 rounded-xl transition-all duration-300 ${
                   location === item.path 
-                    ? item.path === "/premium" 
+                    ? item.path === "/sclass" 
                       ? "bg-yellow-500/20 text-yellow-400 neon-border border-yellow-500/50" 
                       : "bg-primary/20 text-primary neon-border"
-                    : item.path === "/premium"
+                    : item.path === "/sclass"
                       ? "text-yellow-500 hover:text-yellow-400 hover:bg-yellow-500/10"
                       : "text-muted-foreground hover:text-foreground hover:bg-white/5"
                 }`}
@@ -77,7 +76,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <header className="md:hidden sticky top-0 z-50 flex items-center justify-between px-4 h-16 bg-background/80 backdrop-blur-md border-b border-border/40">
         <div className="flex items-center gap-2">
           <Zap className="text-primary h-6 w-6 fill-primary" />
-          <span className="font-display font-bold text-xl">ANIVERSE REALM</span>
+          <span className="font-display font-bold text-xl">ANIREALM</span>
         </div>
         <Avatar className="h-8 w-8">
            <AvatarImage src={user.avatar} />

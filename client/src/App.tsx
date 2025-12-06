@@ -10,19 +10,27 @@ import AuthPage from "@/pages/AuthPage";
 import CommunitiesPage from "@/pages/CommunitiesPage";
 import ChatPage from "@/pages/ChatPage";
 import AnimeListPage from "@/pages/AnimeListPage";
-import GachaPage from "@/pages/GachaPage";
+import CardsPage from "@/pages/CardsPage";
 import PremiumPage from "@/pages/PremiumPage";
 import CreatePostPage from "@/pages/CreatePostPage";
-import MarketplacePage from "@/pages/MarketplacePage";
 import AdminPage from "@/pages/AdminPage";
 import Layout from "@/components/layout/Layout";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 
 function Router() {
   const { user, isLoading } = useAuth();
-// ...
+
   if (isLoading) {
-// ...
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-background text-primary">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-12 w-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+          <p className="font-display tracking-widest animate-pulse">INITIALIZING...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!user) {
     return <AuthPage />;
   }
@@ -36,11 +44,15 @@ function Router() {
         <Route path="/communities" component={CommunitiesPage} />
         <Route path="/community/:id" component={ChatPage} />
         <Route path="/watchlist" component={AnimeListPage} />
-        <Route path="/gacha" component={GachaPage} />
-        <Route path="/market" component={MarketplacePage} />
-        <Route path="/premium" component={PremiumPage} />
+        <Route path="/cards" component={CardsPage} />
+        <Route path="/sclass" component={PremiumPage} />
         <Route path="/create" component={CreatePostPage} />
         <Route path="/admin" component={AdminPage} />
+        {/* Legacy routes redirecting or redundant */}
+        <Route path="/gacha" component={CardsPage} />
+        <Route path="/market" component={CardsPage} />
+        <Route path="/premium" component={PremiumPage} />
+        
         <Route component={NotFound} />
       </Switch>
     </Layout>

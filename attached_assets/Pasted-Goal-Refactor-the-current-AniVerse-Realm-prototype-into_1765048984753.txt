@@ -1,0 +1,430 @@
+Goal:
+Refactor the current AniVerse Realm prototype into a clean structure with a new “Cards” hub that includes Gacha, Collection, Market, and Offers, plus clearly organized sections and subsections for the whole app.
+
+Keep the existing cyberpunk / anime design and components, but reorganize pages, routes, and navigation as described below.
+
+1. Global App Structure & Navigation
+
+Sidebar / Main Navigation (Desktop & Mobile):
+
+Home – /
+
+Find Nakama – /friends
+
+Communities – /communities
+
+Cards – /cards
+
+Watch List – /watchlist
+
+Create – /create
+
+Profile – /profile
+
+S-Class – /sclass
+
+Admin – /admin (visible for now for testing)
+
+Remove any separate “Daily Gacha” or “Market” sidebar items; all card-related features must live under Cards.
+
+2. Home (Feed) – /
+
+Sections on the Home page:
+
+Top Stories / Highlights bar:
+
+Horizontal “stories” carousel with anime avatars and glow borders.
+
+Post Composer:
+
+Small card at top of feed to write a quick post (text + optional image upload area).
+
+Main Feed:
+
+Vertical list of posts with:
+
+Avatar, username, badge (S-Class if applicable)
+
+Time, text, optional image
+
+Actions: Like, Comment, Share
+
+AI Prompt Helper (optional section in the feed):
+
+A small widget: “Stuck? Ask AI to suggest a post idea.”
+
+Keep existing styling but ensure these sections are clearly separated visually.
+
+3. Find Nakama (Matching) – /friends
+
+Main layout:
+
+Profile Card (center):
+
+Avatar, banner, username, compatibility %, favorite anime tags, short bio.
+
+Actions:
+
+Swipe left / right or simple buttons: “Pass”, “Connect”.
+
+Footer strip:
+
+Show limited swipes count for Free users.
+
+If user is S-Class (mock logic), show “Unlimited Swipes” label and “See Who Liked You” entry point.
+
+Add a small section or panel:
+
+“Who Liked You” – a grid/list of users who liked you (only visible if user is S-Class; for now just mock data with a S-Class upsell banner if not).
+
+4. Communities – /communities
+
+Sections:
+
+Categories row: Shonen, Isekai, Romance, Slice of Life, etc. (filter chips).
+
+Trending Rooms grid/list:
+
+Cards such as “Attack on Titan HQ”, “One Piece Global”, each showing:
+
+Name
+
+Member count (mock)
+
+Status (“Active now”, “Chill”)
+
+“Enter Room” button.
+
+On enter room → /communities/:id (Chat View):
+
+Chat Header: Room name, avatar, member count.
+
+Messages area: Vertical chat log.
+
+Composer: Input + send button at bottom.
+
+For now, this remains mock / local-only.
+
+5. Cards Hub – /cards
+
+This is the new central hub for everything related to cards: Gacha, Collection, Market, and Offers.
+
+Create a main CardsLayout with:
+
+Header bar:
+
+Shows:
+
+User Token Balance (e.g., “Tokens: 120” – mock)
+
+Daily Gacha pulls remaining (e.g., “Pulls Left Today: 1 / 5”)
+
+If user is not S-Class: small banner “Upgrade to S-Class for 5 pulls/day + Luck Boost”.
+
+Tabs:
+
+Summon
+
+Collection
+
+Market
+
+Offers
+
+5.1. Cards → Summon tab
+
+This is where the old Daily Gacha lives.
+
+Sections:
+
+Summon Panel:
+
+Big button: “Summon Now”.
+
+Shows how many pulls left today (mock values).
+
+Short description text about rarity and chance.
+
+Summon Animation Area:
+
+Existing animation / reveal UI for drawing a card.
+
+Result Card:
+
+Shows the pulled card with:
+
+Art
+
+Name
+
+Rarity (N, R, SR, SSR, UR)
+
+“Add to Collection” (conceptually, right now it just visually confirms).
+
+S-Class Perk Banner:
+
+Small box: “S-Class: 5 pulls/day + higher chance for UR/SSR.”
+
+5.2. Cards → Collection tab
+
+This is the user’s card binder.
+
+Sections:
+
+Filters row:
+
+Dropdowns / chips for:
+
+Rarity (All, N, R, SR, SSR, UR)
+
+Series (e.g., Dragon set, Assassin set, Magical Girl set)
+
+Sort (Newest, Rarest, Most Used)
+
+Card Grid:
+
+Grid of owned cards (use mock data array).
+
+Each card tile shows:
+
+Thumbnail art
+
+Name
+
+Rarity badge
+
+Card Detail Modal (on click):
+
+Larger art
+
+Description / flavor text
+
+Buttons:
+
+“List on Market” → opens a listing form (price / trade).
+
+“Favorite” toggle.
+
+For now, data is mock, but the UI should be complete.
+
+5.3. Cards → Market tab
+
+Move the existing Marketplace UI here.
+
+Sections:
+
+Market Filters:
+
+Search input (by card name).
+
+Filter by:
+
+Rarity
+
+Price range (slider or simple presets)
+
+Listing type: “For Sale”, “For Trade”.
+
+Listings List/Grid:
+
+Each listing shows:
+
+Card image + name + rarity.
+
+Seller name (mock).
+
+Price in tokens or “Trade Only”.
+
+Button: “Buy” or “Propose Trade”.
+
+S-Class Perk Banner (optional):
+
+Text like: “S-Class: lower market fees & access to exclusive banners” (conceptual).
+
+5.4. Cards → Offers tab
+
+Manage incoming and outgoing trades.
+
+Sections:
+
+Sub-tabs or toggle: “Incoming Offers” / “Outgoing Offers”.
+
+Offers list items:
+
+For each offer:
+
+Who it’s from / to (username, avatar – mock).
+
+Offered card(s) vs requested card(s).
+
+Status: Pending / Accepted / Declined (mock).
+
+Actions:
+
+If incoming: “Accept”, “Decline”.
+
+If outgoing: “Cancel Offer”.
+
+All data can be mocked for now, but keep layout realistic so it’s easy to connect to a backend later.
+
+6. Watch List – /watchlist
+
+Keep the existing anime tracking UI but organize it clearly:
+
+Tabs: Watching / Completed / Plan to Watch.
+
+Anime List Items:
+
+Poster image, title, episode progress bar, rating stars.
+
+Actions:
+
+Update episode count.
+
+Move between lists (e.g., from Watching → Completed).
+
+7. Create – /create
+
+This is the Content Studio.
+
+Tabs:
+
+Standard – Regular posts.
+
+AI Studio – AI-assisted content.
+
+Story – Ephemeral / story posts.
+
+Standard tab:
+
+Text area for post content.
+
+Image upload (mock).
+
+Preview area.
+
+“Post” button.
+
+AI Studio tab:
+
+Prompt input for AI (e.g., “Create a cyberpunk swordsman in Neo Tokyo”).
+
+Button: “Generate Idea / Art” (mock action).
+
+Display a sample generated “mock” card or text with label like “(AI Preview)”.
+
+Show S-Class upsell banner: “S-Class: Faster generations, higher priority in AI queue.”
+
+Story tab:
+
+Placeholder UI for story creation:
+
+Story preview frame.
+
+Buttons: “Upload Clip”, “Add Text”, “Add Music” (mock).
+
+8. Profile – /profile
+
+Sections:
+
+Header:
+
+Avatar, username, S-Class badge if applicable.
+
+Banner (static for Free; show potential for video banner for S-Class).
+
+Stats:
+
+Level, XP bar, number of friends, number of cards.
+
+Tabs:
+
+Posts – all posts created by the user.
+
+Media – images / clips shared.
+
+Likes – posts the user liked.
+
+For now keep editing as a simple mock (no real save to DB).
+
+9. S-Class – /sclass
+
+This is the premium comparison / upsell page.
+
+Sections:
+
+Hero Banner:
+
+Title: “Ascend to S-Class Elite”
+
+Subtitle explaining benefits.
+
+Comparison Table:
+
+Free vs S-Class with rows for:
+
+Daily Gacha Pulls (1 vs 5 + Luck Boost)
+
+Profile Customization (static vs animated avatar + video cover)
+
+Social Matching (blind swipes vs see who liked you + unlimited swipes)
+
+Communities (public only vs can create private guilds + VIP rooms)
+
+Status (no badge vs Golden S-Class badge everywhere)
+
+Call to Action Button:
+
+“Upgrade (Mock)” – no real billing, purely visual.
+
+Keep visual emphasis on S-Class card.
+
+10. Admin – /admin
+
+Keep this visible for now.
+
+Sections:
+
+Economy Controls:
+
+Sliders for UR/SSR drop rates, global token rewards, event multipliers.
+
+Card Management:
+
+Form to create new cards (name, rarity, artwork URL, series).
+
+List of existing cards (mock array) with ability to “deactivate” (soft delete).
+
+Event Scheduler:
+
+Toggles / dropdowns for:
+
+“Golden Week: Double XP”
+
+“UR Rate Up Weekend”
+
+“Exclusive S-Class Banner”
+
+At this stage, all admin actions only update local mock state; no actual backend needed yet.
+
+Important notes:
+
+Do not remove any major existing UI features; just reorganize them into this structure.
+
+Focus on making the Cards hub the single place for Gacha, Collection, Market, and Offers.
+
+Keep everything working as a frontend-only prototype (no real backend) but make the structure ready for a future full-stack upgrade.
+
+End of spec.
+
+If you paste that into Replit’s Ask Agent for your project, it should understand:
+
+How to create the Cards section with all sub-tabs
+
+How to reorganize the existing screens into a clean, scalable structure
+
+If you want, next step I can give you:
+
+A shorter “micro-prompt” only for Cards hub (if you want to apply that change separately)
+
+Or DB table designs for when you’re ready to go full-stack.
