@@ -12,23 +12,15 @@ import ChatPage from "@/pages/ChatPage";
 import AnimeListPage from "@/pages/AnimeListPage";
 import GachaPage from "@/pages/GachaPage";
 import PremiumPage from "@/pages/PremiumPage";
+import CreatePostPage from "@/pages/CreatePostPage";
 import Layout from "@/components/layout/Layout";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 
 function Router() {
   const { user, isLoading } = useAuth();
-
+// ...
   if (isLoading) {
-    return (
-      <div className="h-screen w-screen flex items-center justify-center bg-background text-primary">
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-12 w-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-          <p className="font-display tracking-widest animate-pulse">INITIALIZING...</p>
-        </div>
-      </div>
-    );
-  }
-
+// ...
   if (!user) {
     return <AuthPage />;
   }
@@ -44,7 +36,7 @@ function Router() {
         <Route path="/watchlist" component={AnimeListPage} />
         <Route path="/gacha" component={GachaPage} />
         <Route path="/premium" component={PremiumPage} />
-        <Route path="/create" component={() => <div className="p-8 text-center">Coming Soon: Create Module</div>} />
+        <Route path="/create" component={CreatePostPage} />
         <Route component={NotFound} />
       </Switch>
     </Layout>
