@@ -11,6 +11,7 @@ import CommunitiesPage from "@/pages/CommunitiesPage";
 import ChatPage from "@/pages/ChatPage";
 import AnimeListPage from "@/pages/AnimeListPage";
 import GachaPage from "@/pages/GachaPage";
+import PremiumPage from "@/pages/PremiumPage";
 import Layout from "@/components/layout/Layout";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 
@@ -42,6 +43,7 @@ function Router() {
         <Route path="/community/:id" component={ChatPage} />
         <Route path="/watchlist" component={AnimeListPage} />
         <Route path="/gacha" component={GachaPage} />
+        <Route path="/premium" component={PremiumPage} />
         <Route path="/create" component={() => <div className="p-8 text-center">Coming Soon: Create Module</div>} />
         <Route component={NotFound} />
       </Switch>
