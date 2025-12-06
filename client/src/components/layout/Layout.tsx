@@ -28,7 +28,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <div className="h-8 w-8 rounded bg-primary flex items-center justify-center shadow-[0_0_15px_hsl(var(--primary))]">
             <Zap className="text-white h-5 w-5 fill-white" />
           </div>
-          <h1 className="text-2xl font-bold tracking-wider neon-text font-display">ANIVERSE</h1>
+          <h1 className="text-2xl font-bold tracking-wider neon-text font-display">ANIVERSE REALM</h1>
         </div>
 
         <nav className="flex-1 space-y-2">
@@ -70,7 +70,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <header className="md:hidden sticky top-0 z-50 flex items-center justify-between px-4 h-16 bg-background/80 backdrop-blur-md border-b border-border/40">
         <div className="flex items-center gap-2">
           <Zap className="text-primary h-6 w-6 fill-primary" />
-          <span className="font-display font-bold text-xl">ANIVERSE</span>
+          <span className="font-display font-bold text-xl">ANIVERSE REALM</span>
         </div>
         <Avatar className="h-8 w-8">
            <AvatarImage src={user.avatar} />

@@ -33,7 +33,7 @@ export default function AuthPage() {
             <Zap className="h-8 w-8 text-primary fill-primary" />
           </div>
           <h1 className="text-4xl md:text-5xl font-display font-black tracking-tighter neon-text mb-2">
-            ANIVERSE
+            ANIVERSE REALM
           </h1>
           <p className="text-muted-foreground text-lg">
             Your Gateway to the Anime Dimension

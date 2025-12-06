@@ -73,7 +73,7 @@ export default function ProfilePage() {
                    <MapPin className="h-4 w-4" /> Neo Tokyo, Sector 7
                  </div>
                  <div className="flex items-center gap-2">
-                   <LinkIcon className="h-4 w-4" /> aniverse.net/neokai
+                   <LinkIcon className="h-4 w-4" /> aniverse-realm.net/neokai
                  </div>
                  <div className="flex items-center gap-2">
                    <Calendar className="h-4 w-4" /> Joined Dec 2077
