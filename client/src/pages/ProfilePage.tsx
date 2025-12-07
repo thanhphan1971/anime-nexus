@@ -1,23 +1,94 @@
+import { useState } from "react";
 import { useParams } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
-import { Settings, MapPin, Link as LinkIcon, Calendar, Loader2, Crown } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Settings, MapPin, Link as LinkIcon, Calendar, Loader2, Crown, Upload, Sparkles, Camera } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { usePosts } from "@/lib/api";
+import { usePosts, useUpdateUser } from "@/lib/api";
 import { formatDistanceToNow } from "date-fns";
+import { toast } from "sonner";
 
 export default function ProfilePage() {
   const { id } = useParams();
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, refreshUser } = useAuth();
   const { data: allPosts, isLoading: postsLoading } = usePosts();
+  const updateUser = useUpdateUser();
+  
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: "",
+    bio: "",
+    avatar: "",
+  });
   
   const isOwnProfile = id === currentUser?.id;
   const profileUser = isOwnProfile ? currentUser : currentUser;
   
   const userPosts = allPosts?.filter((post: any) => post.userId === id) || [];
+
+  const openEditDialog = () => {
+    if (currentUser) {
+      setEditForm({
+        name: currentUser.name || "",
+        bio: currentUser.bio || "",
+        avatar: currentUser.avatar || "",
+      });
+      setEditDialogOpen(true);
+    }
+  };
+
+  const handleGenerateAvatar = () => {
+    const randomSeed = Math.random().toString(36).substring(7);
+    const styles = ['avataaars', 'bottts', 'fun-emoji', 'lorelei', 'notionists', 'pixel-art'];
+    const randomStyle = styles[Math.floor(Math.random() * styles.length)];
+    const newAvatar = `https://api.dicebear.com/7.x/${randomStyle}/svg?seed=${randomSeed}`;
+    setEditForm({ ...editForm, avatar: newAvatar });
+    toast.success("New avatar generated!");
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        toast.error("Image must be less than 2MB");
+        return;
+      }
+      
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setEditForm({ ...editForm, avatar: reader.result as string });
+        toast.success("Image uploaded!");
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    if (!currentUser) return;
+    
+    try {
+      await updateUser.mutateAsync({
+        userId: currentUser.id,
+        updates: {
+          name: editForm.name,
+          bio: editForm.bio,
+          avatar: editForm.avatar,
+        },
+      });
+      await refreshUser();
+      setEditDialogOpen(false);
+      toast.success("Profile updated!");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to update profile");
+    }
+  };
 
   if (!profileUser) {
     return (
@@ -29,6 +100,100 @@ export default function ProfilePage() {
 
   return (
     <div className="space-y-8 pb-24">
+      {/* Edit Profile Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="bg-card border-white/10 max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-display">Edit Profile</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-6 py-4">
+            {/* Avatar Section */}
+            <div className="flex flex-col items-center gap-4">
+              <div className="relative">
+                <div className="h-24 w-24 rounded-full overflow-hidden border-4 border-primary/50">
+                  <img 
+                    src={editForm.avatar || profileUser.avatar} 
+                    alt="Avatar" 
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+                <label className="absolute bottom-0 right-0 h-8 w-8 bg-primary rounded-full flex items-center justify-center cursor-pointer hover:bg-primary/80 transition-colors">
+                  <Camera className="h-4 w-4 text-white" />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                    data-testid="input-avatar-upload"
+                  />
+                </label>
+              </div>
+              
+              <div className="flex gap-2">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm"
+                  onClick={handleGenerateAvatar}
+                  className="border-primary/50 text-primary hover:bg-primary/10"
+                  data-testid="button-generate-avatar"
+                >
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Auto-Generate Avatar
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground text-center">
+                Click the camera icon to upload your own image, or use auto-generate for a unique avatar
+              </p>
+            </div>
+
+            {/* Form Fields */}
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Display Name</Label>
+                <Input
+                  id="name"
+                  value={editForm.name}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                  placeholder="Your display name"
+                  className="bg-white/5 border-white/10"
+                  data-testid="input-edit-name"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="bio">Bio</Label>
+                <Textarea
+                  id="bio"
+                  value={editForm.bio}
+                  onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })}
+                  placeholder="Tell us about yourself..."
+                  className="bg-white/5 border-white/10 min-h-[100px]"
+                  data-testid="input-edit-bio"
+                />
+              </div>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setEditDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSaveProfile}
+              disabled={updateUser.isPending}
+              data-testid="button-save-profile"
+            >
+              {updateUser.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : null}
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Profile Header */}
       <div className="relative">
         {/* Cover Image */}
@@ -60,7 +225,12 @@ export default function ProfilePage() {
 
           <div className="flex gap-3 pb-4 w-full md:w-auto">
             {isOwnProfile ? (
-              <Button variant="outline" className="flex-1 md:flex-none border-white/10" data-testid="button-edit-profile">
+              <Button 
+                variant="outline" 
+                className="flex-1 md:flex-none border-white/10"
+                onClick={openEditDialog}
+                data-testid="button-edit-profile"
+              >
                 <Settings className="h-4 w-4 mr-2" /> Edit Profile
               </Button>
             ) : (
