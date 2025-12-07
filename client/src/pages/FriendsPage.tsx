@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { X, Heart, Info, Crown, Loader2, RefreshCw, Users, Sparkles } from "lucide-react";
+import { X, Heart, Info, Crown, Loader2, RefreshCw, Users, Sparkles, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/context/AuthContext";
 import { useUsers } from "@/lib/api";
@@ -42,6 +42,12 @@ function addConnection(userId: string, connectedUserId: string) {
     connections.push(connectedUserId);
     localStorage.setItem(`connections_${userId}`, JSON.stringify(connections));
   }
+}
+
+function removeConnection(userId: string, connectedUserId: string) {
+  const connections = getConnections(userId);
+  const updated = connections.filter((id: string) => id !== connectedUserId);
+  localStorage.setItem(`connections_${userId}`, JSON.stringify(updated));
 }
 
 export default function FriendsPage() {
@@ -316,9 +322,26 @@ export default function FriendsPage() {
                         <p className="text-sm text-muted-foreground">{connection.handle}</p>
                         <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{connection.bio}</p>
                       </div>
-                      <Button size="sm" variant="outline" className="border-primary/50 text-primary hover:bg-primary/10">
-                        Message
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" className="border-primary/50 text-primary hover:bg-primary/10">
+                          Message
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          className="text-red-400 hover:text-red-500 hover:bg-red-500/10"
+                          onClick={() => {
+                            if (user) {
+                              removeConnection(user.id, connection.id);
+                              setConnections(prev => prev.filter(c => c.id !== connection.id));
+                              toast.success(`Removed ${connection.name} from connections`);
+                            }
+                          }}
+                          data-testid={`button-remove-${connection.id}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </CardContent>
                   </Card>
                 ))}
