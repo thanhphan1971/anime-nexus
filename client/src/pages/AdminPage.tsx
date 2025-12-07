@@ -246,22 +246,22 @@ export default function AdminPage() {
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
                             <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className={`h-8 w-8 ${user.role === 'S-Class' ? 'text-yellow-500' : 'text-muted-foreground hover:text-yellow-400'}`}
+                              variant={user.role === 'S-Class' ? "secondary" : "outline"}
+                              size="sm" 
+                              className={`h-8 text-xs ${user.role === 'S-Class' ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/50 hover:bg-yellow-500/20' : 'border-dashed border-white/20 hover:border-yellow-500/50 hover:text-yellow-500'}`}
                               onClick={() => handleUpgradeUser(user.id)}
-                              title={user.role === 'S-Class' ? "Remove S-Class" : "Grant S-Class"}
                             >
-                              <Crown className="h-4 w-4" fill={user.role === 'S-Class' ? "currentColor" : "none"} />
+                              <Crown className="h-3 w-3 mr-1" fill={user.role === 'S-Class' ? "currentColor" : "none"} />
+                              {user.role === 'S-Class' ? "Revoke VIP" : "Grant VIP"}
                             </Button>
                             <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className={`h-8 w-8 ${user.status === 'Banned' ? 'text-red-500' : 'text-muted-foreground hover:text-red-500'}`}
+                              variant={user.status === 'Banned' ? "destructive" : "ghost"} 
+                              size="sm" 
+                              className={`h-8 text-xs ${user.status === 'Banned' ? '' : 'text-muted-foreground hover:text-red-500 hover:bg-red-500/10'}`}
                               onClick={() => handleBanUser(user.id)}
-                              title={user.status === 'Banned' ? "Unban User" : "Ban User"}
                             >
-                              <Ban className="h-4 w-4" />
+                              <Ban className="h-3 w-3 mr-1" />
+                              {user.status === 'Banned' ? "Unban" : "Ban"}
                             </Button>
                           </div>
                         </TableCell>
