@@ -28,10 +28,11 @@ export default function ProfilePage() {
     avatar: "",
   });
   
-  const isOwnProfile = id === currentUser?.id;
+  const isOwnProfile = !id || id === currentUser?.id || id === 'me';
   const profileUser = isOwnProfile ? currentUser : currentUser;
   
-  const userPosts = allPosts?.filter((post: any) => post.userId === id) || [];
+  const profileId = isOwnProfile ? currentUser?.id : id;
+  const userPosts = allPosts?.filter((post: any) => post.userId === profileId) || [];
 
   const openEditDialog = () => {
     if (currentUser) {
