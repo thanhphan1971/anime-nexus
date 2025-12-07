@@ -13,6 +13,7 @@ import AnimeListPage from "@/pages/AnimeListPage";
 import CardsPage from "@/pages/CardsPage";
 import PremiumPage from "@/pages/PremiumPage";
 import CreatePostPage from "@/pages/CreatePostPage";
+import HelpPage from "@/pages/HelpPage";
 import AdminPage from "@/pages/AdminPage";
 import Layout from "@/components/layout/Layout";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
@@ -47,6 +48,7 @@ function Router() {
         <Route path="/cards" component={CardsPage} />
         <Route path="/sclass" component={PremiumPage} />
         <Route path="/create" component={CreatePostPage} />
+        <Route path="/help" component={HelpPage} />
         <Route path="/admin" component={AdminPage} />
         {/* Legacy routes redirecting or redundant */}
         <Route path="/gacha" component={CardsPage} />
