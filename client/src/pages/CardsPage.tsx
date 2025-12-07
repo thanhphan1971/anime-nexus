@@ -136,17 +136,28 @@ export default function CardsPage() {
             ))}
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {MY_CARDS.map(card => (
-              <Card key={card.id} className="bg-card/40 border-white/10 overflow-hidden hover:border-primary/50 transition-all group cursor-pointer">
-                <div className="relative aspect-[3/4]">
-                  <img src={card.image} className="w-full h-full object-cover" />
-                  <Badge className="absolute top-2 right-2 bg-black/60 backdrop-blur-md border-white/10">{card.rarity}</Badge>
-                </div>
-                <CardFooter className="p-2 text-xs font-bold justify-center">
-                  {card.name}
-                </CardFooter>
-              </Card>
-            ))}
+            {cardsLoading ? (
+              <div className="col-span-full flex justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : userCards && userCards.length > 0 ? (
+              userCards.map((userCard: any) => (
+                <Card key={userCard.id} className="bg-card/40 border-white/10 overflow-hidden hover:border-primary/50 transition-all group cursor-pointer">
+                  <div className="relative aspect-[3/4]">
+                    <img src={userCard.card.image} className="w-full h-full object-cover" />
+                    <Badge className="absolute top-2 right-2 bg-black/60 backdrop-blur-md border-white/10">{userCard.card.rarity}</Badge>
+                  </div>
+                  <CardFooter className="p-2 text-xs font-bold justify-center">
+                    {userCard.card.name}
+                  </CardFooter>
+                </Card>
+              ))
+            ) : (
+              <div className="col-span-full text-center py-12 text-muted-foreground">
+                <Layers className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>No cards yet. Try summoning some!</p>
+              </div>
+            )}
           </div>
         </TabsContent>
 
@@ -161,29 +172,53 @@ export default function CardsPage() {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {MARKET_LISTINGS.map(listing => (
-              <Card key={listing.id} className="flex overflow-hidden bg-card/40 border-white/10">
-                <div className="w-24 relative">
-                  <img src={listing.card.image} className="w-full h-full object-cover" />
-                </div>
-                <div className="flex-1 p-3 flex flex-col justify-between">
-                  <div>
-                    <h4 className="font-bold text-sm">{listing.card.name}</h4>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <ShieldCheck className="h-3 w-3 text-green-400" /> {listing.seller}
+            {marketLoading ? (
+              <div className="col-span-full flex justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : marketListings && marketListings.length > 0 ? (
+              marketListings.map((listing: any) => (
+                <Card key={listing.id} className="flex overflow-hidden bg-card/40 border-white/10">
+                  <div className="w-24 relative">
+                    <img src={listing.card?.image} className="w-full h-full object-cover" />
+                  </div>
+                  <div className="flex-1 p-3 flex flex-col justify-between">
+                    <div>
+                      <h4 className="font-bold text-sm">{listing.card?.name}</h4>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <ShieldCheck className="h-3 w-3 text-green-400" /> {listing.seller?.name || 'Unknown'}
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-end">
+                      <Badge variant="secondary" className="text-xs">
+                        {listing.price} Tokens
+                      </Badge>
+                      <Button 
+                        size="sm" 
+                        className="h-7 text-xs"
+                        onClick={async () => {
+                          try {
+                            await purchaseListing.mutateAsync(listing.id);
+                            toast.success("Card purchased!");
+                            await refreshUser();
+                          } catch (error: any) {
+                            toast.error(error.message || "Purchase failed");
+                          }
+                        }}
+                        disabled={purchaseListing.isPending}
+                      >
+                        Buy
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex justify-between items-end">
-                    <Badge variant="secondary" className="text-xs">
-                      {listing.type === 'sale' ? `${listing.price} Tokens` : listing.request}
-                    </Badge>
-                    <Button size="sm" className="h-7 text-xs">
-                      {listing.type === 'sale' ? 'Buy' : 'Trade'}
-                    </Button>
-                  </div>
-                </div>
-              </Card>
-            ))}
+                </Card>
+              ))
+            ) : (
+              <div className="col-span-full text-center py-12 text-muted-foreground">
+                <ShoppingBag className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>No listings yet. Be the first to sell!</p>
+              </div>
+            )}
           </div>
         </TabsContent>
 
