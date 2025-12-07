@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { X, Heart, Info, Crown, Loader2, RefreshCw, Users, Sparkles, Trash2 } from "lucide-react";
+import { X, Heart, Info, Crown, Loader2, RefreshCw, Users, Sparkles, Trash2, MapPin, Calendar } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/context/AuthContext";
 import { useUsers } from "@/lib/api";
 import { useLocation } from "wouter";
@@ -59,6 +60,8 @@ export default function FriendsPage() {
   const [connections, setConnections] = useState<any[]>([]);
   const [swipeCount, setSwipeCount] = useState(0);
   const [skippedIds, setSkippedIds] = useState<string[]>([]);
+  const [selectedProfile, setSelectedProfile] = useState<any>(null);
+  const [showProfileModal, setShowProfileModal] = useState(false);
 
   const isPremium = user?.isPremium || false;
   const remainingSwipes = isPremium ? Infinity : Math.max(0, DAILY_SWIPE_LIMIT - swipeCount);
@@ -306,7 +309,15 @@ export default function FriendsPage() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {connections.map((connection: any) => (
-                  <Card key={connection.id} className="bg-card/50 border-white/10 hover:border-primary/50 transition-colors" data-testid={`connection-${connection.id}`}>
+                  <Card 
+                    key={connection.id} 
+                    className="bg-card/50 border-white/10 hover:border-primary/50 transition-colors cursor-pointer" 
+                    data-testid={`connection-${connection.id}`}
+                    onClick={() => {
+                      setSelectedProfile(connection);
+                      setShowProfileModal(true);
+                    }}
+                  >
                     <CardContent className="p-4 flex items-center gap-4">
                       <Avatar className="h-16 w-16 border-2 border-primary/30">
                         <AvatarImage src={connection.avatar} />
@@ -322,7 +333,7 @@ export default function FriendsPage() {
                         <p className="text-sm text-muted-foreground">{connection.handle}</p>
                         <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{connection.bio}</p>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
                         <Button size="sm" variant="outline" className="border-primary/50 text-primary hover:bg-primary/10">
                           Message
                         </Button>
@@ -350,6 +361,92 @@ export default function FriendsPage() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Profile Detail Modal */}
+      <Dialog open={showProfileModal} onOpenChange={setShowProfileModal}>
+        <DialogContent className="bg-card border-white/10 max-w-md p-0 overflow-hidden">
+          {selectedProfile && (
+            <>
+              {/* Profile Header Image */}
+              <div className="relative h-64 w-full">
+                <img 
+                  src={selectedProfile.avatar} 
+                  alt={selectedProfile.name}
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-card via-transparent to-transparent" />
+                
+                {selectedProfile.isPremium && (
+                  <div className="absolute top-4 right-4 bg-yellow-500/20 border border-yellow-500/50 text-yellow-400 px-3 py-1 rounded-full text-sm font-bold flex items-center gap-1">
+                    <Crown className="h-4 w-4" /> S-Class
+                  </div>
+                )}
+              </div>
+
+              {/* Profile Content */}
+              <div className="p-6 -mt-12 relative">
+                <div className="flex items-center gap-2 mb-2">
+                  <h2 className="text-2xl font-display font-bold">{selectedProfile.name}</h2>
+                  {selectedProfile.isPremium && (
+                    <Crown className="h-5 w-5 text-yellow-500" />
+                  )}
+                </div>
+                
+                <p className="text-primary text-sm mb-4">{selectedProfile.handle}</p>
+                
+                {/* Bio */}
+                <div className="mb-6">
+                  <h3 className="text-sm font-semibold text-muted-foreground mb-2">About</h3>
+                  <p className="text-foreground">{selectedProfile.bio || "No bio yet"}</p>
+                </div>
+
+                {/* Anime Interests */}
+                {selectedProfile.animeInterests && selectedProfile.animeInterests.length > 0 && (
+                  <div className="mb-6">
+                    <h3 className="text-sm font-semibold text-muted-foreground mb-2">Favorite Anime</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedProfile.animeInterests.map((anime: string) => (
+                        <Badge key={anime} variant="outline" className="bg-primary/10 border-primary/30 text-primary">
+                          {anime}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Member Info */}
+                <div className="flex items-center gap-4 text-sm text-muted-foreground mb-6">
+                  <div className="flex items-center gap-1">
+                    <Calendar className="h-4 w-4" />
+                    <span>Member since 2024</span>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-3">
+                  <Button className="flex-1 bg-primary hover:bg-primary/90">
+                    Send Message
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="border-red-500/50 text-red-400 hover:bg-red-500/10"
+                    onClick={() => {
+                      if (user) {
+                        removeConnection(user.id, selectedProfile.id);
+                        setConnections(prev => prev.filter(c => c.id !== selectedProfile.id));
+                        setShowProfileModal(false);
+                        toast.success(`Removed ${selectedProfile.name} from connections`);
+                      }
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" /> Remove
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
