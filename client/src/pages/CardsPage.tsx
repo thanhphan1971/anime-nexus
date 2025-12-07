@@ -4,39 +4,36 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Coins, Sparkles, Layers, ShoppingBag, ArrowRightLeft, Filter, Search, ShieldCheck, Gift, Star, Crown } from "lucide-react";
+import { Coins, Sparkles, Layers, ShoppingBag, ArrowRightLeft, Filter, Search, ShieldCheck, Gift, Star, Crown, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-
-// Mock Data & Assets
-import card1 from "@assets/generated_images/legendary_anime_dragon_card.png";
-import card2 from "@assets/generated_images/cyberpunk_assassin_card.png";
-import card3 from "@assets/generated_images/magical_girl_ultimate_form_card.png";
-
-const MY_CARDS = [
-  { id: 1, name: "Bahamut Zero", rarity: "UR", image: card1, type: "Dragon", series: "Legends" },
-  { id: 2, name: "Neon Assassin", rarity: "SSR", image: card2, type: "Cyber", series: "Neon City" },
-  { id: 3, name: "Starlight Goddess", rarity: "UR", image: card3, type: "Magic", series: "Cosmic" },
-  { id: 4, name: "Basic Slime", rarity: "N", image: "https://picsum.photos/seed/slime/300/400", type: "Monster", series: "Starter" },
-  { id: 5, name: "Village Guard", rarity: "R", image: "https://picsum.photos/seed/guard/300/400", type: "Human", series: "Starter" },
-];
-
-const MARKET_LISTINGS = [
-  { id: 101, seller: "CyberRogue", card: { name: "Neon Assassin", rarity: "SSR", image: card2, type: "Cyber" }, price: "500", type: "sale" },
-  { id: 102, seller: "MechaAce", card: { name: "Starlight Goddess", rarity: "UR", image: card3, type: "Magic" }, request: "Looking for Dragons", type: "trade" },
-];
+import { useAuth } from "@/context/AuthContext";
+import { useUserCards, useSummonCards, useMarketListings, usePurchaseListing } from "@/lib/api";
+import { toast } from "sonner";
+import { useLocation } from "wouter";
 
 export default function CardsPage() {
-  const [tokens] = useState(120);
-  const [pullsLeft] = useState(1);
-  const [isPulling, setIsPulling] = useState(false);
+  const { user, refreshUser } = useAuth();
+  const { data: userCards, isLoading: cardsLoading } = useUserCards(user?.id);
+  const { data: marketListings, isLoading: marketLoading } = useMarketListings();
+  const summonCards = useSummonCards();
+  const purchaseListing = usePurchaseListing();
+  const [, setLocation] = useLocation();
   const [reward, setReward] = useState<any>(null);
 
-  const handleSummon = () => {
-    setIsPulling(true);
-    setTimeout(() => {
-      setReward(MY_CARDS[0]); // Mock reward
-      setIsPulling(false);
-    }, 2000);
+  const handleSummon = async () => {
+    if (!user || user.tokens < 100) {
+      toast.error("Insufficient tokens! Need 100 tokens to summon.");
+      return;
+    }
+
+    try {
+      const result = await summonCards.mutateAsync();
+      setReward(result.cards);
+      await refreshUser();
+      toast.success(`Summoned ${result.cards.length} card(s)!`);
+    } catch (error: any) {
+      toast.error(error.message || "Summon failed");
+    }
   };
 
   return (
@@ -48,23 +45,27 @@ export default function CardsPage() {
           <p className="text-xs text-muted-foreground">Collect, Trade, and Battle</p>
         </div>
         <div className="flex items-center gap-4 w-full md:w-auto">
-          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 font-bold text-sm">
-            <Coins className="h-4 w-4" /> {tokens}
+          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 font-bold text-sm" data-testid="text-tokens">
+            <Coins className="h-4 w-4" /> {user?.tokens || 0}
           </div>
-          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary font-bold text-sm">
-            <Sparkles className="h-4 w-4" /> {pullsLeft}/5 Daily
-          </div>
+          {user?.isPremium && (
+            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 font-bold text-sm">
+              <Crown className="h-4 w-4" /> S-Class
+            </div>
+          )}
         </div>
       </div>
 
       {/* S-Class Banner */}
-      <div className="bg-gradient-to-r from-yellow-500/20 via-purple-500/20 to-transparent p-3 rounded-lg border border-white/10 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Crown className="h-5 w-5 text-yellow-400" />
-          <p className="text-sm font-medium"><span className="text-yellow-400 font-bold">Upgrade to S-Class</span> for 5 pulls/day + Luck Boost.</p>
+      {!user?.isPremium && (
+        <div className="bg-gradient-to-r from-yellow-500/20 via-purple-500/20 to-transparent p-3 rounded-lg border border-white/10 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Crown className="h-5 w-5 text-yellow-400" />
+            <p className="text-sm font-medium"><span className="text-yellow-400 font-bold">Upgrade to S-Class</span> for 5x pulls + Luck Boost.</p>
+          </div>
+          <Button size="sm" variant="secondary" className="h-7 text-xs" onClick={() => setLocation("/sclass")}>View Perks</Button>
         </div>
-        <Button size="sm" variant="secondary" className="h-7 text-xs">View Perks</Button>
-      </div>
+      )}
 
       <Tabs defaultValue="summon" className="w-full">
         <TabsList className="w-full bg-card/50 border border-white/10 p-1 mb-6 grid grid-cols-4">
@@ -77,22 +78,23 @@ export default function CardsPage() {
         {/* SUMMON TAB */}
         <TabsContent value="summon" className="min-h-[500px] flex flex-col items-center justify-center relative">
           <AnimatePresence mode="wait">
-            {!reward && !isPulling && (
+            {!reward && !summonCards.isPending && (
               <div className="text-center space-y-6">
-                <div className="relative w-64 h-80 mx-auto bg-card border-2 border-dashed border-white/20 rounded-xl flex items-center justify-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-all group" onClick={handleSummon}>
+                <div className="relative w-64 h-80 mx-auto bg-card border-2 border-dashed border-white/20 rounded-xl flex items-center justify-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-all group" onClick={handleSummon} data-testid="button-summon">
                   <div className="text-center">
                     <Sparkles className="h-16 w-16 mx-auto mb-4 text-muted-foreground group-hover:text-primary animate-pulse" />
                     <p className="font-display font-bold text-xl">SUMMON NOW</p>
-                    <p className="text-xs text-muted-foreground mt-2">Standard Drop Rates Apply</p>
+                    <p className="text-xs text-muted-foreground mt-2">Cost: 100 Tokens</p>
+                    <p className="text-xs text-muted-foreground">{user?.isPremium ? "5x S-Class Pull" : "Single Pull"}</p>
                   </div>
                 </div>
                 <p className="text-sm text-muted-foreground max-w-xs mx-auto">
-                  Use your daily token to manifest a digital spirit from the AniRealm.
+                  Use tokens to manifest cards from the AniRealm.
                 </p>
               </div>
             )}
 
-            {isPulling && (
+            {summonCards.isPending && (
               <motion.div
                 initial={{ scale: 0, rotate: 0 }}
                 animate={{ scale: 1.5, rotate: 360 }}

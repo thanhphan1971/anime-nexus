@@ -9,24 +9,30 @@ import { Image, Type, Video, Wand2, Send, X, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useAuth } from "@/context/AuthContext";
 import { useLocation } from "wouter";
+import { useCreatePost } from "@/lib/api";
+import { toast } from "sonner";
 
 export default function CreatePostPage() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
-  const [isPosting, setIsPosting] = useState(false);
+  const createPost = useCreatePost();
   const [content, setContent] = useState("");
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
-  const handlePost = () => {
+  const handlePost = async () => {
     if (!content.trim() && !selectedImage) return;
     
-    setIsPosting(true);
-    
-    // Simulate API call
-    setTimeout(() => {
-      setIsPosting(false);
+    try {
+      await createPost.mutateAsync({
+        content: content.trim() || undefined,
+        image: selectedImage || undefined,
+      });
+      
+      toast.success("Post created!");
       setLocation("/"); // Redirect to feed
-    }, 1500);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to create post");
+    }
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -109,10 +115,11 @@ export default function CreatePostPage() {
                 </div>
                 <Button 
                   onClick={handlePost} 
-                  disabled={isPosting || (!content && !selectedImage)}
+                  disabled={createPost.isPending || (!content && !selectedImage)}
                   className="bg-primary hover:bg-primary/90 min-w-[120px]"
+                  data-testid="button-submit-post"
                 >
-                  {isPosting ? "Posting..." : (
+                  {createPost.isPending ? "Posting..." : (
                     <>Post <Send className="ml-2 h-4 w-4" /></>
                   )}
                 </Button>
