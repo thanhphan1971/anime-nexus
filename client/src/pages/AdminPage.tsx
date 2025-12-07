@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { 
   BarChart, Users, Database, Sparkles, Calendar, Plus, Upload, Save, 
   ShieldAlert, Ban, UserCheck, MessageSquare, Flag, Trash2, Settings, 
-  Activity, Crown, Lock, Unlock, Eye, Search
+  Activity, Crown, Lock, Unlock, Eye, Search, Loader2
 } from "lucide-react";
 import { 
   Table, 
@@ -22,68 +22,54 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useUsers, useBanUser, useUnbanUser, useGrantPremium, useCommunities } from "@/lib/api";
+import { formatDistanceToNow } from "date-fns";
+import { toast as sonnerToast } from "sonner";
 
 export default function AdminPage() {
   const { toast } = useToast();
+  const { data: users, isLoading: usersLoading } = useUsers();
+  const { data: communities, isLoading: communitiesLoading } = useCommunities();
+  const banUser = useBanUser();
+  const unbanUser = useUnbanUser();
+  const grantPremium = useGrantPremium();
   const [dropRate, setDropRate] = useState([2]); // 2% UR rate
   const [promoActive, setPromoActive] = useState(false);
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [userSearch, setUserSearch] = useState("");
 
-  // Mock Data for Admin
-  const [users, setUsers] = useState([
-    { id: 1, name: "NeoKai", handle: "@neokai", status: "Active", role: "User", joined: "2023-12-01" },
-    { id: 2, name: "CyberRogue", handle: "@rogue", status: "Banned", role: "User", joined: "2024-01-15" },
-    { id: 3, name: "AdminUser", handle: "@admin", status: "Active", role: "Admin", joined: "2023-11-20" },
-    { id: 4, name: "MechaAce", handle: "@mecha", status: "Active", role: "S-Class", joined: "2024-02-10" },
-  ]);
-
-  const COMMUNITIES_LIST = [
-    { id: 1, name: "Shonen General", members: 1240, type: "Public", status: "Active" },
-    { id: 2, name: "Romance Cafe", members: 850, type: "Public", status: "Active" },
-    { id: 3, name: "Jujutsu Kaisen Spoilers", members: 320, type: "Public", status: "Locked" },
-    { id: 4, name: "S-Class VIP Lounge", members: 45, type: "Private", status: "Active" },
-  ];
-
-  const FLAGGED_CONTENT = [
-    { id: 1, user: "ToxicGamer", reason: "Harassment", content: "You are all noobs...", time: "10m ago" },
-    { id: 2, user: "SpamBot9000", reason: "Spam", content: "Buy cheap tokens at...", time: "1h ago" },
-  ];
-
-  const handleUpgradeUser = (id: number) => {
-    setUsers(prev => prev.map(user => {
-      if (user.id === id) {
-        const newRole = user.role === "S-Class" ? "User" : "S-Class";
-        toast({
-          title: `Role Updated: ${newRole}`,
-          description: `${user.name} has been ${newRole === "S-Class" ? "upgraded to S-Class" : "downgraded to User"}.`,
-          className: newRole === "S-Class" ? "border-yellow-500 text-yellow-500" : ""
-        });
-        return { ...user, role: newRole };
-      }
-      return user;
-    }));
+  const handleUpgradeUser = async (userId: string, currentPremium: boolean) => {
+    if (currentPremium) {
+      sonnerToast.info("User is already S-Class");
+      return;
+    }
+    
+    try {
+      await grantPremium.mutateAsync(userId);
+      sonnerToast.success("User upgraded to S-Class!");
+    } catch (error: any) {
+      sonnerToast.error(error.message || "Failed to upgrade user");
+    }
   };
 
-  const handleBanUser = (id: number) => {
-    setUsers(prev => prev.map(user => {
-      if (user.id === id) {
-        const newStatus = user.status === "Banned" ? "Active" : "Banned";
-        toast({
-          title: `User ${newStatus}`,
-          description: `${user.name} has been ${newStatus === "Banned" ? "BANNED" : "restored"}.`,
-          variant: newStatus === "Banned" ? "destructive" : "default"
-        });
-        return { ...user, status: newStatus };
+  const handleBanUser = async (userId: string, currentlyBanned: boolean, username: string) => {
+    try {
+      if (currentlyBanned) {
+        await unbanUser.mutateAsync(userId);
+        sonnerToast.success(`${username} has been unbanned`);
+      } else {
+        await banUser.mutateAsync(userId);
+        sonnerToast.success(`${username} has been banned`, { className: "border-red-500" });
       }
-      return user;
-    }));
+    } catch (error: any) {
+      sonnerToast.error(error.message || "Action failed");
+    }
   };
 
-  const filteredUsers = users.filter(user => 
+  const filteredUsers = users?.filter((user: any) => 
     user.name.toLowerCase().includes(userSearch.toLowerCase()) || 
     user.handle.toLowerCase().includes(userSearch.toLowerCase())
-  );
+  ) || [];
 
   return (
     <div className="space-y-8 pb-24">
@@ -202,6 +188,11 @@ export default function AdminPage() {
 
         {/* USERS TAB */}
         <TabsContent value="users">
+          {usersLoading ? (
+            <div className="flex justify-center items-center min-h-[400px]">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : (
           <Card className="bg-card/40 border-white/10">
             <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <div>
@@ -241,51 +232,54 @@ export default function AdminPage() {
                         </TableCell>
                       </TableRow>
                     ) : (
-                      filteredUsers.map((user) => (
+                      filteredUsers.map((user: any) => (
                         <TableRow key={user.id} className="border-white/10 hover:bg-white/5">
                           <TableCell className="font-medium">
                             <div className="flex items-center gap-2">
                               <Avatar className="h-8 w-8">
+                                <AvatarImage src={user.avatar} />
                                 <AvatarFallback>{user.name[0]}</AvatarFallback>
                               </Avatar>
                               <div>
-                                <div>{user.name}</div>
+                                <div data-testid={`text-username-${user.id}`}>{user.name}</div>
                                 <div className="text-xs text-muted-foreground">{user.handle}</div>
                               </div>
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Badge variant={user.role === 'Admin' ? 'destructive' : user.role === 'S-Class' ? 'default' : 'secondary'} 
-                              className={user.role === 'S-Class' ? 'bg-yellow-500 text-black font-bold' : ''}>
-                              {user.role}
+                            <Badge variant={user.isAdmin ? 'destructive' : user.isPremium ? 'default' : 'secondary'} 
+                              className={user.isPremium ? 'bg-yellow-500 text-black font-bold' : ''}>
+                              {user.isAdmin ? 'Admin' : user.isPremium ? 'S-Class' : 'User'}
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            <span className={`flex items-center gap-2 text-xs ${user.status === 'Active' ? 'text-green-400' : 'text-red-400'}`}>
-                              <span className={`w-2 h-2 rounded-full ${user.status === 'Active' ? 'bg-green-400' : 'bg-red-400'}`} />
-                              {user.status}
+                            <span className={`flex items-center gap-2 text-xs ${!user.isBanned ? 'text-green-400' : 'text-red-400'}`}>
+                              <span className={`w-2 h-2 rounded-full ${!user.isBanned ? 'bg-green-400' : 'bg-red-400'}`} />
+                              {user.isBanned ? 'Banned' : 'Active'}
                             </span>
                           </TableCell>
-                          <TableCell className="text-muted-foreground text-sm">{user.joined}</TableCell>
+                          <TableCell className="text-muted-foreground text-sm">{formatDistanceToNow(new Date(user.createdAt), { addSuffix: true })}</TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-2">
                               <Button 
-                                variant={user.role === 'S-Class' ? "secondary" : "outline"}
+                                variant={user.isPremium ? "secondary" : "outline"}
                                 size="sm" 
-                                className={`h-8 text-xs ${user.role === 'S-Class' ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/50 hover:bg-yellow-500/20' : 'border-dashed border-white/20 hover:border-yellow-500/50 hover:text-yellow-500'}`}
-                                onClick={() => handleUpgradeUser(user.id)}
+                                className={`h-8 text-xs ${user.isPremium ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/50 hover:bg-yellow-500/20' : 'border-dashed border-white/20 hover:border-yellow-500/50 hover:text-yellow-500'}`}
+                                onClick={() => handleUpgradeUser(user.id, user.isPremium)}
+                                data-testid={`button-upgrade-${user.id}`}
                               >
-                                <Crown className="h-3 w-3 mr-1" fill={user.role === 'S-Class' ? "currentColor" : "none"} />
-                                {user.role === 'S-Class' ? "Revoke VIP" : "Grant VIP"}
+                                <Crown className="h-3 w-3 mr-1" fill={user.isPremium ? "currentColor" : "none"} />
+                                Grant S-Class
                               </Button>
                               <Button 
-                                variant={user.status === 'Banned' ? "destructive" : "ghost"} 
+                                variant={user.isBanned ? "destructive" : "ghost"} 
                                 size="sm" 
-                                className={`h-8 text-xs ${user.status === 'Banned' ? '' : 'text-muted-foreground hover:text-red-500 hover:bg-red-500/10'}`}
-                                onClick={() => handleBanUser(user.id)}
+                                className={`h-8 text-xs ${user.isBanned ? '' : 'text-muted-foreground hover:text-red-500 hover:bg-red-500/10'}`}
+                                onClick={() => handleBanUser(user.id, user.isBanned, user.name)}
+                                data-testid={`button-ban-${user.id}`}
                               >
                                 <Ban className="h-3 w-3 mr-1" />
-                                {user.status === 'Banned' ? "Unban" : "Ban"}
+                                {user.isBanned ? "Unban" : "Ban"}
                               </Button>
                             </div>
                           </TableCell>
@@ -297,6 +291,7 @@ export default function AdminPage() {
               </div>
             </CardContent>
           </Card>
+          )}
         </TabsContent>
 
         {/* COMMUNITIES TAB */}
