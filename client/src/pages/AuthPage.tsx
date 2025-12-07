@@ -7,16 +7,47 @@ import { useState } from "react";
 import { Zap, ArrowRight, Sparkles } from "lucide-react";
 import { useLocation } from "wouter";
 import heroBg from "@assets/generated_images/futuristic_neo-tokyo_cityscape.png";
+import { toast } from "sonner";
 
 export default function AuthPage() {
-  const { login, isLoading } = useAuth();
+  const { login, signup, isLoading } = useAuth();
   const [, setLocation] = useLocation();
   const [isLogin, setIsLogin] = useState(true);
+  const [formData, setFormData] = useState({
+    username: "",
+    password: "",
+    name: "",
+    handle: "",
+  });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    login();
-    // Redirect handled by router/layout logic if needed, or just state change
+    
+    try {
+      if (isLogin) {
+        await login(formData.username, formData.password);
+        toast.success("Welcome back!");
+        setLocation("/");
+      } else {
+        // Generate random avatar
+        const avatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${formData.username}`;
+        
+        await signup({
+          username: formData.username,
+          password: formData.password,
+          name: formData.name || formData.username,
+          handle: formData.handle || `@${formData.username}`,
+          avatar,
+          bio: "New to AniRealm",
+          animeInterests: [],
+          theme: "cyberpunk",
+        });
+        toast.success("Account created! Welcome to AniRealm!");
+        setLocation("/");
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Authentication failed");
+    }
   };
 
   return (
@@ -53,22 +84,58 @@ export default function AuthPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
+              {!isLogin && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Display Name</Label>
+                    <Input 
+                      id="name" 
+                      type="text" 
+                      placeholder="NeoKai"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      className="bg-white/5 border-white/10 focus:border-primary focus:ring-primary/20"
+                      data-testid="input-name"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="handle">Handle</Label>
+                    <Input 
+                      id="handle" 
+                      type="text" 
+                      placeholder="@neokai"
+                      value={formData.handle}
+                      onChange={(e) => setFormData({ ...formData, handle: e.target.value })}
+                      className="bg-white/5 border-white/10 focus:border-primary focus:ring-primary/20"
+                      data-testid="input-handle"
+                    />
+                  </div>
+                </>
+              )}
               <div className="space-y-2">
-                <Label htmlFor="email">Neural Link (Email)</Label>
+                <Label htmlFor="username">Username</Label>
                 <Input 
-                  id="email" 
-                  type="email" 
-                  placeholder="user@neo-tokyo.net" 
+                  id="username" 
+                  type="text" 
+                  placeholder="username"
+                  value={formData.username}
+                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                  required
                   className="bg-white/5 border-white/10 focus:border-primary focus:ring-primary/20"
+                  data-testid="input-username"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password">Passcode</Label>
+                <Label htmlFor="password">Password</Label>
                 <Input 
                   id="password" 
                   type="password" 
-                  placeholder="••••••••" 
+                  placeholder="••••••••"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  required
                   className="bg-white/5 border-white/10 focus:border-primary focus:ring-primary/20"
+                  data-testid="input-password"
                 />
               </div>
               
@@ -76,6 +143,7 @@ export default function AuthPage() {
                 type="submit" 
                 className="w-full h-12 text-lg font-bold bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-opacity shadow-[0_0_20px_hsl(var(--primary)/0.4)]"
                 disabled={isLoading}
+                data-testid="button-submit"
               >
                 {isLoading ? (
                   <Sparkles className="animate-spin mr-2" />
@@ -92,8 +160,9 @@ export default function AuthPage() {
               type="button"
               onClick={() => setIsLogin(!isLogin)}
               className="text-sm text-muted-foreground hover:text-primary transition-colors"
+              data-testid="button-toggle-mode"
             >
-              {isLogin ? "New to the system? create account" : "Already linked? Login"}
+              {isLogin ? "New to the system? Create account" : "Already linked? Login"}
             </button>
           </CardFooter>
         </Card>

@@ -2,9 +2,17 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
+import session from "express-session";
+import MemoryStore from "memorystore";
 
 const app = express();
 const httpServer = createServer(app);
+
+declare module "express-session" {
+  interface SessionData {
+    userId: string;
+  }
+}
 
 declare module "http" {
   interface IncomingMessage {
@@ -21,6 +29,25 @@ app.use(
 );
 
 app.use(express.urlencoded({ extended: false }));
+
+// Session setup
+const SessionStore = MemoryStore(session);
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET || "anirealm-secret-key-change-in-production",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      maxAge: 1000 * 60 * 60 * 24 * 7, // 1 week
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+    },
+    store: new SessionStore({
+      checkPeriod: 86400000, // prune expired entries every 24h
+    }),
+  })
+);
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -60,6 +87,10 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Seed database on startup
+  const { seedDatabase } = await import("./seed");
+  await seedDatabase();
+  
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

@@ -112,7 +112,7 @@ export class DbStorage implements IStorage {
       .orderBy(desc(posts.createdAt))
       .limit(limit);
     
-    return result.map(r => ({
+    return result.map((r: any) => ({
       ...r.posts,
       user: r.users,
     }));
@@ -149,7 +149,7 @@ export class DbStorage implements IStorage {
       .where(eq(userCards.userId, userId))
       .orderBy(desc(userCards.acquiredAt));
     
-    return result.map(r => ({
+    return result.map((r: any) => ({
       ...r.user_cards,
       card: r.cards,
     }));
@@ -170,7 +170,7 @@ export class DbStorage implements IStorage {
       .where(eq(marketListings.isActive, true))
       .orderBy(desc(marketListings.createdAt));
     
-    return result.map(r => ({
+    return result.map((r: any) => ({
       ...r.market_listings,
       seller: r.users,
       card: r.cards,
@@ -183,7 +183,7 @@ export class DbStorage implements IStorage {
   }
 
   async purchaseListing(listingId: string, buyerId: string): Promise<void> {
-    await db.transaction(async (tx) => {
+    await db.transaction(async (tx: any) => {
       // Get listing
       const listing = await tx.select().from(marketListings).where(eq(marketListings.id, listingId)).limit(1);
       if (!listing[0] || !listing[0].isActive) {
@@ -237,7 +237,7 @@ export class DbStorage implements IStorage {
       .orderBy(desc(communityMessages.createdAt))
       .limit(limit);
     
-    return result.map(r => ({
+    return result.map((r: any) => ({
       ...r.community_messages,
       user: r.users,
     })).reverse(); // Show oldest first
@@ -267,7 +267,7 @@ export class DbStorage implements IStorage {
       .from(swipeActions)
       .where(eq(swipeActions.fromUserId, userId));
     
-    const swipedIds = swipedUserIds.map(s => s.id);
+    const swipedIds = swipedUserIds.map((s: any) => s.id);
     
     const candidates = await db
       .select()
@@ -280,7 +280,7 @@ export class DbStorage implements IStorage {
       )
       .limit(50);
     
-    return candidates.filter(u => !swipedIds.includes(u.id));
+    return candidates.filter((u: any) => !swipedIds.includes(u.id));
   }
 
   async getMatches(userId: string): Promise<User[]> {
@@ -295,7 +295,7 @@ export class DbStorage implements IStorage {
         )
       );
     
-    const myLikeIds = myLikes.map(l => l.id);
+    const myLikeIds = myLikes.map((l: any) => l.id);
     
     const theirLikes = await db
       .select()
@@ -309,8 +309,8 @@ export class DbStorage implements IStorage {
       );
     
     return theirLikes
-      .filter(l => myLikeIds.includes(l.swipe_actions.fromUserId))
-      .map(l => l.users);
+      .filter((l: any) => myLikeIds.includes(l.swipe_actions.fromUserId))
+      .map((l: any) => l.users);
   }
 }
 
