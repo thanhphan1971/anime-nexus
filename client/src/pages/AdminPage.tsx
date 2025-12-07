@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { 
   BarChart, Users, Database, Sparkles, Calendar, Plus, Upload, Save, 
   ShieldAlert, Ban, UserCheck, MessageSquare, Flag, Trash2, Settings, 
-  Activity, Crown, Lock, Unlock, Eye
+  Activity, Crown, Lock, Unlock, Eye, Search
 } from "lucide-react";
 import { 
   Table, 
@@ -28,6 +28,7 @@ export default function AdminPage() {
   const [dropRate, setDropRate] = useState([2]); // 2% UR rate
   const [promoActive, setPromoActive] = useState(false);
   const [maintenanceMode, setMaintenanceMode] = useState(false);
+  const [userSearch, setUserSearch] = useState("");
 
   // Mock Data for Admin
   const [users, setUsers] = useState([
@@ -78,6 +79,11 @@ export default function AdminPage() {
       return user;
     }));
   };
+
+  const filteredUsers = users.filter(user => 
+    user.name.toLowerCase().includes(userSearch.toLowerCase()) || 
+    user.handle.toLowerCase().includes(userSearch.toLowerCase())
+  );
 
   return (
     <div className="space-y-8 pb-24">
@@ -197,12 +203,23 @@ export default function AdminPage() {
         {/* USERS TAB */}
         <TabsContent value="users">
           <Card className="bg-card/40 border-white/10">
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <div>
                 <CardTitle>User Management</CardTitle>
                 <CardDescription>Manage user roles, bans, and permissions.</CardDescription>
               </div>
-              <Button size="sm"><Plus className="h-4 w-4 mr-2" /> Invite Admin</Button>
+              <div className="flex items-center gap-2 w-full md:w-auto">
+                <div className="relative flex-1 md:w-64">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input 
+                    placeholder="Search users..." 
+                    className="pl-9 bg-black/20 border-white/10" 
+                    value={userSearch}
+                    onChange={(e) => setUserSearch(e.target.value)}
+                  />
+                </div>
+                <Button size="sm"><Plus className="h-4 w-4 mr-2" /> Invite</Button>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="rounded-md border border-white/10">
@@ -217,56 +234,64 @@ export default function AdminPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {users.map((user) => (
-                      <TableRow key={user.id} className="border-white/10 hover:bg-white/5">
-                        <TableCell className="font-medium">
-                          <div className="flex items-center gap-2">
-                            <Avatar className="h-8 w-8">
-                              <AvatarFallback>{user.name[0]}</AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <div>{user.name}</div>
-                              <div className="text-xs text-muted-foreground">{user.handle}</div>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={user.role === 'Admin' ? 'destructive' : user.role === 'S-Class' ? 'default' : 'secondary'} 
-                            className={user.role === 'S-Class' ? 'bg-yellow-500 text-black font-bold' : ''}>
-                            {user.role}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <span className={`flex items-center gap-2 text-xs ${user.status === 'Active' ? 'text-green-400' : 'text-red-400'}`}>
-                            <span className={`w-2 h-2 rounded-full ${user.status === 'Active' ? 'bg-green-400' : 'bg-red-400'}`} />
-                            {user.status}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground text-sm">{user.joined}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button 
-                              variant={user.role === 'S-Class' ? "secondary" : "outline"}
-                              size="sm" 
-                              className={`h-8 text-xs ${user.role === 'S-Class' ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/50 hover:bg-yellow-500/20' : 'border-dashed border-white/20 hover:border-yellow-500/50 hover:text-yellow-500'}`}
-                              onClick={() => handleUpgradeUser(user.id)}
-                            >
-                              <Crown className="h-3 w-3 mr-1" fill={user.role === 'S-Class' ? "currentColor" : "none"} />
-                              {user.role === 'S-Class' ? "Revoke VIP" : "Grant VIP"}
-                            </Button>
-                            <Button 
-                              variant={user.status === 'Banned' ? "destructive" : "ghost"} 
-                              size="sm" 
-                              className={`h-8 text-xs ${user.status === 'Banned' ? '' : 'text-muted-foreground hover:text-red-500 hover:bg-red-500/10'}`}
-                              onClick={() => handleBanUser(user.id)}
-                            >
-                              <Ban className="h-3 w-3 mr-1" />
-                              {user.status === 'Banned' ? "Unban" : "Ban"}
-                            </Button>
-                          </div>
+                    {filteredUsers.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                          No users found matching "{userSearch}"
                         </TableCell>
                       </TableRow>
-                    ))}
+                    ) : (
+                      filteredUsers.map((user) => (
+                        <TableRow key={user.id} className="border-white/10 hover:bg-white/5">
+                          <TableCell className="font-medium">
+                            <div className="flex items-center gap-2">
+                              <Avatar className="h-8 w-8">
+                                <AvatarFallback>{user.name[0]}</AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <div>{user.name}</div>
+                                <div className="text-xs text-muted-foreground">{user.handle}</div>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={user.role === 'Admin' ? 'destructive' : user.role === 'S-Class' ? 'default' : 'secondary'} 
+                              className={user.role === 'S-Class' ? 'bg-yellow-500 text-black font-bold' : ''}>
+                              {user.role}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <span className={`flex items-center gap-2 text-xs ${user.status === 'Active' ? 'text-green-400' : 'text-red-400'}`}>
+                              <span className={`w-2 h-2 rounded-full ${user.status === 'Active' ? 'bg-green-400' : 'bg-red-400'}`} />
+                              {user.status}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground text-sm">{user.joined}</TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                              <Button 
+                                variant={user.role === 'S-Class' ? "secondary" : "outline"}
+                                size="sm" 
+                                className={`h-8 text-xs ${user.role === 'S-Class' ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/50 hover:bg-yellow-500/20' : 'border-dashed border-white/20 hover:border-yellow-500/50 hover:text-yellow-500'}`}
+                                onClick={() => handleUpgradeUser(user.id)}
+                              >
+                                <Crown className="h-3 w-3 mr-1" fill={user.role === 'S-Class' ? "currentColor" : "none"} />
+                                {user.role === 'S-Class' ? "Revoke VIP" : "Grant VIP"}
+                              </Button>
+                              <Button 
+                                variant={user.status === 'Banned' ? "destructive" : "ghost"} 
+                                size="sm" 
+                                className={`h-8 text-xs ${user.status === 'Banned' ? '' : 'text-muted-foreground hover:text-red-500 hover:bg-red-500/10'}`}
+                                onClick={() => handleBanUser(user.id)}
+                              >
+                                <Ban className="h-3 w-3 mr-1" />
+                                {user.status === 'Banned' ? "Unban" : "Ban"}
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
                   </TableBody>
                 </Table>
               </div>
