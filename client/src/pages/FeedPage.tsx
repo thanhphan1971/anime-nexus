@@ -1,11 +1,28 @@
-import { POSTS } from "@/lib/mockData";
 import { Card, CardContent, CardHeader, CardFooter } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Heart, MessageCircle, Share2, MoreHorizontal, Sparkles } from "lucide-react";
+import { Heart, MessageCircle, Share2, MoreHorizontal, Sparkles, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
+import { usePosts, useLikePost } from "@/lib/api";
+import { useLocation } from "wouter";
+import { formatDistanceToNow } from "date-fns";
 
 export default function FeedPage() {
+  const { data: posts, isLoading } = usePosts();
+  const likePost = useLikePost();
+  const [, setLocation] = useLocation();
+
+  const handleLike = (postId: string) => {
+    likePost.mutate(postId);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
       {/* Stories / Status Bar */}
@@ -40,7 +57,13 @@ export default function FeedPage() {
             <p className="text-sm font-medium text-foreground">AI Assistant</p>
             <p className="text-xs text-muted-foreground">"How about sharing your latest fan theory?"</p>
           </div>
-          <Button size="sm" variant="secondary" className="bg-primary/20 hover:bg-primary/30 text-primary border-none">
+          <Button 
+            size="sm" 
+            variant="secondary" 
+            className="bg-primary/20 hover:bg-primary/30 text-primary border-none"
+            onClick={() => setLocation("/create")}
+            data-testid="button-create-post"
+          >
             Create
           </Button>
         </CardContent>
@@ -48,7 +71,19 @@ export default function FeedPage() {
 
       {/* Feed Posts */}
       <div className="space-y-6">
-        {POSTS.map((post, index) => (
+        {!posts || posts.length === 0 ? (
+          <Card className="p-8 text-center">
+            <p className="text-muted-foreground">No posts yet. Be the first to share something!</p>
+            <Button 
+              className="mt-4" 
+              onClick={() => setLocation("/create")}
+              data-testid="button-create-first-post"
+            >
+              Create Post
+            </Button>
+          </Card>
+        ) : (
+          posts.map((post: any, index: number) => (
           <motion.div
             key={post.id}
             initial={{ opacity: 0, y: 20 }}
@@ -62,8 +97,8 @@ export default function FeedPage() {
                   <AvatarFallback>{post.user.name[0]}</AvatarFallback>
                 </Avatar>
                 <div className="flex-1">
-                  <p className="font-bold text-sm hover:text-primary cursor-pointer transition-colors">{post.user.name}</p>
-                  <p className="text-xs text-muted-foreground">{post.user.handle} • {post.timestamp}</p>
+                  <p className="font-bold text-sm hover:text-primary cursor-pointer transition-colors" data-testid={`text-username-${post.id}`}>{post.user.name}</p>
+                  <p className="text-xs text-muted-foreground">{post.user.handle} • {formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}</p>
                 </div>
                 <Button variant="ghost" size="icon" className="text-muted-foreground">
                   <MoreHorizontal className="h-5 w-5" />
@@ -85,7 +120,13 @@ export default function FeedPage() {
               
               <CardFooter className="p-3 flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-pink-500 hover:bg-pink-500/10 group">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="text-muted-foreground hover:text-pink-500 hover:bg-pink-500/10 group"
+                    onClick={() => handleLike(post.id)}
+                    data-testid={`button-like-${post.id}`}
+                  >
                     <Heart className="h-5 w-5 mr-1 group-hover:fill-current" />
                     {post.likes}
                   </Button>
@@ -100,7 +141,8 @@ export default function FeedPage() {
               </CardFooter>
             </Card>
           </motion.div>
-        ))}
+        ))
+        )}
       </div>
     </div>
   );
