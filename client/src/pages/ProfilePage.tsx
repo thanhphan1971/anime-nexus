@@ -54,21 +54,41 @@ export default function ProfilePage() {
     toast.success("New avatar generated!");
   };
 
+  const [isUploading, setIsUploading] = useState(false);
+
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 2 * 1024 * 1024) {
-        toast.error("Image must be less than 2MB");
-        return;
-      }
-      
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setEditForm({ ...editForm, avatar: reader.result as string });
-        toast.success("Image uploaded!");
-      };
-      reader.readAsDataURL(file);
+    if (!file) {
+      toast.error("No file selected");
+      return;
     }
+    
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("Image must be less than 2MB");
+      return;
+    }
+
+    if (!file.type.startsWith('image/')) {
+      toast.error("Please select an image file");
+      return;
+    }
+    
+    setIsUploading(true);
+    const reader = new FileReader();
+    
+    reader.onload = () => {
+      const result = reader.result as string;
+      setEditForm(prev => ({ ...prev, avatar: result }));
+      setIsUploading(false);
+      toast.success("Image uploaded successfully!");
+    };
+    
+    reader.onerror = () => {
+      setIsUploading(false);
+      toast.error("Failed to read image file");
+    };
+    
+    reader.readAsDataURL(file);
   };
 
   const handleSaveProfile = async () => {
@@ -112,40 +132,50 @@ export default function ProfilePage() {
             {/* Avatar Section */}
             <div className="flex flex-col items-center gap-4">
               <div className="relative">
-                <div className="h-24 w-24 rounded-full overflow-hidden border-4 border-primary/50">
-                  <img 
-                    src={editForm.avatar || profileUser.avatar} 
-                    alt="Avatar" 
-                    className="h-full w-full object-cover"
-                  />
+                <div className="h-28 w-28 rounded-full overflow-hidden border-4 border-primary/50">
+                  {isUploading ? (
+                    <div className="h-full w-full flex items-center justify-center bg-card">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    </div>
+                  ) : (
+                    <img 
+                      src={editForm.avatar || profileUser.avatar} 
+                      alt="Avatar" 
+                      className="h-full w-full object-cover"
+                    />
+                  )}
                 </div>
-                <label className="absolute bottom-0 right-0 h-8 w-8 bg-primary rounded-full flex items-center justify-center cursor-pointer hover:bg-primary/80 transition-colors">
-                  <Camera className="h-4 w-4 text-white" />
+              </div>
+              
+              <div className="flex flex-col gap-3 w-full">
+                <label className="w-full">
+                  <div className="flex items-center justify-center gap-2 px-4 py-2 rounded-md border border-white/20 bg-white/5 hover:bg-white/10 cursor-pointer transition-colors">
+                    <Upload className="h-4 w-4" />
+                    <span className="text-sm font-medium">Upload Image</span>
+                  </div>
                   <input
                     type="file"
-                    accept="image/*"
+                    accept="image/png,image/jpeg,image/gif,image/webp"
                     onChange={handleImageUpload}
                     className="hidden"
                     data-testid="input-avatar-upload"
                   />
                 </label>
-              </div>
-              
-              <div className="flex gap-2">
+                
                 <Button 
                   type="button" 
                   variant="outline" 
-                  size="sm"
                   onClick={handleGenerateAvatar}
-                  className="border-primary/50 text-primary hover:bg-primary/10"
+                  className="w-full border-primary/50 text-primary hover:bg-primary/10"
                   data-testid="button-generate-avatar"
                 >
                   <Sparkles className="h-4 w-4 mr-2" />
                   Auto-Generate Avatar
                 </Button>
               </div>
+              
               <p className="text-xs text-muted-foreground text-center">
-                Click the camera icon to upload your own image, or use auto-generate for a unique avatar
+                Upload your own image (max 2MB) or generate a unique avatar
               </p>
             </div>
 
