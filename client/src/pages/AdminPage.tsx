@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
 import { 
   BarChart, Users, Database, Sparkles, Calendar, Plus, Upload, Save, 
   ShieldAlert, Ban, UserCheck, MessageSquare, Flag, Trash2, Settings, 
@@ -23,17 +24,18 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export default function AdminPage() {
+  const { toast } = useToast();
   const [dropRate, setDropRate] = useState([2]); // 2% UR rate
   const [promoActive, setPromoActive] = useState(false);
   const [maintenanceMode, setMaintenanceMode] = useState(false);
 
   // Mock Data for Admin
-  const USERS_LIST = [
+  const [users, setUsers] = useState([
     { id: 1, name: "NeoKai", handle: "@neokai", status: "Active", role: "User", joined: "2023-12-01" },
     { id: 2, name: "CyberRogue", handle: "@rogue", status: "Banned", role: "User", joined: "2024-01-15" },
     { id: 3, name: "AdminUser", handle: "@admin", status: "Active", role: "Admin", joined: "2023-11-20" },
     { id: 4, name: "MechaAce", handle: "@mecha", status: "Active", role: "S-Class", joined: "2024-02-10" },
-  ];
+  ]);
 
   const COMMUNITIES_LIST = [
     { id: 1, name: "Shonen General", members: 1240, type: "Public", status: "Active" },
@@ -46,6 +48,36 @@ export default function AdminPage() {
     { id: 1, user: "ToxicGamer", reason: "Harassment", content: "You are all noobs...", time: "10m ago" },
     { id: 2, user: "SpamBot9000", reason: "Spam", content: "Buy cheap tokens at...", time: "1h ago" },
   ];
+
+  const handleUpgradeUser = (id: number) => {
+    setUsers(prev => prev.map(user => {
+      if (user.id === id) {
+        const newRole = user.role === "S-Class" ? "User" : "S-Class";
+        toast({
+          title: `Role Updated: ${newRole}`,
+          description: `${user.name} has been ${newRole === "S-Class" ? "upgraded to S-Class" : "downgraded to User"}.`,
+          className: newRole === "S-Class" ? "border-yellow-500 text-yellow-500" : ""
+        });
+        return { ...user, role: newRole };
+      }
+      return user;
+    }));
+  };
+
+  const handleBanUser = (id: number) => {
+    setUsers(prev => prev.map(user => {
+      if (user.id === id) {
+        const newStatus = user.status === "Banned" ? "Active" : "Banned";
+        toast({
+          title: `User ${newStatus}`,
+          description: `${user.name} has been ${newStatus === "Banned" ? "BANNED" : "restored"}.`,
+          variant: newStatus === "Banned" ? "destructive" : "default"
+        });
+        return { ...user, status: newStatus };
+      }
+      return user;
+    }));
+  };
 
   return (
     <div className="space-y-8 pb-24">
@@ -185,7 +217,7 @@ export default function AdminPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {USERS_LIST.map((user) => (
+                    {users.map((user) => (
                       <TableRow key={user.id} className="border-white/10 hover:bg-white/5">
                         <TableCell className="font-medium">
                           <div className="flex items-center gap-2">
@@ -200,7 +232,7 @@ export default function AdminPage() {
                         </TableCell>
                         <TableCell>
                           <Badge variant={user.role === 'Admin' ? 'destructive' : user.role === 'S-Class' ? 'default' : 'secondary'} 
-                            className={user.role === 'S-Class' ? 'bg-yellow-500 text-black' : ''}>
+                            className={user.role === 'S-Class' ? 'bg-yellow-500 text-black font-bold' : ''}>
                             {user.role}
                           </Badge>
                         </TableCell>
@@ -213,10 +245,22 @@ export default function AdminPage() {
                         <TableCell className="text-muted-foreground text-sm">{user.joined}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
-                            <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-yellow-400">
-                              <Crown className="h-4 w-4" />
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className={`h-8 w-8 ${user.role === 'S-Class' ? 'text-yellow-500' : 'text-muted-foreground hover:text-yellow-400'}`}
+                              onClick={() => handleUpgradeUser(user.id)}
+                              title={user.role === 'S-Class' ? "Remove S-Class" : "Grant S-Class"}
+                            >
+                              <Crown className="h-4 w-4" fill={user.role === 'S-Class' ? "currentColor" : "none"} />
                             </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-red-500">
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className={`h-8 w-8 ${user.status === 'Banned' ? 'text-red-500' : 'text-muted-foreground hover:text-red-500'}`}
+                              onClick={() => handleBanUser(user.id)}
+                              title={user.status === 'Banned' ? "Unban User" : "Ban User"}
+                            >
                               <Ban className="h-4 w-4" />
                             </Button>
                           </div>
