@@ -1,0 +1,22 @@
+{
+  "name": "AniRealm",
+  "short_name": "AniRealm",
+  "description": "The Ultimate Anime Social Network",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#eab308",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/favicon.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ]
+}
