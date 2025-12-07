@@ -1,9 +1,19 @@
 import { db } from "./db";
-import { cards, communities } from "@shared/schema";
+import { cards, communities, users } from "@shared/schema";
+import bcrypt from "bcrypt";
 
 export async function seedDatabase() {
-  // Check if already seeded
+  // Check if cards already seeded
   const existingCards = await db.select().from(cards).limit(1);
+  const existingUsers = await db.select().from(users).limit(2);
+  
+  // If we have cards but not enough sample users, seed users
+  if (existingCards.length > 0 && existingUsers.length < 2) {
+    console.log("Adding sample users for matching...");
+    await seedSampleUsers();
+    return;
+  }
+  
   if (existingCards.length > 0) {
     console.log("Database already seeded");
     return;
@@ -179,5 +189,263 @@ export async function seedDatabase() {
 
   await db.insert(communities).values(communityData);
 
+  // Seed sample users for matching
+  const hashedPassword = await bcrypt.hash("demo123", 10);
+  
+  const sampleUsers = [
+    {
+      username: "neokai",
+      password: hashedPassword,
+      name: "NeoKai",
+      handle: "@neokai",
+      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=neokai&backgroundColor=b6e3f4",
+      bio: "Shonen enthusiast and card collector. Always looking for the next big adventure!",
+      level: 42,
+      followers: 1250,
+      following: 890,
+      tokens: 5000,
+      isPremium: true,
+      animeInterests: ["Naruto", "One Piece", "Dragon Ball"],
+      theme: "cyberpunk",
+    },
+    {
+      username: "sakurablossom",
+      password: hashedPassword,
+      name: "Sakura Blossom",
+      handle: "@sakurablossom",
+      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=sakura&backgroundColor=ffdfbf",
+      bio: "Romance anime lover 💕 Currently watching: Fruits Basket",
+      level: 28,
+      followers: 890,
+      following: 456,
+      tokens: 2500,
+      isPremium: false,
+      animeInterests: ["Fruits Basket", "Your Name", "Toradora"],
+      theme: "cyberpunk",
+    },
+    {
+      username: "shadowhunter",
+      password: hashedPassword,
+      name: "Shadow Hunter",
+      handle: "@shadowhunter",
+      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=shadow&backgroundColor=c0aede",
+      bio: "Dark fantasy anime fan. Hunter x Hunter changed my life.",
+      level: 35,
+      followers: 2100,
+      following: 780,
+      tokens: 3200,
+      isPremium: false,
+      animeInterests: ["Hunter x Hunter", "Attack on Titan", "Death Note"],
+      theme: "cyberpunk",
+    },
+    {
+      username: "mechaace",
+      password: hashedPassword,
+      name: "Mecha Ace",
+      handle: "@mechaace",
+      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=mecha&backgroundColor=d1d4f9",
+      bio: "Giant robots are the peak of anime. Evangelion supremacy!",
+      level: 50,
+      followers: 3400,
+      following: 1200,
+      tokens: 8000,
+      isPremium: true,
+      animeInterests: ["Evangelion", "Gundam", "Code Geass"],
+      theme: "cyberpunk",
+    },
+    {
+      username: "kawaiiqueen",
+      password: hashedPassword,
+      name: "Kawaii Queen",
+      handle: "@kawaiiqueen",
+      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=kawaii&backgroundColor=ffd5dc",
+      bio: "Slice of life is best life! ✨ Collecting cute anime merch",
+      level: 22,
+      followers: 1800,
+      following: 920,
+      tokens: 1500,
+      isPremium: false,
+      animeInterests: ["K-On!", "Lucky Star", "Nichijou"],
+      theme: "cyberpunk",
+    },
+    {
+      username: "otakuking",
+      password: hashedPassword,
+      name: "Otaku King",
+      handle: "@otakuking",
+      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=otaku&backgroundColor=bde4a7",
+      bio: "Watching anime since 2005. Seen over 500 series. AMA!",
+      level: 67,
+      followers: 5600,
+      following: 340,
+      tokens: 12000,
+      isPremium: true,
+      animeInterests: ["Steins;Gate", "Monster", "Legend of Galactic Heroes"],
+      theme: "cyberpunk",
+    },
+    {
+      username: "animegamer",
+      password: hashedPassword,
+      name: "Anime Gamer",
+      handle: "@animegamer",
+      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=gamer&backgroundColor=a8e6cf",
+      bio: "Playing gacha games and watching seasonal anime. Always broke lol",
+      level: 31,
+      followers: 920,
+      following: 650,
+      tokens: 800,
+      isPremium: false,
+      animeInterests: ["Sword Art Online", "No Game No Life", "Log Horizon"],
+      theme: "cyberpunk",
+    },
+    {
+      username: "cosplaypro",
+      password: hashedPassword,
+      name: "Cosplay Pro",
+      handle: "@cosplaypro",
+      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=cosplay&backgroundColor=ffeaa7",
+      bio: "Cosplayer and anime convention regular. Next con: AnimeExpo!",
+      level: 38,
+      followers: 4200,
+      following: 1100,
+      tokens: 4500,
+      isPremium: true,
+      animeInterests: ["My Hero Academia", "Demon Slayer", "Jujutsu Kaisen"],
+      theme: "cyberpunk",
+    },
+  ];
+
+  await db.insert(users).values(sampleUsers);
+
   console.log("✅ Database seeded successfully!");
+}
+
+async function seedSampleUsers() {
+  const hashedPassword = await bcrypt.hash("demo123", 10);
+  
+  const sampleUsers = [
+    {
+      username: "neokai",
+      password: hashedPassword,
+      name: "NeoKai",
+      handle: "@neokai",
+      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=neokai&backgroundColor=b6e3f4",
+      bio: "Shonen enthusiast and card collector. Always looking for the next big adventure!",
+      level: 42,
+      followers: 1250,
+      following: 890,
+      tokens: 5000,
+      isPremium: true,
+      animeInterests: ["Naruto", "One Piece", "Dragon Ball"],
+      theme: "cyberpunk",
+    },
+    {
+      username: "sakurablossom",
+      password: hashedPassword,
+      name: "Sakura Blossom",
+      handle: "@sakurablossom",
+      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=sakura&backgroundColor=ffdfbf",
+      bio: "Romance anime lover 💕 Currently watching: Fruits Basket",
+      level: 28,
+      followers: 890,
+      following: 456,
+      tokens: 2500,
+      isPremium: false,
+      animeInterests: ["Fruits Basket", "Your Name", "Toradora"],
+      theme: "cyberpunk",
+    },
+    {
+      username: "shadowhunter",
+      password: hashedPassword,
+      name: "Shadow Hunter",
+      handle: "@shadowhunter",
+      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=shadow&backgroundColor=c0aede",
+      bio: "Dark fantasy anime fan. Hunter x Hunter changed my life.",
+      level: 35,
+      followers: 2100,
+      following: 780,
+      tokens: 3200,
+      isPremium: false,
+      animeInterests: ["Hunter x Hunter", "Attack on Titan", "Death Note"],
+      theme: "cyberpunk",
+    },
+    {
+      username: "mechaace",
+      password: hashedPassword,
+      name: "Mecha Ace",
+      handle: "@mechaace",
+      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=mecha&backgroundColor=d1d4f9",
+      bio: "Giant robots are the peak of anime. Evangelion supremacy!",
+      level: 50,
+      followers: 3400,
+      following: 1200,
+      tokens: 8000,
+      isPremium: true,
+      animeInterests: ["Evangelion", "Gundam", "Code Geass"],
+      theme: "cyberpunk",
+    },
+    {
+      username: "kawaiiqueen",
+      password: hashedPassword,
+      name: "Kawaii Queen",
+      handle: "@kawaiiqueen",
+      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=kawaii&backgroundColor=ffd5dc",
+      bio: "Slice of life is best life! ✨ Collecting cute anime merch",
+      level: 22,
+      followers: 1800,
+      following: 920,
+      tokens: 1500,
+      isPremium: false,
+      animeInterests: ["K-On!", "Lucky Star", "Nichijou"],
+      theme: "cyberpunk",
+    },
+    {
+      username: "otakuking",
+      password: hashedPassword,
+      name: "Otaku King",
+      handle: "@otakuking",
+      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=otaku&backgroundColor=bde4a7",
+      bio: "Watching anime since 2005. Seen over 500 series. AMA!",
+      level: 67,
+      followers: 5600,
+      following: 340,
+      tokens: 12000,
+      isPremium: true,
+      animeInterests: ["Steins;Gate", "Monster", "Legend of Galactic Heroes"],
+      theme: "cyberpunk",
+    },
+    {
+      username: "animegamer",
+      password: hashedPassword,
+      name: "Anime Gamer",
+      handle: "@animegamer",
+      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=gamer&backgroundColor=a8e6cf",
+      bio: "Playing gacha games and watching seasonal anime. Always broke lol",
+      level: 31,
+      followers: 920,
+      following: 650,
+      tokens: 800,
+      isPremium: false,
+      animeInterests: ["Sword Art Online", "No Game No Life", "Log Horizon"],
+      theme: "cyberpunk",
+    },
+    {
+      username: "cosplaypro",
+      password: hashedPassword,
+      name: "Cosplay Pro",
+      handle: "@cosplaypro",
+      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=cosplay&backgroundColor=ffeaa7",
+      bio: "Cosplayer and anime convention regular. Next con: AnimeExpo!",
+      level: 38,
+      followers: 4200,
+      following: 1100,
+      tokens: 4500,
+      isPremium: true,
+      animeInterests: ["My Hero Academia", "Demon Slayer", "Jujutsu Kaisen"],
+      theme: "cyberpunk",
+    },
+  ];
+
+  await db.insert(users).values(sampleUsers);
+  console.log("✅ Sample users added for matching!");
 }
