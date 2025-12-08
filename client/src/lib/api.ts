@@ -125,10 +125,42 @@ export function useCreateCard() {
 export function useDeleteCard() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (cardId: string) =>
-      apiCall(`/api/cards/${cardId}`, { method: "DELETE" }),
+    mutationFn: ({ cardId, force }: { cardId: string; force?: boolean }) =>
+      apiCall(`/api/cards/${cardId}${force ? '?force=true' : ''}`, { method: "DELETE" }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["cards"] });
+      queryClient.invalidateQueries({ queryKey: ["adminCards"] });
+    },
+  });
+}
+
+export function useAdminCards() {
+  return useQuery({
+    queryKey: ["adminCards"],
+    queryFn: () => apiCall("/api/cards/admin"),
+  });
+}
+
+export function useArchiveCard() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (cardId: string) =>
+      apiCall(`/api/cards/${cardId}/archive`, { method: "POST" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["cards"] });
+      queryClient.invalidateQueries({ queryKey: ["adminCards"] });
+    },
+  });
+}
+
+export function useUnarchiveCard() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (cardId: string) =>
+      apiCall(`/api/cards/${cardId}/unarchive`, { method: "POST" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["cards"] });
+      queryClient.invalidateQueries({ queryKey: ["adminCards"] });
     },
   });
 }

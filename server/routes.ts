@@ -206,8 +206,11 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Insufficient tokens" });
       }
       
-      // Get all cards and pick random ones
-      const allCards = await storage.getAllCards();
+      // Get only active (non-archived) cards and pick random ones
+      const allCards = await storage.getActiveCards();
+      if (allCards.length === 0) {
+        return res.status(400).json({ error: "No cards available in the gacha pool" });
+      }
       const numPulls = user.isPremium ? 5 : 1;
       const pulledCards = [];
       
@@ -250,7 +253,7 @@ export async function registerRoutes(
     }
   });
   
-  // Admin: Delete card
+  // Admin: Delete card (only if no owners)
   app.delete("/api/cards/:id", async (req, res) => {
     try {
       if (!req.session.userId) {
@@ -262,8 +265,75 @@ export async function registerRoutes(
         return res.status(403).json({ error: "Admin access required" });
       }
       
+      const ownerCount = await storage.getCardOwnerCount(req.params.id);
+      const forceDelete = req.query.force === 'true';
+      
+      if (ownerCount > 0 && !forceDelete) {
+        return res.status(400).json({ 
+          error: `Cannot delete card owned by ${ownerCount} user(s). Use archive instead or force delete.`,
+          ownerCount 
+        });
+      }
+      
       await storage.deleteCard(req.params.id);
       res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Admin: Archive card (removes from gacha, keeps in user collections)
+  app.post("/api/cards/:id/archive", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const user = await storage.getUser(req.session.userId);
+      if (!user?.isAdmin) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+      
+      await storage.archiveCard(req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Admin: Unarchive card
+  app.post("/api/cards/:id/unarchive", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const user = await storage.getUser(req.session.userId);
+      if (!user?.isAdmin) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+      
+      await storage.unarchiveCard(req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Admin: Get cards with owner counts
+  app.get("/api/cards/admin", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const user = await storage.getUser(req.session.userId);
+      if (!user?.isAdmin) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+      
+      const cardsWithCounts = await storage.getCardsWithOwnerCounts();
+      res.json(cardsWithCounts);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

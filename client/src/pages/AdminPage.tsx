@@ -23,7 +23,9 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useUsers, useBanUser, useUnbanUser, useGrantPremium, useCommunities, useCards, useCreateCard, useDeleteCard } from "@/lib/api";
+import { useUsers, useBanUser, useUnbanUser, useGrantPremium, useCommunities, useAdminCards, useCreateCard, useDeleteCard, useArchiveCard, useUnarchiveCard } from "@/lib/api";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertTriangle, Archive, ArchiveRestore } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatDistanceToNow } from "date-fns";
 import { toast as sonnerToast } from "sonner";
@@ -37,10 +39,24 @@ export default function AdminPage() {
   const { toast } = useToast();
   const { data: users, isLoading: usersLoading } = useUsers();
   const { data: communities, isLoading: communitiesLoading } = useCommunities();
-  const { data: allCards, isLoading: cardsLoading } = useCards();
+  const { data: allCards, isLoading: cardsLoading } = useAdminCards();
   const createCard = useCreateCard();
   const deleteCard = useDeleteCard();
+  const archiveCard = useArchiveCard();
+  const unarchiveCard = useUnarchiveCard();
   const banUser = useBanUser();
+  
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{
+    isOpen: boolean;
+    step: 1 | 2;
+    card: any | null;
+    confirmText: string;
+  }>({
+    isOpen: false,
+    step: 1,
+    card: null,
+    confirmText: "",
+  });
   const unbanUser = useUnbanUser();
   const grantPremium = useGrantPremium();
   const [dropRate, setDropRate] = useState([2]); // 2% UR rate
@@ -91,12 +107,51 @@ export default function AdminPage() {
     }
   };
   
-  const handleDeleteCard = async (cardId: string, cardName: string) => {
+  const handleDeleteCard = (card: any) => {
+    if (card.ownerCount > 0) {
+      setDeleteConfirmation({
+        isOpen: true,
+        step: 1,
+        card,
+        confirmText: "",
+      });
+    } else {
+      handleConfirmDelete(card, false);
+    }
+  };
+  
+  const handleConfirmDelete = async (card: any, force: boolean) => {
+    if (force && card.ownerCount > 0) {
+      if (deleteConfirmation.confirmText !== card.name) {
+        sonnerToast.error("Card name doesn't match. Please type the exact name to confirm.");
+        return;
+      }
+    }
+    
     try {
-      await deleteCard.mutateAsync(cardId);
-      sonnerToast.success(`Card "${cardName}" deleted`);
+      await deleteCard.mutateAsync({ cardId: card.id, force });
+      sonnerToast.success(`Card "${card.name}" deleted`);
+      setDeleteConfirmation({ isOpen: false, step: 1, card: null, confirmText: "" });
     } catch (error: any) {
       sonnerToast.error(error.message || "Failed to delete card");
+    }
+  };
+  
+  const handleArchiveCard = async (card: any) => {
+    try {
+      await archiveCard.mutateAsync(card.id);
+      sonnerToast.success(`Card "${card.name}" archived. Users keep their copies, but it's removed from gacha.`);
+    } catch (error: any) {
+      sonnerToast.error(error.message || "Failed to archive card");
+    }
+  };
+  
+  const handleUnarchiveCard = async (card: any) => {
+    try {
+      await unarchiveCard.mutateAsync(card.id);
+      sonnerToast.success(`Card "${card.name}" restored to gacha pool.`);
+    } catch (error: any) {
+      sonnerToast.error(error.message || "Failed to restore card");
     }
   };
   
@@ -647,14 +702,18 @@ export default function AdminPage() {
                       {filteredCards.map((card: any) => (
                         <div 
                           key={card.id} 
-                          className="flex items-center gap-3 p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-all border border-white/5"
+                          className={`flex items-center gap-3 p-3 rounded-lg transition-all border ${
+                            card.isArchived 
+                              ? 'bg-yellow-500/5 border-yellow-500/20' 
+                              : 'bg-white/5 hover:bg-white/10 border-white/5'
+                          }`}
                           data-testid={`card-row-${card.id}`}
                         >
                           <div className="h-10 w-10 rounded-lg overflow-hidden bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center">
                             <img src={card.image} alt={card.name} className="h-full w-full object-cover" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <span className="font-bold text-sm text-white truncate">{card.name}</span>
                               <Badge 
                                 variant="outline" 
@@ -668,6 +727,16 @@ export default function AdminPage() {
                               >
                                 {card.rarity}
                               </Badge>
+                              {card.isArchived && (
+                                <Badge variant="outline" className="text-[10px] text-yellow-400 border-yellow-400/50">
+                                  Archived
+                                </Badge>
+                              )}
+                              {card.ownerCount > 0 && (
+                                <Badge variant="outline" className="text-[10px] text-green-400 border-green-400/50">
+                                  {card.ownerCount} owner{card.ownerCount > 1 ? 's' : ''}
+                                </Badge>
+                              )}
                             </div>
                             <p className="text-xs text-muted-foreground truncate">
                               {card.character} • {card.anime}
@@ -677,15 +746,45 @@ export default function AdminPage() {
                             <p className="text-xs font-mono text-cyan-400">{card.power} PWR</p>
                             <p className="text-[10px] text-muted-foreground">{card.element}</p>
                           </div>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-8 w-8 text-red-400 hover:bg-red-500/10"
-                            onClick={() => handleDeleteCard(card.id, card.name)}
-                            data-testid={`button-delete-card-${card.id}`}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          <div className="flex gap-1">
+                            {card.isArchived ? (
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-8 w-8 text-green-400 hover:bg-green-500/10"
+                                onClick={() => handleUnarchiveCard(card)}
+                                title="Restore to gacha pool"
+                                data-testid={`button-unarchive-card-${card.id}`}
+                              >
+                                <ArchiveRestore className="h-4 w-4" />
+                              </Button>
+                            ) : (
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-8 w-8 text-yellow-400 hover:bg-yellow-500/10"
+                                onClick={() => handleArchiveCard(card)}
+                                title="Archive (remove from gacha, keep in collections)"
+                                data-testid={`button-archive-card-${card.id}`}
+                              >
+                                <Archive className="h-4 w-4" />
+                              </Button>
+                            )}
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className={`h-8 w-8 ${
+                                card.ownerCount > 0 
+                                  ? 'text-orange-400 hover:bg-orange-500/10' 
+                                  : 'text-red-400 hover:bg-red-500/10'
+                              }`}
+                              onClick={() => handleDeleteCard(card)}
+                              title={card.ownerCount > 0 ? `Warning: ${card.ownerCount} users own this card` : 'Delete card'}
+                              data-testid={`button-delete-card-${card.id}`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
                       ))}
                       
@@ -985,6 +1084,123 @@ export default function AdminPage() {
         </TabsContent>
 
       </Tabs>
+      
+      {/* Two-Layer Delete Confirmation Dialog */}
+      <Dialog 
+        open={deleteConfirmation.isOpen} 
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteConfirmation({ isOpen: false, step: 1, card: null, confirmText: "" });
+          }
+        }}
+      >
+        <DialogContent className="bg-card border-red-500/30">
+          {deleteConfirmation.step === 1 && deleteConfirmation.card && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-red-400">
+                  <AlertTriangle className="h-5 w-5" />
+                  Warning: Users Own This Card
+                </DialogTitle>
+                <DialogDescription className="pt-4 space-y-4">
+                  <div className="p-4 bg-red-500/10 rounded-lg border border-red-500/20">
+                    <p className="text-red-300 font-bold mb-2">
+                      {deleteConfirmation.card.ownerCount} user{deleteConfirmation.card.ownerCount > 1 ? 's' : ''} currently own{deleteConfirmation.card.ownerCount === 1 ? 's' : ''} "{deleteConfirmation.card.name}"
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Deleting this card will permanently remove it from their collections. They paid tokens (possibly purchased with real money) for this card.
+                    </p>
+                  </div>
+                  <div className="p-4 bg-yellow-500/10 rounded-lg border border-yellow-500/20">
+                    <p className="text-yellow-300 font-bold mb-2">Recommended: Archive Instead</p>
+                    <p className="text-sm text-muted-foreground">
+                      Archiving removes the card from the gacha pool so new users can't get it, but existing owners keep their cards. This is the safe option.
+                    </p>
+                  </div>
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="flex-col sm:flex-row gap-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setDeleteConfirmation({ isOpen: false, step: 1, card: null, confirmText: "" })}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  className="bg-yellow-600 hover:bg-yellow-700"
+                  onClick={() => {
+                    handleArchiveCard(deleteConfirmation.card);
+                    setDeleteConfirmation({ isOpen: false, step: 1, card: null, confirmText: "" });
+                  }}
+                >
+                  <Archive className="h-4 w-4 mr-2" />
+                  Archive Instead (Safe)
+                </Button>
+                <Button 
+                  variant="destructive"
+                  onClick={() => setDeleteConfirmation({ ...deleteConfirmation, step: 2 })}
+                >
+                  I Understand, Continue to Delete
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+          
+          {deleteConfirmation.step === 2 && deleteConfirmation.card && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-red-500">
+                  <AlertTriangle className="h-5 w-5" />
+                  Final Confirmation Required
+                </DialogTitle>
+                <DialogDescription className="pt-4 space-y-4">
+                  <div className="p-4 bg-red-500/20 rounded-lg border border-red-500/30">
+                    <p className="text-red-300 font-bold text-lg mb-2">
+                      This action CANNOT be undone!
+                    </p>
+                    <ul className="text-sm text-red-200 space-y-1">
+                      <li>• {deleteConfirmation.card.ownerCount} users will lose this card permanently</li>
+                      <li>• Any marketplace listings will be deleted</li>
+                      <li>• Users may request refunds or report this as a scam</li>
+                    </ul>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-muted-foreground">
+                      Type the card name exactly to confirm: <span className="text-red-400 font-bold">{deleteConfirmation.card.name}</span>
+                    </Label>
+                    <Input 
+                      placeholder="Type card name here..."
+                      value={deleteConfirmation.confirmText}
+                      onChange={(e) => setDeleteConfirmation({ ...deleteConfirmation, confirmText: e.target.value })}
+                      className="border-red-500/30"
+                    />
+                  </div>
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="flex-col sm:flex-row gap-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setDeleteConfirmation({ ...deleteConfirmation, step: 1 })}
+                >
+                  Go Back
+                </Button>
+                <Button 
+                  variant="destructive"
+                  disabled={deleteConfirmation.confirmText !== deleteConfirmation.card.name || deleteCard.isPending}
+                  onClick={() => handleConfirmDelete(deleteConfirmation.card, true)}
+                >
+                  {deleteCard.isPending ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4 mr-2" />
+                  )}
+                  Permanently Delete Card
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

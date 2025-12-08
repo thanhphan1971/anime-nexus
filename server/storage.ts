@@ -56,9 +56,14 @@ export interface IStorage {
   
   // Card operations
   getAllCards(): Promise<Card[]>;
+  getActiveCards(): Promise<Card[]>;
   getCard(id: string): Promise<Card | undefined>;
   createCard(card: InsertCard): Promise<Card>;
   deleteCard(id: string): Promise<void>;
+  archiveCard(id: string): Promise<void>;
+  unarchiveCard(id: string): Promise<void>;
+  getCardOwnerCount(id: string): Promise<number>;
+  getCardsWithOwnerCounts(): Promise<Array<Card & { ownerCount: number }>>;
   getUserCards(userId: string): Promise<Array<UserCard & { card: Card }>>;
   addCardToUser(userCard: InsertUserCard): Promise<UserCard>;
   
@@ -171,6 +176,10 @@ export class DbStorage implements IStorage {
     return await db.select().from(cards);
   }
 
+  async getActiveCards(): Promise<Card[]> {
+    return await db.select().from(cards).where(eq(cards.isArchived, false));
+  }
+
   async getCard(id: string): Promise<Card | undefined> {
     const result = await db.select().from(cards).where(eq(cards.id, id)).limit(1);
     return result[0];
@@ -187,6 +196,40 @@ export class DbStorage implements IStorage {
       await tx.delete(marketListings).where(eq(marketListings.cardId, id));
       await tx.delete(cards).where(eq(cards.id, id));
     });
+  }
+
+  async archiveCard(id: string): Promise<void> {
+    await db.update(cards).set({ isArchived: true }).where(eq(cards.id, id));
+  }
+
+  async unarchiveCard(id: string): Promise<void> {
+    await db.update(cards).set({ isArchived: false }).where(eq(cards.id, id));
+  }
+
+  async getCardOwnerCount(id: string): Promise<number> {
+    const result = await db
+      .select({ count: sql<number>`count(distinct ${userCards.userId})` })
+      .from(userCards)
+      .where(eq(userCards.cardId, id));
+    return Number(result[0]?.count) || 0;
+  }
+
+  async getCardsWithOwnerCounts(): Promise<Array<Card & { ownerCount: number }>> {
+    const allCards = await db.select().from(cards);
+    const ownerCounts = await db
+      .select({
+        cardId: userCards.cardId,
+        count: sql<number>`count(distinct ${userCards.userId})`,
+      })
+      .from(userCards)
+      .groupBy(userCards.cardId);
+    
+    const countMap = new Map(ownerCounts.map((oc: any) => [oc.cardId, Number(oc.count)]));
+    
+    return allCards.map((card: Card) => ({
+      ...card,
+      ownerCount: countMap.get(card.id) || 0,
+    }));
   }
 
   async getUserCards(userId: string): Promise<Array<UserCard & { card: Card }>> {

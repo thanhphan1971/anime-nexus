@@ -45,6 +45,7 @@ export const cards = pgTable("cards", {
   image: text("image").notNull(),
   power: integer("power").notNull(),
   element: text("element").notNull(),
+  isArchived: boolean("is_archived").notNull().default(false), // Archived cards are removed from gacha but stay in user collections
 });
 
 // User Cards (collection)
