@@ -8,7 +8,7 @@ import ProfilePage from "@/pages/ProfilePage";
 import FriendsPage from "@/pages/FriendsPage";
 import AuthPage from "@/pages/AuthPage";
 import CommunitiesPage from "@/pages/CommunitiesPage";
-import ChatPage from "@/pages/ChatPage";
+import CommunityDetailPage from "@/pages/CommunityDetailPage";
 import AnimeListPage from "@/pages/AnimeListPage";
 import CardsPage from "@/pages/CardsPage";
 import PremiumPage from "@/pages/PremiumPage";
@@ -40,10 +40,11 @@ function Router() {
     <Layout>
       <Switch>
         <Route path="/" component={FeedPage} />
+        <Route path="/profile" component={ProfilePage} />
         <Route path="/profile/:id" component={ProfilePage} />
         <Route path="/friends" component={FriendsPage} />
         <Route path="/communities" component={CommunitiesPage} />
-        <Route path="/community/:id" component={ChatPage} />
+        <Route path="/community/:id" component={CommunityDetailPage} />
         <Route path="/watchlist" component={AnimeListPage} />
         <Route path="/cards" component={CardsPage} />
         <Route path="/sclass" component={PremiumPage} />

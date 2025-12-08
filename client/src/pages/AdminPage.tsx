@@ -317,28 +317,47 @@ export default function AdminPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {COMMUNITIES_LIST.map((room) => (
-                      <TableRow key={room.id} className="border-white/10 hover:bg-white/5">
-                        <TableCell className="font-bold">{room.name}</TableCell>
-                        <TableCell>{room.type}</TableCell>
-                        <TableCell>{room.members}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className={room.status === 'Active' ? 'text-green-400 border-green-400' : 'text-yellow-400 border-yellow-400'}>
-                            {room.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              {room.status === 'Locked' ? <Unlock className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10">
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
+                    {communitiesLoading ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-8">
+                          <Loader2 className="h-6 w-6 animate-spin mx-auto" />
                         </TableCell>
                       </TableRow>
-                    ))}
+                    ) : communities && communities.length > 0 ? (
+                      communities.map((room: any) => {
+                        const isPrivate = room.isPrivate ?? false;
+                        const category = room.category || 'General';
+                        const memberCount = room.memberCount ?? 0;
+                        return (
+                          <TableRow key={room.id} className="border-white/10 hover:bg-white/5">
+                            <TableCell className="font-bold">{room.name || 'Unnamed'}</TableCell>
+                            <TableCell>{category}</TableCell>
+                            <TableCell>{memberCount}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className={isPrivate ? 'text-yellow-400 border-yellow-400' : 'text-green-400 border-green-400'}>
+                                {isPrivate ? 'Private' : 'Active'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex justify-end gap-2">
+                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                  {isPrivate ? <Unlock className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10">
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                          No communities found. Create one to get started!
+                        </TableCell>
+                      </TableRow>
+                    )}
                   </TableBody>
                 </Table>
               </div>
