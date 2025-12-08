@@ -15,6 +15,7 @@ import PremiumPage from "@/pages/PremiumPage";
 import CreatePostPage from "@/pages/CreatePostPage";
 import HelpPage from "@/pages/HelpPage";
 import AdminPage from "@/pages/AdminPage";
+import DrawsPage from "@/pages/DrawsPage";
 import Layout from "@/components/layout/Layout";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 
@@ -47,6 +48,7 @@ function Router() {
         <Route path="/community/:id" component={CommunityDetailPage} />
         <Route path="/watchlist" component={AnimeListPage} />
         <Route path="/cards" component={CardsPage} />
+        <Route path="/draws" component={DrawsPage} />
         <Route path="/sclass" component={PremiumPage} />
         <Route path="/create" component={CreatePostPage} />
         <Route path="/help" component={HelpPage} />
