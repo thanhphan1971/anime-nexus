@@ -195,6 +195,71 @@ export const swipeActions = pgTable("swipe_actions", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Prize Catalog - all available prize types
+export const prizes = pgTable("prizes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description").notNull(),
+  type: text("type").notNull(), // card, tokens, premium_days, badge, avatar_frame
+  rarity: text("rarity").notNull(), // common, rare, epic, legendary, mythic
+  value: integer("value").notNull().default(0), // token amount, days, or card power
+  iconUrl: text("icon_url"),
+  metadata: jsonb("metadata"), // additional prize-specific data
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Draws - scheduled prize drawings
+export const draws = pgTable("draws", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description").notNull(),
+  cadence: text("cadence").notNull(), // weekly, monthly, special, one_time
+  status: text("status").notNull().default('scheduled'), // scheduled, open, drawing, completed, cancelled
+  startAt: timestamp("start_at").notNull(),
+  endAt: timestamp("end_at").notNull(),
+  drawAt: timestamp("draw_at").notNull(), // when winner is selected
+  prizePool: jsonb("prize_pool").notNull(), // array of { prizeId, quantity, odds }
+  entryRules: jsonb("entry_rules"), // { minLevel, premiumOnly, activityRequired }
+  maxEntries: integer("max_entries"), // null = unlimited
+  bannerImage: text("banner_image"),
+  isVisible: boolean("is_visible").notNull().default(true),
+  isFeatured: boolean("is_featured").notNull().default(false),
+  createdBy: varchar("created_by").references(() => users.id, { onDelete: 'set null' }),
+  overrideBy: varchar("override_by").references(() => users.id, { onDelete: 'set null' }),
+  overrideReason: text("override_reason"),
+  overrideAt: timestamp("override_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Draw Entries - user entries into draws
+export const drawEntries = pgTable("draw_entries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  drawId: varchar("draw_id").notNull().references(() => draws.id, { onDelete: 'cascade' }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  tickets: integer("tickets").notNull().default(1), // number of entries/tickets
+  entrySource: text("entry_source").notNull().default('auto'), // auto, daily_login, premium_bonus, referral
+  metadata: jsonb("metadata"), // additional entry data
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Draw Winners - selected winners
+export const drawWinners = pgTable("draw_winners", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  drawId: varchar("draw_id").notNull().references(() => draws.id, { onDelete: 'cascade' }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  entryId: varchar("entry_id").references(() => drawEntries.id, { onDelete: 'set null' }),
+  prizeId: varchar("prize_id").notNull().references(() => prizes.id, { onDelete: 'cascade' }),
+  prizeDetails: jsonb("prize_details"), // snapshot of prize at time of win
+  claimStatus: text("claim_status").notNull().default('pending'), // pending, claimed, expired
+  claimExpiresAt: timestamp("claim_expires_at"),
+  claimedAt: timestamp("claimed_at"),
+  announcementHeadline: text("announcement_headline"),
+  spotlightCopy: text("spotlight_copy"),
+  isManualOverride: boolean("is_manual_override").notNull().default(false),
+  awardedAt: timestamp("awarded_at").notNull().defaultNow(),
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -297,6 +362,32 @@ export const insertSwipeActionSchema = createInsertSchema(swipeActions).omit({
   createdAt: true,
 });
 
+export const insertPrizeSchema = createInsertSchema(prizes).omit({
+  id: true,
+  createdAt: true,
+  isActive: true,
+});
+
+export const insertDrawSchema = createInsertSchema(draws).omit({
+  id: true,
+  createdAt: true,
+  status: true,
+  overrideBy: true,
+  overrideReason: true,
+  overrideAt: true,
+});
+
+export const insertDrawEntrySchema = createInsertSchema(drawEntries).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertDrawWinnerSchema = createInsertSchema(drawWinners).omit({
+  id: true,
+  awardedAt: true,
+  claimStatus: true,
+});
+
 // Export types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -345,3 +436,15 @@ export type ChallengeSubmission = typeof challengeSubmissions.$inferSelect;
 
 export type InsertSwipeAction = z.infer<typeof insertSwipeActionSchema>;
 export type SwipeAction = typeof swipeActions.$inferSelect;
+
+export type InsertPrize = z.infer<typeof insertPrizeSchema>;
+export type Prize = typeof prizes.$inferSelect;
+
+export type InsertDraw = z.infer<typeof insertDrawSchema>;
+export type Draw = typeof draws.$inferSelect;
+
+export type InsertDrawEntry = z.infer<typeof insertDrawEntrySchema>;
+export type DrawEntry = typeof drawEntries.$inferSelect;
+
+export type InsertDrawWinner = z.infer<typeof insertDrawWinnerSchema>;
+export type DrawWinner = typeof drawWinners.$inferSelect;
