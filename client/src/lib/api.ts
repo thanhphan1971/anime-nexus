@@ -108,6 +108,31 @@ export function useSummonCards() {
   });
 }
 
+export function useCreateCard() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { name: string; character: string; anime: string; rarity: string; image: string; power: number; element: string }) =>
+      apiCall("/api/cards", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["cards"] });
+    },
+  });
+}
+
+export function useDeleteCard() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (cardId: string) =>
+      apiCall(`/api/cards/${cardId}`, { method: "DELETE" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["cards"] });
+    },
+  });
+}
+
 // Marketplace API
 export function useMarketListings() {
   return useQuery({

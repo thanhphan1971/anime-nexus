@@ -23,7 +23,8 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useUsers, useBanUser, useUnbanUser, useGrantPremium, useCommunities } from "@/lib/api";
+import { useUsers, useBanUser, useUnbanUser, useGrantPremium, useCommunities, useCards, useCreateCard, useDeleteCard } from "@/lib/api";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatDistanceToNow } from "date-fns";
 import { toast as sonnerToast } from "sonner";
 
@@ -36,6 +37,9 @@ export default function AdminPage() {
   const { toast } = useToast();
   const { data: users, isLoading: usersLoading } = useUsers();
   const { data: communities, isLoading: communitiesLoading } = useCommunities();
+  const { data: allCards, isLoading: cardsLoading } = useCards();
+  const createCard = useCreateCard();
+  const deleteCard = useDeleteCard();
   const banUser = useBanUser();
   const unbanUser = useUnbanUser();
   const grantPremium = useGrantPremium();
@@ -43,6 +47,64 @@ export default function AdminPage() {
   const [promoActive, setPromoActive] = useState(false);
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [userSearch, setUserSearch] = useState("");
+  const [cardSearch, setCardSearch] = useState("");
+  const [newCard, setNewCard] = useState({
+    name: "",
+    character: "",
+    anime: "",
+    rarity: "Common",
+    image: "",
+    power: 500,
+    element: "Fire",
+  });
+  
+  const handleCreateCard = async () => {
+    if (!newCard.name || !newCard.character || !newCard.anime) {
+      sonnerToast.error("Please fill in all required fields");
+      return;
+    }
+    
+    try {
+      const imageUrl = newCard.image || `https://api.dicebear.com/7.x/shapes/svg?seed=${newCard.name.toLowerCase().replace(/\s/g, '')}`;
+      const cardData = {
+        name: newCard.name.trim(),
+        character: newCard.character.trim(),
+        anime: newCard.anime.trim(),
+        rarity: newCard.rarity,
+        image: imageUrl,
+        power: Number(newCard.power),
+        element: newCard.element,
+      };
+      await createCard.mutateAsync(cardData);
+      sonnerToast.success(`Card "${newCard.name}" created successfully!`);
+      setNewCard({
+        name: "",
+        character: "",
+        anime: "",
+        rarity: "Common",
+        image: "",
+        power: 500,
+        element: "Fire",
+      });
+    } catch (error: any) {
+      sonnerToast.error(error.message || "Failed to create card");
+    }
+  };
+  
+  const handleDeleteCard = async (cardId: string, cardName: string) => {
+    try {
+      await deleteCard.mutateAsync(cardId);
+      sonnerToast.success(`Card "${cardName}" deleted`);
+    } catch (error: any) {
+      sonnerToast.error(error.message || "Failed to delete card");
+    }
+  };
+  
+  const filteredCards = allCards?.filter((card: any) => 
+    card.name.toLowerCase().includes(cardSearch.toLowerCase()) || 
+    card.character.toLowerCase().includes(cardSearch.toLowerCase()) ||
+    card.anime.toLowerCase().includes(cardSearch.toLowerCase())
+  ) || [];
 
   const handleUpgradeUser = async (userId: string, currentPremium: boolean) => {
     if (currentPremium) {
@@ -105,6 +167,7 @@ export default function AdminPage() {
           <TabsTrigger value="users" className="flex-1 min-w-[100px]"><Users className="h-4 w-4 mr-2" /> Users</TabsTrigger>
           <TabsTrigger value="communities" className="flex-1 min-w-[100px]"><MessageSquare className="h-4 w-4 mr-2" /> Communities</TabsTrigger>
           <TabsTrigger value="content" className="flex-1 min-w-[100px]"><Flag className="h-4 w-4 mr-2" /> Content</TabsTrigger>
+          <TabsTrigger value="cards" className="flex-1 min-w-[100px]"><Sparkles className="h-4 w-4 mr-2" /> Cards</TabsTrigger>
           <TabsTrigger value="draws" className="flex-1 min-w-[100px]"><Trophy className="h-4 w-4 mr-2" /> Draws</TabsTrigger>
           <TabsTrigger value="economy" className="flex-1 min-w-[100px]"><Database className="h-4 w-4 mr-2" /> Economy</TabsTrigger>
           <TabsTrigger value="system" className="flex-1 min-w-[100px]"><Settings className="h-4 w-4 mr-2" /> System</TabsTrigger>
@@ -390,8 +453,8 @@ export default function AdminPage() {
                         <span className="text-xs text-muted-foreground ml-2">by {item.user} • {item.time}</span>
                       </div>
                       <div className="flex gap-2">
-                        <Button size="xs" variant="destructive" className="h-6 text-xs">Ban</Button>
-                        <Button size="xs" variant="secondary" className="h-6 text-xs">Ignore</Button>
+                        <Button size="sm" variant="destructive" className="h-6 text-xs">Ban</Button>
+                        <Button size="sm" variant="secondary" className="h-6 text-xs">Ignore</Button>
                       </div>
                     </div>
                     <p className="text-sm bg-black/40 p-2 rounded text-muted-foreground italic">"{item.content}"</p>
@@ -420,6 +483,221 @@ export default function AdminPage() {
                 <Button className="w-full">
                   <Upload className="mr-2 h-4 w-4" /> Broadcast Now
                 </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* CARDS TAB */}
+        <TabsContent value="cards" className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            {[
+              { label: "Total Cards", value: allCards?.length || 0, icon: Sparkles, color: "text-purple-400" },
+              { label: "Legendary", value: allCards?.filter((c: any) => c.rarity === "Legendary").length || 0, icon: Crown, color: "text-yellow-400" },
+              { label: "Mythic", value: allCards?.filter((c: any) => c.rarity === "Mythic").length || 0, icon: Trophy, color: "text-red-400" },
+            ].map((stat, i) => (
+              <Card key={i} className="bg-card/40 border-white/10">
+                <CardContent className="p-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">{stat.label}</p>
+                    <p className="text-2xl font-bold font-mono mt-1">{stat.value}</p>
+                  </div>
+                  <stat.icon className={`h-8 w-8 ${stat.color} opacity-80`} />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card className="bg-card/40 border-white/10">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Plus className="h-5 w-5 text-purple-400" />
+                  Create New Card
+                </CardTitle>
+                <CardDescription>Add a new card to the gacha pool</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Card Name *</Label>
+                    <Input 
+                      placeholder="e.g. Mystic Flames" 
+                      value={newCard.name}
+                      onChange={(e) => setNewCard({...newCard, name: e.target.value})}
+                      data-testid="input-card-name" 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Character *</Label>
+                    <Input 
+                      placeholder="e.g. Natsu Dragneel" 
+                      value={newCard.character}
+                      onChange={(e) => setNewCard({...newCard, character: e.target.value})}
+                      data-testid="input-card-character" 
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Anime *</Label>
+                    <Input 
+                      placeholder="e.g. Fairy Tail" 
+                      value={newCard.anime}
+                      onChange={(e) => setNewCard({...newCard, anime: e.target.value})}
+                      data-testid="input-card-anime" 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Rarity</Label>
+                    <select 
+                      className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                      value={newCard.rarity}
+                      onChange={(e) => setNewCard({...newCard, rarity: e.target.value})}
+                      data-testid="select-card-rarity"
+                    >
+                      <option value="Common">Common</option>
+                      <option value="Rare">Rare</option>
+                      <option value="Epic">Epic</option>
+                      <option value="Legendary">Legendary</option>
+                      <option value="Mythic">Mythic</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Element</Label>
+                    <select 
+                      className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                      value={newCard.element}
+                      onChange={(e) => setNewCard({...newCard, element: e.target.value})}
+                      data-testid="select-card-element"
+                    >
+                      <option value="Fire">Fire</option>
+                      <option value="Water">Water</option>
+                      <option value="Ice">Ice</option>
+                      <option value="Lightning">Lightning</option>
+                      <option value="Wind">Wind</option>
+                      <option value="Earth">Earth</option>
+                      <option value="Light">Light</option>
+                      <option value="Dark">Dark</option>
+                      <option value="Energy">Energy</option>
+                      <option value="Soul">Soul</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Power Level ({newCard.power})</Label>
+                    <Slider 
+                      value={[newCard.power]} 
+                      onValueChange={(val) => setNewCard({...newCard, power: val[0]})}
+                      min={100}
+                      max={1000}
+                      step={10}
+                      className="mt-3"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Image URL (optional)</Label>
+                  <Input 
+                    placeholder="Leave empty for auto-generated image" 
+                    value={newCard.image}
+                    onChange={(e) => setNewCard({...newCard, image: e.target.value})}
+                    data-testid="input-card-image" 
+                  />
+                </div>
+                <Button 
+                  className="w-full bg-gradient-to-r from-purple-500 to-pink-500" 
+                  onClick={handleCreateCard}
+                  disabled={createCard.isPending}
+                  data-testid="button-create-card"
+                >
+                  {createCard.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
+                  Create Card
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-card/40 border-white/10">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Database className="h-5 w-5 text-cyan-400" />
+                  Card Library ({allCards?.length || 0})
+                </CardTitle>
+                <CardDescription>Manage existing cards in the gacha pool</CardDescription>
+                <div className="relative mt-2">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input 
+                    placeholder="Search cards..." 
+                    className="pl-9"
+                    value={cardSearch}
+                    onChange={(e) => setCardSearch(e.target.value)}
+                    data-testid="input-search-cards"
+                  />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-[350px]">
+                  {cardsLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {filteredCards.map((card: any) => (
+                        <div 
+                          key={card.id} 
+                          className="flex items-center gap-3 p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-all border border-white/5"
+                          data-testid={`card-row-${card.id}`}
+                        >
+                          <div className="h-10 w-10 rounded-lg overflow-hidden bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center">
+                            <img src={card.image} alt={card.name} className="h-full w-full object-cover" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-sm text-white truncate">{card.name}</span>
+                              <Badge 
+                                variant="outline" 
+                                className={`text-[10px] ${
+                                  card.rarity === 'Mythic' ? 'text-red-400 border-red-400/50' :
+                                  card.rarity === 'Legendary' ? 'text-yellow-400 border-yellow-400/50' :
+                                  card.rarity === 'Epic' ? 'text-purple-400 border-purple-400/50' :
+                                  card.rarity === 'Rare' ? 'text-blue-400 border-blue-400/50' :
+                                  'text-gray-400 border-gray-400/50'
+                                }`}
+                              >
+                                {card.rarity}
+                              </Badge>
+                            </div>
+                            <p className="text-xs text-muted-foreground truncate">
+                              {card.character} • {card.anime}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xs font-mono text-cyan-400">{card.power} PWR</p>
+                            <p className="text-[10px] text-muted-foreground">{card.element}</p>
+                          </div>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 text-red-400 hover:bg-red-500/10"
+                            onClick={() => handleDeleteCard(card.id, card.name)}
+                            data-testid={`button-delete-card-${card.id}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                      
+                      {filteredCards.length === 0 && !cardsLoading && (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <Sparkles className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                          <p className="text-sm">No cards found</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </ScrollArea>
               </CardContent>
             </Card>
           </div>
