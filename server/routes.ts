@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertUserSchema, insertPostSchema, insertSwipeActionSchema, insertCommunityMessageSchema } from "@shared/schema";
+import { insertUserSchema, insertPostSchema, insertSwipeActionSchema, insertCommunityMessageSchema, insertDrawSchema, insertPrizeSchema, insertDrawEntrySchema } from "@shared/schema";
 import bcrypt from "bcrypt";
 
 export async function registerRoutes(
@@ -407,6 +407,307 @@ export async function registerRoutes(
       res.json(user);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Prize routes
+  app.get("/api/prizes", async (req, res) => {
+    try {
+      const prizes = await storage.getAllPrizes();
+      res.json(prizes);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/admin/prizes", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const admin = await storage.getUser(req.session.userId);
+      if (!admin || !admin.isAdmin) {
+        return res.status(403).json({ error: "Not authorized" });
+      }
+      
+      const validatedData = insertPrizeSchema.parse(req.body);
+      const prize = await storage.createPrize(validatedData);
+      res.json(prize);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Draw routes - public
+  app.get("/api/draws", async (req, res) => {
+    try {
+      const draws = await storage.getAllDraws();
+      res.json(draws);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/draws/active", async (req, res) => {
+    try {
+      const draws = await storage.getActiveDraws();
+      res.json(draws);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/draws/featured", async (req, res) => {
+    try {
+      const draw = await storage.getFeaturedDraw();
+      res.json(draw || null);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/draws/:id", async (req, res) => {
+    try {
+      const draw = await storage.getDraw(req.params.id);
+      if (!draw) {
+        return res.status(404).json({ error: "Draw not found" });
+      }
+      res.json(draw);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/draws/:id/entries", async (req, res) => {
+    try {
+      const entries = await storage.getDrawEntries(req.params.id);
+      const count = await storage.getEntryCount(req.params.id);
+      res.json({ entries, count });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/draws/:id/winners", async (req, res) => {
+    try {
+      const winners = await storage.getDrawWinners(req.params.id);
+      res.json(winners);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/draws/winners/recent", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 20;
+      const winners = await storage.getRecentWinners(limit);
+      res.json(winners);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Draw entry - user action
+  app.post("/api/draws/:id/enter", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const draw = await storage.getDraw(req.params.id);
+      if (!draw) {
+        return res.status(404).json({ error: "Draw not found" });
+      }
+      
+      if (draw.status !== 'open') {
+        return res.status(400).json({ error: "Draw is not open for entries" });
+      }
+      
+      const user = await storage.getUser(req.session.userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Check entry rules
+      const entryRules = draw.entryRules as any || {};
+      if (entryRules.minLevel && user.level < entryRules.minLevel) {
+        return res.status(400).json({ error: `Minimum level ${entryRules.minLevel} required` });
+      }
+      if (entryRules.premiumOnly && !user.isPremium) {
+        return res.status(400).json({ error: "Premium members only" });
+      }
+
+      // Calculate tickets (premium gets bonus)
+      const tickets = user.isPremium ? 3 : 1;
+      
+      const entry = await storage.createDrawEntry({
+        drawId: req.params.id,
+        userId: req.session.userId,
+        tickets,
+        entrySource: 'manual',
+      });
+      
+      res.json(entry);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // User's draw entries
+  app.get("/api/users/me/draw-entries", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const entries = await storage.getUserDrawEntries(req.session.userId);
+      res.json(entries);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Claim prize
+  app.post("/api/draws/winners/:winnerId/claim", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const claimed = await storage.claimPrize(req.params.winnerId, req.session.userId);
+      if (!claimed) {
+        return res.status(400).json({ error: "Unable to claim prize" });
+      }
+      
+      res.json(claimed);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Admin draw management
+  app.post("/api/admin/draws", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const admin = await storage.getUser(req.session.userId);
+      if (!admin || !admin.isAdmin) {
+        return res.status(403).json({ error: "Not authorized" });
+      }
+      
+      const validatedData = insertDrawSchema.parse({
+        ...req.body,
+        createdBy: req.session.userId,
+      });
+      
+      const draw = await storage.createDraw(validatedData);
+      res.json(draw);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.patch("/api/admin/draws/:id", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const admin = await storage.getUser(req.session.userId);
+      if (!admin || !admin.isAdmin) {
+        return res.status(403).json({ error: "Not authorized" });
+      }
+      
+      const draw = await storage.updateDraw(req.params.id, req.body);
+      res.json(draw);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/admin/draws/:id/override", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const admin = await storage.getUser(req.session.userId);
+      if (!admin || !admin.isAdmin) {
+        return res.status(403).json({ error: "Not authorized" });
+      }
+      
+      const { reason, ...updates } = req.body;
+      const draw = await storage.overrideDraw(req.params.id, req.session.userId, reason, updates);
+      res.json(draw);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/admin/draws/:id/select-winner", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const admin = await storage.getUser(req.session.userId);
+      if (!admin || !admin.isAdmin) {
+        return res.status(403).json({ error: "Not authorized" });
+      }
+      
+      const { prizeId } = req.body;
+      const winner = await storage.selectRandomWinner(req.params.id, prizeId);
+      
+      if (!winner) {
+        return res.status(400).json({ error: "No entries to select from" });
+      }
+      
+      // Update draw status to completed
+      await storage.updateDraw(req.params.id, { status: 'completed' });
+      
+      res.json(winner);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/admin/draws/:id/open", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const admin = await storage.getUser(req.session.userId);
+      if (!admin || !admin.isAdmin) {
+        return res.status(403).json({ error: "Not authorized" });
+      }
+      
+      const draw = await storage.updateDraw(req.params.id, { status: 'open' });
+      res.json(draw);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/admin/draws/:id/cancel", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const admin = await storage.getUser(req.session.userId);
+      if (!admin || !admin.isAdmin) {
+        return res.status(403).json({ error: "Not authorized" });
+      }
+      
+      const { reason } = req.body;
+      const draw = await storage.overrideDraw(req.params.id, req.session.userId, reason || 'Cancelled by admin', { status: 'cancelled' });
+      res.json(draw);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
     }
   });
 
