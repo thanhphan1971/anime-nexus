@@ -73,17 +73,117 @@ export const communities = pgTable("communities", {
   image: text("image").notNull(),
   memberCount: integer("member_count").notNull().default(0),
   isPrivate: boolean("is_private").notNull().default(false),
-  category: text("category").notNull(), // anime, gaming, community
+  category: text("category").notNull(), // Shonen, Romance, Mecha, Isekai, etc.
+  tags: text("tags").array().default(sql`ARRAY[]::text[]`),
+  rules: text("rules").array().default(sql`ARRAY[]::text[]`),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-// Community Messages
-export const communityMessages = pgTable("community_messages", {
+// Community Members with Roles
+export const communityMembers = pgTable("community_members", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   communityId: varchar("community_id").notNull().references(() => communities.id, { onDelete: 'cascade' }),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
-  message: text("message").notNull(),
+  role: text("role").notNull().default('member'), // owner, moderator, veteran, member
+  tokensEarned: integer("tokens_earned").notNull().default(0),
+  messagesCount: integer("messages_count").notNull().default(0),
+  joinedAt: timestamp("joined_at").notNull().defaultNow(),
+});
+
+// Community Sub-channels
+export const communityChannels = pgTable("community_channels", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  communityId: varchar("community_id").notNull().references(() => communities.id, { onDelete: 'cascade' }),
+  name: text("name").notNull(),
+  description: text("description"),
+  type: text("type").notNull().default('chat'), // chat, spoilers, fan-art, theories, announcements
+  isLocked: boolean("is_locked").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Community Messages (updated)
+export const communityMessages = pgTable("community_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  communityId: varchar("community_id").notNull().references(() => communities.id, { onDelete: 'cascade' }),
+  channelId: varchar("channel_id"),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  message: text("message").notNull(),
+  isPinned: boolean("is_pinned").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Community Events (Watch Parties, Discussions)
+export const communityEvents = pgTable("community_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  communityId: varchar("community_id").notNull().references(() => communities.id, { onDelete: 'cascade' }),
+  creatorId: varchar("creator_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  eventType: text("event_type").notNull(), // watch_party, discussion, tournament, challenge
+  startTime: timestamp("start_time").notNull(),
+  endTime: timestamp("end_time"),
+  image: text("image"),
+  attendeeCount: integer("attendee_count").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Event Attendees
+export const eventAttendees = pgTable("event_attendees", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventId: varchar("event_id").notNull().references(() => communityEvents.id, { onDelete: 'cascade' }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  joinedAt: timestamp("joined_at").notNull().defaultNow(),
+});
+
+// Community Polls
+export const communityPolls = pgTable("community_polls", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  communityId: varchar("community_id").notNull().references(() => communities.id, { onDelete: 'cascade' }),
+  creatorId: varchar("creator_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  question: text("question").notNull(),
+  options: text("options").array().notNull(),
+  votes: jsonb("votes").notNull().default(sql`'{}'::jsonb`), // { optionIndex: count }
+  endsAt: timestamp("ends_at"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Poll Votes
+export const pollVotes = pgTable("poll_votes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  pollId: varchar("poll_id").notNull().references(() => communityPolls.id, { onDelete: 'cascade' }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  optionIndex: integer("option_index").notNull(),
+  votedAt: timestamp("voted_at").notNull().defaultNow(),
+});
+
+// Community Challenges
+export const communityChallenges = pgTable("community_challenges", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  communityId: varchar("community_id").notNull().references(() => communities.id, { onDelete: 'cascade' }),
+  creatorId: varchar("creator_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  challengeType: text("challenge_type").notNull(), // art, cosplay, quiz, writing
+  reward: integer("reward").notNull().default(100), // tokens reward
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date").notNull(),
+  participantCount: integer("participant_count").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Challenge Submissions
+export const challengeSubmissions = pgTable("challenge_submissions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  challengeId: varchar("challenge_id").notNull().references(() => communityChallenges.id, { onDelete: 'cascade' }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  content: text("content").notNull(),
+  image: text("image"),
+  votes: integer("votes").notNull().default(0),
+  isWinner: boolean("is_winner").notNull().default(false),
+  submittedAt: timestamp("submitted_at").notNull().defaultNow(),
 });
 
 // Swipe Actions (for Find Nakama)
@@ -136,9 +236,60 @@ export const insertCommunitySchema = createInsertSchema(communities).omit({
   memberCount: true,
 });
 
+export const insertCommunityMemberSchema = createInsertSchema(communityMembers).omit({
+  id: true,
+  joinedAt: true,
+  tokensEarned: true,
+  messagesCount: true,
+});
+
+export const insertCommunityChannelSchema = createInsertSchema(communityChannels).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertCommunityMessageSchema = createInsertSchema(communityMessages).omit({
   id: true,
   createdAt: true,
+  isPinned: true,
+});
+
+export const insertCommunityEventSchema = createInsertSchema(communityEvents).omit({
+  id: true,
+  createdAt: true,
+  attendeeCount: true,
+  isActive: true,
+});
+
+export const insertEventAttendeeSchema = createInsertSchema(eventAttendees).omit({
+  id: true,
+  joinedAt: true,
+});
+
+export const insertCommunityPollSchema = createInsertSchema(communityPolls).omit({
+  id: true,
+  createdAt: true,
+  votes: true,
+  isActive: true,
+});
+
+export const insertPollVoteSchema = createInsertSchema(pollVotes).omit({
+  id: true,
+  votedAt: true,
+});
+
+export const insertCommunityChallengeSchema = createInsertSchema(communityChallenges).omit({
+  id: true,
+  createdAt: true,
+  participantCount: true,
+  isActive: true,
+});
+
+export const insertChallengeSubmissionSchema = createInsertSchema(challengeSubmissions).omit({
+  id: true,
+  submittedAt: true,
+  votes: true,
+  isWinner: true,
 });
 
 export const insertSwipeActionSchema = createInsertSchema(swipeActions).omit({
@@ -165,8 +316,32 @@ export type MarketListing = typeof marketListings.$inferSelect;
 export type InsertCommunity = z.infer<typeof insertCommunitySchema>;
 export type Community = typeof communities.$inferSelect;
 
+export type InsertCommunityMember = z.infer<typeof insertCommunityMemberSchema>;
+export type CommunityMember = typeof communityMembers.$inferSelect;
+
+export type InsertCommunityChannel = z.infer<typeof insertCommunityChannelSchema>;
+export type CommunityChannel = typeof communityChannels.$inferSelect;
+
 export type InsertCommunityMessage = z.infer<typeof insertCommunityMessageSchema>;
 export type CommunityMessage = typeof communityMessages.$inferSelect;
+
+export type InsertCommunityEvent = z.infer<typeof insertCommunityEventSchema>;
+export type CommunityEvent = typeof communityEvents.$inferSelect;
+
+export type InsertEventAttendee = z.infer<typeof insertEventAttendeeSchema>;
+export type EventAttendee = typeof eventAttendees.$inferSelect;
+
+export type InsertCommunityPoll = z.infer<typeof insertCommunityPollSchema>;
+export type CommunityPoll = typeof communityPolls.$inferSelect;
+
+export type InsertPollVote = z.infer<typeof insertPollVoteSchema>;
+export type PollVote = typeof pollVotes.$inferSelect;
+
+export type InsertCommunityChallenge = z.infer<typeof insertCommunityChallengeSchema>;
+export type CommunityChallenge = typeof communityChallenges.$inferSelect;
+
+export type InsertChallengeSubmission = z.infer<typeof insertChallengeSubmissionSchema>;
+export type ChallengeSubmission = typeof challengeSubmissions.$inferSelect;
 
 export type InsertSwipeAction = z.infer<typeof insertSwipeActionSchema>;
 export type SwipeAction = typeof swipeActions.$inferSelect;
