@@ -11,7 +11,8 @@ import { useToast } from "@/hooks/use-toast";
 import { 
   BarChart, Users, Database, Sparkles, Calendar, Plus, Upload, Save, 
   ShieldAlert, Ban, UserCheck, MessageSquare, Flag, Trash2, Settings, 
-  Activity, Crown, Lock, Unlock, Eye, Search, Loader2
+  Activity, Crown, Lock, Unlock, Eye, Search, Loader2, Trophy, Gift,
+  Clock, Play, Pause, X, Ticket
 } from "lucide-react";
 import { 
   Table, 
@@ -99,6 +100,7 @@ export default function AdminPage() {
           <TabsTrigger value="users" className="flex-1 min-w-[100px]"><Users className="h-4 w-4 mr-2" /> Users</TabsTrigger>
           <TabsTrigger value="communities" className="flex-1 min-w-[100px]"><MessageSquare className="h-4 w-4 mr-2" /> Communities</TabsTrigger>
           <TabsTrigger value="content" className="flex-1 min-w-[100px]"><Flag className="h-4 w-4 mr-2" /> Content</TabsTrigger>
+          <TabsTrigger value="draws" className="flex-1 min-w-[100px]"><Trophy className="h-4 w-4 mr-2" /> Draws</TabsTrigger>
           <TabsTrigger value="economy" className="flex-1 min-w-[100px]"><Database className="h-4 w-4 mr-2" /> Economy</TabsTrigger>
           <TabsTrigger value="system" className="flex-1 min-w-[100px]"><Settings className="h-4 w-4 mr-2" /> System</TabsTrigger>
         </TabsList>
@@ -416,6 +418,206 @@ export default function AdminPage() {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        {/* DRAWS TAB */}
+        <TabsContent value="draws" className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            {[
+              { label: "Active Draws", value: "2", icon: Trophy, color: "text-yellow-400" },
+              { label: "Total Entries", value: "1,245", icon: Ticket, color: "text-cyan-400" },
+              { label: "Winners Today", value: "5", icon: Gift, color: "text-purple-400" },
+            ].map((stat, i) => (
+              <Card key={i} className="bg-card/40 border-white/10">
+                <CardContent className="p-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">{stat.label}</p>
+                    <p className="text-2xl font-bold font-mono mt-1">{stat.value}</p>
+                  </div>
+                  <stat.icon className={`h-8 w-8 ${stat.color} opacity-80`} />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card className="bg-card/40 border-white/10">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Plus className="h-5 w-5 text-cyan-400" />
+                  Create New Draw
+                </CardTitle>
+                <CardDescription>Schedule a new prize drawing for users</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Draw Name</Label>
+                  <Input placeholder="e.g. Weekly Legendary Draw" data-testid="input-draw-name" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Description</Label>
+                  <textarea 
+                    className="w-full min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    placeholder="Describe the draw and prizes..."
+                    data-testid="input-draw-description"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Cadence</Label>
+                    <select className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm" data-testid="select-draw-cadence">
+                      <option value="weekly">Weekly</option>
+                      <option value="monthly">Monthly</option>
+                      <option value="special">Special Event</option>
+                      <option value="one_time">One-Time</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Draw Date</Label>
+                    <Input type="datetime-local" data-testid="input-draw-date" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Prize Type</Label>
+                  <select className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm" data-testid="select-prize-type">
+                    <option value="card">Legendary Card Pack</option>
+                    <option value="tokens">Token Bundle (5000)</option>
+                    <option value="premium_days">Premium Days (30)</option>
+                    <option value="badge">Exclusive Badge</option>
+                    <option value="avatar_frame">Avatar Frame</option>
+                  </select>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                  <div>
+                    <Label>Featured Draw</Label>
+                    <p className="text-xs text-muted-foreground">Show on homepage banner</p>
+                  </div>
+                  <Switch data-testid="switch-featured" />
+                </div>
+                <Button className="w-full bg-gradient-to-r from-cyan-500 to-purple-500" data-testid="button-create-draw">
+                  <Trophy className="h-4 w-4 mr-2" />
+                  Create Draw
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-card/40 border-white/10">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5 text-purple-400" />
+                  Scheduled Draws
+                </CardTitle>
+                <CardDescription>Manage existing prize drawings</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {[
+                    { name: "Weekly Legendary Draw", cadence: "Weekly", status: "open", date: "Dec 15, 8PM", entries: 342 },
+                    { name: "Monthly Mega Draw", cadence: "Monthly", status: "scheduled", date: "Dec 31, 12PM", entries: 0 },
+                    { name: "Holiday Special", cadence: "Special", status: "scheduled", date: "Dec 25, 12AM", entries: 0 },
+                  ].map((draw, i) => (
+                    <div key={i} className="p-4 bg-white/5 rounded-lg border border-white/10 hover:border-yellow-500/50 transition-all">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Trophy className="h-4 w-4 text-yellow-500" />
+                          <span className="font-bold">{draw.name}</span>
+                        </div>
+                        <Badge variant="outline" className={draw.status === 'open' ? 'text-green-400 border-green-400/50' : 'text-yellow-400 border-yellow-400/50'}>
+                          {draw.status}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center justify-between text-sm text-muted-foreground mb-3">
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {draw.date}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Ticket className="h-3 w-3" />
+                          {draw.entries} entries
+                        </span>
+                      </div>
+                      <div className="flex gap-2">
+                        {draw.status === 'scheduled' && (
+                          <Button size="sm" variant="outline" className="flex-1 text-green-400 border-green-400/50" data-testid={`button-open-draw-${i}`}>
+                            <Play className="h-3 w-3 mr-1" />
+                            Open
+                          </Button>
+                        )}
+                        {draw.status === 'open' && (
+                          <Button size="sm" variant="outline" className="flex-1 text-purple-400 border-purple-400/50" data-testid={`button-draw-winner-${i}`}>
+                            <Gift className="h-3 w-3 mr-1" />
+                            Draw Winner
+                          </Button>
+                        )}
+                        <Button size="sm" variant="outline" className="text-yellow-400 border-yellow-400/50" data-testid={`button-override-draw-${i}`}>
+                          Override
+                        </Button>
+                        <Button size="sm" variant="outline" className="text-red-400 border-red-400/50" data-testid={`button-cancel-draw-${i}`}>
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card className="bg-card/40 border-white/10">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Gift className="h-5 w-5 text-green-400" />
+                Recent Winners
+              </CardTitle>
+              <CardDescription>View and manage prize winners</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-white/10">
+                    <TableHead>Winner</TableHead>
+                    <TableHead>Draw</TableHead>
+                    <TableHead>Prize</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {[
+                    { user: "NeoKai", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=neokai", draw: "Weekly Draw", prize: "Legendary Pack", status: "claimed", time: "2h ago" },
+                    { user: "Sakura", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=sakura", draw: "Weekly Draw", prize: "5000 Tokens", status: "pending", time: "5h ago" },
+                    { user: "Shadow", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=shadow", draw: "Monthly Draw", prize: "30 Days Premium", status: "claimed", time: "1d ago" },
+                  ].map((winner, i) => (
+                    <TableRow key={i} className="border-white/10 hover:bg-white/5">
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Avatar className="h-8 w-8">
+                            <AvatarImage src={winner.avatar} />
+                            <AvatarFallback>{winner.user[0]}</AvatarFallback>
+                          </Avatar>
+                          <span className="font-bold">{winner.user}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>{winner.draw}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="text-yellow-400 border-yellow-400/50">
+                          {winner.prize}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={winner.status === 'claimed' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}>
+                          {winner.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right text-muted-foreground text-sm">
+                        {winner.time}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* ECONOMY TAB */}
