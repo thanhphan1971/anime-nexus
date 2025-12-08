@@ -391,6 +391,17 @@ export default function DrawsPage() {
   const displayFeatured = featuredDraw || MOCK_DRAWS[0];
   const displayWinners = recentWinners.length > 0 ? recentWinners : MOCK_WINNERS;
 
+  if (drawsLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-black via-purple-950/20 to-black p-4 flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <Trophy className="h-12 w-12 text-yellow-500 animate-pulse mx-auto" />
+          <p className="text-muted-foreground">Loading Prize Draws...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-black via-purple-950/20 to-black p-4">
       <div className="max-w-6xl mx-auto space-y-6">

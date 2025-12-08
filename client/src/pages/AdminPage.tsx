@@ -27,6 +27,11 @@ import { useUsers, useBanUser, useUnbanUser, useGrantPremium, useCommunities } f
 import { formatDistanceToNow } from "date-fns";
 import { toast as sonnerToast } from "sonner";
 
+const FLAGGED_CONTENT = [
+  { id: 1, reason: "Spam", user: "@bot_account", content: "Buy cheap tokens at...", time: "5m ago" },
+  { id: 2, reason: "Harassment", user: "@troll_user", content: "Your cards are trash...", time: "15m ago" },
+];
+
 export default function AdminPage() {
   const { toast } = useToast();
   const { data: users, isLoading: usersLoading } = useUsers();

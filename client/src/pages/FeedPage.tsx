@@ -1,16 +1,45 @@
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardFooter } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Heart, MessageCircle, Share2, MoreHorizontal, Sparkles, Loader2 } from "lucide-react";
+import { Heart, MessageCircle, Share2, MoreHorizontal, Sparkles, Loader2, Trophy, Clock, Gift, ChevronRight } from "lucide-react";
 import { motion } from "framer-motion";
 import { usePosts, useLikePost } from "@/lib/api";
 import { useLocation } from "wouter";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, differenceInSeconds } from "date-fns";
 
 export default function FeedPage() {
   const { data: posts, isLoading } = usePosts();
   const likePost = useLikePost();
   const [, setLocation] = useLocation();
+  
+  const mockFeaturedDraw = {
+    name: "WEEKLY DRAW",
+    prize: "Legendary Card Pack + 5000 Tokens",
+    endAt: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
+  };
+  
+  const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+  
+  useEffect(() => {
+    const drawDate = new Date(mockFeaturedDraw.endAt);
+    
+    const updateTimer = () => {
+      const now = new Date();
+      const diffSeconds = differenceInSeconds(drawDate, now);
+      if (diffSeconds > 0) {
+        const days = Math.floor(diffSeconds / 86400);
+        const hours = Math.floor((diffSeconds % 86400) / 3600);
+        const minutes = Math.floor((diffSeconds % 3600) / 60);
+        const seconds = diffSeconds % 60;
+        setTimeLeft({ days, hours, minutes, seconds });
+      }
+    };
+    
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleLike = (postId: string) => {
     likePost.mutate(postId);
@@ -46,6 +75,70 @@ export default function FeedPage() {
           </div>
         ))}
       </div>
+
+      {/* Featured Draw Banner */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.5 }}
+      >
+        <Card 
+          className="relative overflow-hidden border-yellow-500/50 bg-gradient-to-r from-yellow-950/40 via-purple-950/40 to-cyan-950/40 cursor-pointer hover:border-yellow-400 transition-all"
+          onClick={() => setLocation("/draws")}
+          data-testid="banner-featured-draw"
+        >
+          <div className="absolute inset-0 bg-[url('/grid-pattern.svg')] opacity-5" />
+          <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-500/20 blur-3xl rounded-full" />
+          <div className="absolute bottom-0 left-0 w-24 h-24 bg-purple-500/20 blur-2xl rounded-full" />
+          
+          <CardContent className="p-4 relative z-10">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-yellow-500 to-amber-600 flex items-center justify-center shadow-lg shadow-yellow-500/30">
+                    <Trophy className="h-6 w-6 text-white" />
+                  </div>
+                  <div className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 rounded-full flex items-center justify-center animate-pulse">
+                    <span className="text-[8px] font-bold text-white">!</span>
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-display font-bold text-yellow-400">{mockFeaturedDraw.name}</h3>
+                    <span className="text-[10px] px-1.5 py-0.5 bg-green-500/20 text-green-400 rounded-full font-bold uppercase">Live</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Gift className="h-3 w-3 text-purple-400" />
+                    {mockFeaturedDraw.prize}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-3">
+                <div className="text-right hidden sm:block">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1 flex items-center justify-end gap-1">
+                    <Clock className="h-3 w-3" /> Ends in
+                  </p>
+                  <div className="flex gap-1">
+                    {[
+                      { value: timeLeft.days, label: "D" },
+                      { value: timeLeft.hours, label: "H" },
+                      { value: timeLeft.minutes, label: "M" },
+                      { value: timeLeft.seconds, label: "S" },
+                    ].map((unit, i) => (
+                      <div key={i} className="bg-black/40 px-1.5 py-0.5 rounded text-center min-w-[28px]">
+                        <span className="text-sm font-mono font-bold text-yellow-400">{String(unit.value).padStart(2, '0')}</span>
+                        <span className="text-[8px] text-muted-foreground ml-0.5">{unit.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <ChevronRight className="h-5 w-5 text-yellow-400" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
 
       {/* AI Assistant Prompt */}
       <Card className="bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20">
