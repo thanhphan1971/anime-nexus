@@ -140,6 +140,50 @@ export default function FeedPage() {
         </Card>
       </motion.div>
 
+      {/* Recent Winners Ticker */}
+      <Card className="bg-yellow-950/20 border-yellow-500/30 overflow-hidden" data-testid="winners-ticker">
+        <CardContent className="p-3">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 text-yellow-400 shrink-0">
+              <Trophy className="h-4 w-4" />
+              <span className="text-xs font-bold uppercase">Winners</span>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <div className="flex gap-6 animate-marquee">
+                {[
+                  { name: "NeoKai", prize: "Legendary Pack", time: "2h ago" },
+                  { name: "Sakura", prize: "5000 Tokens", time: "5h ago" },
+                  { name: "Shadow", prize: "30 Days Premium", time: "1d ago" },
+                  { name: "Ryu", prize: "Epic Badge", time: "2d ago" },
+                  { name: "Miko", prize: "Avatar Frame", time: "3d ago" },
+                  { name: "NeoKai", prize: "Legendary Pack", time: "2h ago" },
+                  { name: "Sakura", prize: "5000 Tokens", time: "5h ago" },
+                  { name: "Shadow", prize: "30 Days Premium", time: "1d ago" },
+                  { name: "Ryu", prize: "Epic Badge", time: "2d ago" },
+                  { name: "Miko", prize: "Avatar Frame", time: "3d ago" },
+                ].map((winner, i) => (
+                  <div key={i} className="flex items-center gap-2 shrink-0">
+                    <span className="text-sm font-bold text-white">{winner.name}</span>
+                    <span className="text-xs text-purple-400">won</span>
+                    <span className="text-xs text-yellow-300 font-medium">{winner.prize}</span>
+                    <span className="text-[10px] text-muted-foreground">• {winner.time}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <Button 
+              size="sm" 
+              variant="ghost" 
+              className="text-yellow-400 hover:bg-yellow-500/10 shrink-0 text-xs"
+              onClick={() => setLocation("/draws")}
+              data-testid="button-view-all-winners"
+            >
+              View All
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* AI Assistant Prompt */}
       <Card className="bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20">
         <CardContent className="p-4 flex items-center gap-4">

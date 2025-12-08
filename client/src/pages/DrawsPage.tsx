@@ -356,6 +356,46 @@ export default function DrawsPage() {
       user: { name: 'Shadow', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=shadow', handle: '@shadowhunter' },
       prize: { name: '30 Days Premium', type: 'premium_days', rarity: 'legendary' },
     },
+    {
+      id: '4',
+      userId: '4',
+      prizeId: '4',
+      drawId: '2',
+      awardedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+      claimStatus: 'claimed',
+      user: { name: 'Ryu', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=ryu', handle: '@ryumaster' },
+      prize: { name: 'Epic Badge', type: 'badge', rarity: 'epic' },
+    },
+    {
+      id: '5',
+      userId: '5',
+      prizeId: '5',
+      drawId: '3',
+      awardedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+      claimStatus: 'claimed',
+      user: { name: 'Miko', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=miko', handle: '@mikochan' },
+      prize: { name: 'Golden Frame', type: 'avatar_frame', rarity: 'mythic' },
+    },
+    {
+      id: '6',
+      userId: '6',
+      prizeId: '1',
+      drawId: '3',
+      awardedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+      claimStatus: 'claimed',
+      user: { name: 'Akira', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=akira', handle: '@akirax' },
+      prize: { name: 'Legendary Pack', type: 'card', rarity: 'legendary' },
+    },
+    {
+      id: '7',
+      userId: '7',
+      prizeId: '2',
+      drawId: '4',
+      awardedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+      claimStatus: 'claimed',
+      user: { name: 'Luna', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=luna', handle: '@lunamoon' },
+      prize: { name: '5000 Tokens', type: 'tokens', rarity: 'epic' },
+    },
   ];
 
   const MOCK_DRAWS: Draw[] = activeDraws.length > 0 ? activeDraws : [
@@ -389,7 +429,10 @@ export default function DrawsPage() {
 
   const displayDraws = activeDraws.length > 0 ? activeDraws : MOCK_DRAWS;
   const displayFeatured = featuredDraw || MOCK_DRAWS[0];
-  const displayWinners = recentWinners.length > 0 ? recentWinners : MOCK_WINNERS;
+  const rawWinners = recentWinners.length > 0 ? recentWinners : MOCK_WINNERS;
+  const displayWinners = [...rawWinners].sort((a: Winner, b: Winner) => 
+    new Date(b.awardedAt).getTime() - new Date(a.awardedAt).getTime()
+  );
 
   if (drawsLoading) {
     return (
@@ -425,19 +468,89 @@ export default function DrawsPage() {
           <FeaturedDrawBanner draw={displayFeatured} />
         )}
 
+        {/* PERMANENT WINNERS SHOWCASE */}
+        <Card className="bg-gradient-to-r from-yellow-950/40 via-amber-950/30 to-orange-950/40 border-yellow-500/30 overflow-hidden" data-testid="winners-showcase">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-yellow-400">
+                <Trophy className="h-5 w-5" />
+                <span className="font-display">WINNERS HALL OF FAME</span>
+              </div>
+              <Badge variant="outline" className="text-green-400 border-green-400/50 animate-pulse">
+                <span className="h-2 w-2 bg-green-400 rounded-full mr-1.5 inline-block" />
+                LIVE
+              </Badge>
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">Real winners, real prizes - updated in real-time</p>
+          </CardHeader>
+          <CardContent className="p-0">
+            <ScrollArea className="h-[200px]">
+              <div className="p-4 space-y-2">
+                {displayWinners.map((winner: Winner, index: number) => (
+                  <motion.div
+                    key={winner.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                    className="flex items-center gap-3 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all border border-white/5"
+                    data-testid={`winner-row-${winner.id}`}
+                  >
+                    <div className="relative">
+                      <Avatar className="h-10 w-10 border-2 border-yellow-500/50">
+                        <AvatarImage src={winner.user.avatar} />
+                        <AvatarFallback>{winner.user.name[0]}</AvatarFallback>
+                      </Avatar>
+                      <div className="absolute -bottom-1 -right-1 bg-yellow-500 rounded-full p-0.5">
+                        <Trophy className="h-2.5 w-2.5 text-black" />
+                      </div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-sm text-white truncate">{winner.user.name}</span>
+                        <span className="text-xs text-muted-foreground">{winner.user.handle}</span>
+                      </div>
+                      <div className="flex items-center gap-1 text-xs">
+                        <Gift className="h-3 w-3 text-purple-400" />
+                        <span className="text-purple-300 font-medium">{winner.prize.name}</span>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <Badge 
+                        className={`text-[10px] ${
+                          winner.claimStatus === 'claimed' 
+                            ? 'bg-green-500/20 text-green-400' 
+                            : 'bg-yellow-500/20 text-yellow-400'
+                        }`}
+                      >
+                        {winner.claimStatus === 'claimed' ? '✓ Claimed' : 'Pending'}
+                      </Badge>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        {formatDistanceToNow(new Date(winner.awardedAt), { addSuffix: true })}
+                      </p>
+                    </div>
+                  </motion.div>
+                ))}
+                
+                {displayWinners.length === 0 && (
+                  <div className="text-center py-8 text-gray-400">
+                    <Award className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">No winners yet - Be the first!</p>
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
+          </CardContent>
+        </Card>
+
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid grid-cols-3 gap-2 bg-white/5 p-1">
+          <TabsList className="grid grid-cols-2 gap-2 bg-white/5 p-1">
             <TabsTrigger value="live" className="data-[state=active]:bg-cyan-500/20" data-testid="tab-live">
               <Zap className="h-4 w-4 mr-2" />
               Live Draws
             </TabsTrigger>
             <TabsTrigger value="prizes" className="data-[state=active]:bg-purple-500/20" data-testid="tab-prizes">
               <Gift className="h-4 w-4 mr-2" />
-              Prizes
-            </TabsTrigger>
-            <TabsTrigger value="winners" className="data-[state=active]:bg-yellow-500/20" data-testid="tab-winners">
-              <Trophy className="h-4 w-4 mr-2" />
-              Winners
+              Prize Catalog
             </TabsTrigger>
           </TabsList>
 
@@ -497,34 +610,6 @@ export default function DrawsPage() {
                 <PrizeCard key={prize.id} prize={prize} />
               ))}
             </div>
-          </TabsContent>
-
-          <TabsContent value="winners" className="mt-6">
-            <Card className="bg-white/5 border-white/10">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-yellow-400">
-                  <Trophy className="h-5 w-5" />
-                  Recent Winners
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ScrollArea className="h-[400px] pr-4">
-                  <div className="space-y-3">
-                    {displayWinners.map((winner: Winner) => (
-                      <WinnerCard key={winner.id} winner={winner} />
-                    ))}
-                    
-                    {displayWinners.length === 0 && (
-                      <div className="text-center py-12 text-gray-400">
-                        <Award className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                        <p>No winners yet</p>
-                        <p className="text-sm">Be the first to win!</p>
-                      </div>
-                    )}
-                  </div>
-                </ScrollArea>
-              </CardContent>
-            </Card>
           </TabsContent>
         </Tabs>
 
