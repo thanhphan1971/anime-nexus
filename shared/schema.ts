@@ -21,6 +21,10 @@ export const users = pgTable("users", {
   isAdmin: boolean("is_admin").notNull().default(false),
   animeInterests: text("anime_interests").array().default(sql`ARRAY[]::text[]`),
   theme: text("theme").default('cyberpunk'),
+  birthDate: timestamp("birth_date"),
+  isMinor: boolean("is_minor").notNull().default(false),
+  parentEmail: text("parent_email"),
+  parentalConsentGiven: boolean("parental_consent_given").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -261,6 +265,39 @@ export const drawWinners = pgTable("draw_winners", {
   awardedAt: timestamp("awarded_at").notNull().defaultNow(),
 });
 
+// Token Packages - what users can purchase
+export const tokenPackages = pgTable("token_packages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  tokenAmount: integer("token_amount").notNull(),
+  priceUsd: integer("price_usd").notNull(), // in cents (e.g., 499 = $4.99)
+  bonusTokens: integer("bonus_tokens").notNull().default(0),
+  stripePriceId: text("stripe_price_id"), // Stripe price ID for checkout
+  isPopular: boolean("is_popular").notNull().default(false),
+  isActive: boolean("is_active").notNull().default(true),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Token Purchases - transaction history
+export const tokenPurchases = pgTable("token_purchases", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  packageId: varchar("package_id").references(() => tokenPackages.id, { onDelete: 'set null' }),
+  tokenAmount: integer("token_amount").notNull(),
+  amountPaid: integer("amount_paid").notNull(), // in cents
+  currency: text("currency").notNull().default('usd'),
+  stripePaymentId: text("stripe_payment_id"),
+  stripeSessionId: text("stripe_session_id"),
+  status: text("status").notNull().default('pending'), // pending, completed, failed, refunded
+  isMinorPurchase: boolean("is_minor_purchase").notNull().default(false),
+  parentNotified: boolean("parent_notified").notNull().default(false),
+  parentNotifiedAt: timestamp("parent_notified_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  completedAt: timestamp("completed_at"),
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -389,6 +426,19 @@ export const insertDrawWinnerSchema = createInsertSchema(drawWinners).omit({
   claimStatus: true,
 });
 
+export const insertTokenPackageSchema = createInsertSchema(tokenPackages).omit({
+  id: true,
+  createdAt: true,
+  isActive: true,
+});
+
+export const insertTokenPurchaseSchema = createInsertSchema(tokenPurchases).omit({
+  id: true,
+  createdAt: true,
+  status: true,
+  parentNotified: true,
+});
+
 // Export types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -449,3 +499,9 @@ export type DrawEntry = typeof drawEntries.$inferSelect;
 
 export type InsertDrawWinner = z.infer<typeof insertDrawWinnerSchema>;
 export type DrawWinner = typeof drawWinners.$inferSelect;
+
+export type InsertTokenPackage = z.infer<typeof insertTokenPackageSchema>;
+export type TokenPackage = typeof tokenPackages.$inferSelect;
+
+export type InsertTokenPurchase = z.infer<typeof insertTokenPurchaseSchema>;
+export type TokenPurchase = typeof tokenPurchases.$inferSelect;

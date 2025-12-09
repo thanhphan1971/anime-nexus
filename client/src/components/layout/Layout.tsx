@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Home, Users, User, LogOut, PlusSquare, Search, Zap, MessageSquare, PlayCircle, Gift, Crown, ShoppingBag, Settings, Layers, HelpCircle } from "lucide-react";
+import { Home, Users, User, LogOut, PlusSquare, Search, Zap, MessageSquare, PlayCircle, Gift, Crown, ShoppingBag, Settings, Layers, HelpCircle, Coins } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { icon: Users, label: "Find Nakama", path: "/friends" },
     { icon: MessageSquare, label: "Communities", path: "/communities" },
     { icon: Layers, label: "Cards", path: "/cards" },
+    { icon: Coins, label: "Token Shop", path: "/tokens" },
     { icon: PlayCircle, label: "Watch List", path: "/watchlist" },
     { icon: PlusSquare, label: "Create", path: "/create" },
     { icon: User, label: "Profile", path: `/profile/${user.id}` },
