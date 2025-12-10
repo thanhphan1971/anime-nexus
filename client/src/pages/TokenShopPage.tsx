@@ -471,15 +471,18 @@ export default function TokenShopPage() {
                     <div className="grid grid-cols-2 gap-4">
                       <div className="bg-black/30 rounded-lg p-4">
                         <Clock className="h-8 w-8 mx-auto mb-2 text-orange-400" />
-                        <p className="text-2xl font-bold text-white">$5.00</p>
+                        <p className="text-2xl font-bold text-white">$10.00</p>
                         <p className="text-xs text-muted-foreground">Daily Limit</p>
                       </div>
                       <div className="bg-black/30 rounded-lg p-4">
                         <Coins className="h-8 w-8 mx-auto mb-2 text-orange-400" />
-                        <p className="text-2xl font-bold text-white">$25.00</p>
+                        <p className="text-2xl font-bold text-white">$50.00</p>
                         <p className="text-xs text-muted-foreground">Monthly Limit</p>
                       </div>
                     </div>
+                    <p className="text-sm text-muted-foreground mt-4">
+                      To purchase above these limits, a parent or guardian must approve the transaction.
+                    </p>
                   </div>
 
                   <section>
@@ -531,11 +534,11 @@ export default function TokenShopPage() {
                       5. Maximum Spending Limits
                     </h3>
                     <ul className="space-y-2 text-muted-foreground">
-                      <li>To protect younger users, token spending may be automatically limited by:</li>
-                      <li className="ml-4">• <strong className="text-white">Daily limit: $5.00 USD</strong></li>
-                      <li className="ml-4">• <strong className="text-white">Monthly limit: $25.00 USD</strong></li>
-                      <li className="ml-4">• Age group restrictions</li>
-                      <li>These limits may be adjusted over time for safety.</li>
+                      <li>To protect younger users, token spending is limited to:</li>
+                      <li className="ml-4">• <strong className="text-white">Daily limit: $10.00 USD</strong></li>
+                      <li className="ml-4">• <strong className="text-white">Monthly limit: $50.00 USD</strong></li>
+                      <li className="mt-2">If you want to purchase above these limits, your parent or guardian must approve the transaction from their Parent Dashboard.</li>
+                      <li>Parents can also adjust these limits from their dashboard.</li>
                     </ul>
                   </section>
 
