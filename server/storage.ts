@@ -27,6 +27,8 @@ import {
   type InsertParentChildLink,
   type ParentalControls,
   type InsertParentalControls,
+  type PurchaseAuthRequest,
+  type InsertPurchaseAuthRequest,
   users,
   posts,
   cards,
@@ -41,6 +43,7 @@ import {
   drawWinners,
   parentChildLinks,
   parentalControls,
+  purchaseAuthRequests,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql, desc, ne } from "drizzle-orm";
@@ -131,6 +134,13 @@ export interface IStorage {
   createParentalControls(controls: InsertParentalControls): Promise<ParentalControls>;
   updateParentalControls(parentId: string, childId: string, updates: Partial<ParentalControls>): Promise<ParentalControls | undefined>;
   getControlsForChild(childId: string): Promise<ParentalControls | undefined>;
+  
+  // Purchase authorization request operations
+  createPurchaseAuthRequest(request: InsertPurchaseAuthRequest): Promise<PurchaseAuthRequest>;
+  getPendingAuthRequests(parentId: string): Promise<Array<PurchaseAuthRequest & { child: User }>>;
+  getAuthRequestById(id: string): Promise<PurchaseAuthRequest | undefined>;
+  respondToAuthRequest(id: string, status: 'approved' | 'denied', parentNote?: string): Promise<PurchaseAuthRequest | undefined>;
+  getChildPendingRequests(childId: string): Promise<PurchaseAuthRequest[]>;
 }
 
 export class DbStorage implements IStorage {
@@ -755,6 +765,62 @@ export class DbStorage implements IStorage {
       .where(eq(parentalControls.childId, childId))
       .limit(1);
     return result[0];
+  }
+
+  // Purchase authorization request operations
+  async createPurchaseAuthRequest(request: InsertPurchaseAuthRequest): Promise<PurchaseAuthRequest> {
+    const result = await db.insert(purchaseAuthRequests).values(request).returning();
+    return result[0];
+  }
+
+  async getPendingAuthRequests(parentId: string): Promise<Array<PurchaseAuthRequest & { child: User }>> {
+    const result = await db
+      .select()
+      .from(purchaseAuthRequests)
+      .innerJoin(users, eq(purchaseAuthRequests.childId, users.id))
+      .where(and(
+        eq(purchaseAuthRequests.parentId, parentId),
+        eq(purchaseAuthRequests.status, 'pending')
+      ))
+      .orderBy(desc(purchaseAuthRequests.createdAt));
+    
+    return result.map((r: any) => ({
+      ...r.purchase_auth_requests,
+      child: r.users,
+    }));
+  }
+
+  async getAuthRequestById(id: string): Promise<PurchaseAuthRequest | undefined> {
+    const result = await db
+      .select()
+      .from(purchaseAuthRequests)
+      .where(eq(purchaseAuthRequests.id, id))
+      .limit(1);
+    return result[0];
+  }
+
+  async respondToAuthRequest(id: string, status: 'approved' | 'denied', parentNote?: string): Promise<PurchaseAuthRequest | undefined> {
+    const result = await db
+      .update(purchaseAuthRequests)
+      .set({ 
+        status, 
+        parentNote: parentNote || null,
+        respondedAt: new Date() 
+      })
+      .where(eq(purchaseAuthRequests.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async getChildPendingRequests(childId: string): Promise<PurchaseAuthRequest[]> {
+    return await db
+      .select()
+      .from(purchaseAuthRequests)
+      .where(and(
+        eq(purchaseAuthRequests.childId, childId),
+        eq(purchaseAuthRequests.status, 'pending')
+      ))
+      .orderBy(desc(purchaseAuthRequests.createdAt));
   }
 }
 
