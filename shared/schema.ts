@@ -298,6 +298,36 @@ export const tokenPurchases = pgTable("token_purchases", {
   completedAt: timestamp("completed_at"),
 });
 
+// Parent-Child Account Links
+export const parentChildLinks = pgTable("parent_child_links", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  parentId: varchar("parent_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  childId: varchar("child_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  status: text("status").notNull().default('pending'), // pending, active, revoked
+  verificationCode: text("verification_code"),
+  verifiedAt: timestamp("verified_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Parental Controls - settings for linked child accounts
+export const parentalControls = pgTable("parental_controls", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  parentId: varchar("parent_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  childId: varchar("child_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  purchasesEnabled: boolean("purchases_enabled").notNull().default(false),
+  dailySpendLimit: integer("daily_spend_limit").notNull().default(500), // in cents ($5.00)
+  monthlySpendLimit: integer("monthly_spend_limit").notNull().default(2500), // in cents ($25.00)
+  drawsEnabled: boolean("draws_enabled").notNull().default(true),
+  paidDrawsEnabled: boolean("paid_draws_enabled").notNull().default(false),
+  gachaEnabled: boolean("gacha_enabled").notNull().default(true),
+  marketplaceEnabled: boolean("marketplace_enabled").notNull().default(true),
+  chatEnabled: boolean("chat_enabled").notNull().default(true),
+  friendRequestsEnabled: boolean("friend_requests_enabled").notNull().default(true),
+  notifyOnPurchase: boolean("notify_on_purchase").notNull().default(true),
+  notifyOnDraw: boolean("notify_on_draw").notNull().default(true),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -439,6 +469,18 @@ export const insertTokenPurchaseSchema = createInsertSchema(tokenPurchases).omit
   parentNotified: true,
 });
 
+export const insertParentChildLinkSchema = createInsertSchema(parentChildLinks).omit({
+  id: true,
+  createdAt: true,
+  status: true,
+  verifiedAt: true,
+});
+
+export const insertParentalControlsSchema = createInsertSchema(parentalControls).omit({
+  id: true,
+  updatedAt: true,
+});
+
 // Export types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -505,3 +547,9 @@ export type TokenPackage = typeof tokenPackages.$inferSelect;
 
 export type InsertTokenPurchase = z.infer<typeof insertTokenPurchaseSchema>;
 export type TokenPurchase = typeof tokenPurchases.$inferSelect;
+
+export type InsertParentChildLink = z.infer<typeof insertParentChildLinkSchema>;
+export type ParentChildLink = typeof parentChildLinks.$inferSelect;
+
+export type InsertParentalControls = z.infer<typeof insertParentalControlsSchema>;
+export type ParentalControls = typeof parentalControls.$inferSelect;
