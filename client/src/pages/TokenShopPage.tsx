@@ -343,16 +343,82 @@ export default function TokenShopPage() {
                       1. Age Eligibility
                     </h3>
                     <ul className="space-y-2 text-muted-foreground">
-                      <li>• Token purchases are only available to users <strong className="text-white">18 years old or older</strong>.</li>
-                      <li>• If you are under 18, you must not purchase tokens directly.</li>
+                      <li>• <strong className="text-white">Adults (18+):</strong> Can purchase tokens directly using their own payment method.</li>
+                      <li>• <strong className="text-white">Minors (under 18):</strong> Cannot purchase tokens directly. All purchases must be made by a linked parent or guardian.</li>
                       <li>• By purchasing tokens, you confirm that you are legally allowed to make online purchases in your country and region.</li>
                     </ul>
+                  </section>
+
+                  {/* NEW: How Minors Can Get Tokens */}
+                  <section className="bg-orange-500/10 border border-orange-500/30 rounded-xl p-4">
+                    <h3 className="font-bold text-lg mb-3 flex items-center gap-2">
+                      <Baby className="h-5 w-5 text-orange-400" />
+                      2. How Minors Can Get Tokens (Parent-Managed Purchases)
+                    </h3>
+                    <p className="text-muted-foreground mb-4">
+                      Minors can receive tokens through their parent or guardian's account. Here's how it works:
+                    </p>
+                    
+                    <div className="space-y-4">
+                      <div className="bg-black/20 rounded-lg p-3">
+                        <h4 className="font-bold text-orange-300 mb-2">Step 1: Link Parent Account</h4>
+                        <ul className="space-y-1 text-muted-foreground text-sm">
+                          <li>• When a minor registers, they provide their parent's email address</li>
+                          <li>• A verification code is generated for the minor to share with their parent</li>
+                          <li>• The parent creates their own AniRealm account (as an adult, 18+)</li>
+                          <li>• The parent goes to their <strong className="text-white">Parent Dashboard</strong> and enters the verification code</li>
+                          <li>• Once verified, the accounts are linked and the parent has full control</li>
+                        </ul>
+                      </div>
+
+                      <div className="bg-black/20 rounded-lg p-3">
+                        <h4 className="font-bold text-orange-300 mb-2">Step 2: Payment Methods (Parent Account Only)</h4>
+                        <ul className="space-y-1 text-muted-foreground text-sm">
+                          <li>• <strong className="text-white">All payment methods are stored on the parent's account only</strong></li>
+                          <li>• Minors cannot save credit cards, debit cards, or PayPal on their account</li>
+                          <li>• The parent's credit card or PayPal is used for all purchases</li>
+                          <li>• This ensures parents have complete visibility and control over all spending</li>
+                        </ul>
+                      </div>
+
+                      <div className="bg-black/20 rounded-lg p-3">
+                        <h4 className="font-bold text-orange-300 mb-2">Step 3: Minor Requests a Purchase</h4>
+                        <ul className="space-y-1 text-muted-foreground text-sm">
+                          <li>• The minor browses the Token Shop and selects a package they want</li>
+                          <li>• If the purchase is within daily/monthly limits ($10/day, $50/month), it proceeds normally</li>
+                          <li>• If the purchase exceeds limits, a <strong className="text-white">"Request Parent Approval"</strong> dialog appears</li>
+                          <li>• The minor can add an optional message explaining why they want the purchase</li>
+                          <li>• The request is sent to the parent's dashboard</li>
+                        </ul>
+                      </div>
+
+                      <div className="bg-black/20 rounded-lg p-3">
+                        <h4 className="font-bold text-orange-300 mb-2">Step 4: Parent Approves or Denies</h4>
+                        <ul className="space-y-1 text-muted-foreground text-sm">
+                          <li>• The parent sees the pending request in their <strong className="text-white">Parent Dashboard</strong></li>
+                          <li>• The request shows: token amount, price, and the child's message</li>
+                          <li>• The parent can <strong className="text-green-400">Approve</strong> or <strong className="text-red-400">Deny</strong> the purchase</li>
+                          <li>• If approved, the parent's payment method is charged and tokens are added to the child's account</li>
+                          <li>• Requests expire after 7 days if not responded to</li>
+                        </ul>
+                      </div>
+
+                      <div className="bg-black/20 rounded-lg p-3">
+                        <h4 className="font-bold text-orange-300 mb-2">Parent Controls</h4>
+                        <ul className="space-y-1 text-muted-foreground text-sm">
+                          <li>• Parents can adjust daily and monthly spending limits from their dashboard</li>
+                          <li>• Parents can enable or disable purchases entirely</li>
+                          <li>• Parents receive notifications for all purchase activity</li>
+                          <li>• Parents can view complete purchase history for their child</li>
+                        </ul>
+                      </div>
+                    </div>
                   </section>
 
                   <section>
                     <h3 className="font-bold text-lg mb-2 flex items-center gap-2">
                       <CreditCard className="h-5 w-5 text-cyan-400" />
-                      2. Payment Methods
+                      3. Payment Methods
                     </h3>
                     <ul className="space-y-2 text-muted-foreground">
                       <li>• Tokens can be purchased only through secure payment methods, including:</li>
@@ -361,24 +427,30 @@ export default function TokenShopPage() {
                       <li className="ml-4">- PayPal</li>
                       <li className="ml-4">- Other approved services added in the future</li>
                       <li>• <strong className="text-white">No cash payments, gift cards, or cryptocurrency are accepted.</strong></li>
+                      <li>• <strong className="text-orange-300">For minors:</strong> Payment methods are stored only on the linked parent's account.</li>
                     </ul>
                   </section>
 
                   <section>
                     <h3 className="font-bold text-lg mb-2 flex items-center gap-2">
                       <Baby className="h-5 w-5 text-orange-400" />
-                      3. Parental/Guardian Responsibility
+                      4. Parental/Guardian Responsibility
                     </h3>
                     <ul className="space-y-2 text-muted-foreground">
                       <li>• Users under 18 must have the approval of a parent or legal guardian to use the app.</li>
-                      <li>• Parents/guardians are responsible for supervising the account and any activity.</li>
+                      <li>• Parents/guardians are responsible for:</li>
+                      <li className="ml-4">- Linking their account to their child's account</li>
+                      <li className="ml-4">- Setting appropriate spending limits</li>
+                      <li className="ml-4">- Reviewing and approving purchase requests</li>
+                      <li className="ml-4">- Monitoring their child's account activity</li>
+                      <li className="ml-4">- Securing their own payment methods</li>
                     </ul>
                   </section>
 
                   <section>
                     <h3 className="font-bold text-lg mb-2 flex items-center gap-2">
                       <XCircle className="h-5 w-5 text-red-400" />
-                      4. Refunds
+                      5. Refunds
                     </h3>
                     <ul className="space-y-2 text-muted-foreground">
                       <li>• <strong className="text-white">Token purchases are non-refundable.</strong></li>
@@ -392,7 +464,7 @@ export default function TokenShopPage() {
                   <section>
                     <h3 className="font-bold text-lg mb-2 flex items-center gap-2">
                       <Lock className="h-5 w-5 text-purple-400" />
-                      5. Limits & Controls
+                      6. Limits & Controls
                     </h3>
                     <ul className="space-y-2 text-muted-foreground">
                       <li>• We reserve the right to:</li>
@@ -406,7 +478,7 @@ export default function TokenShopPage() {
                   <section>
                     <h3 className="font-bold text-lg mb-2 flex items-center gap-2">
                       <Coins className="h-5 w-5 text-yellow-400" />
-                      6. Tokens Have No Real-World Value
+                      7. Tokens Have No Real-World Value
                     </h3>
                     <ul className="space-y-2 text-muted-foreground">
                       <li>• Tokens are <strong className="text-white">virtual items only</strong></li>
@@ -421,7 +493,7 @@ export default function TokenShopPage() {
                   <section>
                     <h3 className="font-bold text-lg mb-2 flex items-center gap-2">
                       <AlertTriangle className="h-5 w-5 text-red-400" />
-                      7. Disputes and Chargebacks
+                      8. Disputes and Chargebacks
                     </h3>
                     <ul className="space-y-2 text-muted-foreground">
                       <li>• Chargebacks will result in:</li>
@@ -434,7 +506,7 @@ export default function TokenShopPage() {
                   <section>
                     <h3 className="font-bold text-lg mb-2 flex items-center gap-2">
                       <Globe className="h-5 w-5 text-blue-400" />
-                      8. Game Balance & Updates
+                      9. Game Balance & Updates
                     </h3>
                     <ul className="space-y-2 text-muted-foreground">
                       <li>• We reserve the right to:</li>
