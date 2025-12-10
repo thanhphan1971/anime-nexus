@@ -18,6 +18,7 @@ import { toast } from "sonner";
 
 // Token packages configuration
 const TOKEN_PACKAGES = [
+  { id: "mini", name: "Mini Pack", tokens: 300, bonus: 0, price: 2.99, popular: false },
   { id: "starter", name: "Starter Pack", tokens: 500, bonus: 0, price: 4.99, popular: false },
   { id: "popular", name: "Popular Pack", tokens: 1200, bonus: 100, price: 9.99, popular: true },
   { id: "value", name: "Value Pack", tokens: 2500, bonus: 300, price: 19.99, popular: false },
