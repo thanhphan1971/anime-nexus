@@ -33,6 +33,17 @@ interface PendingRequest {
   createdAt: string;
 }
 
+interface ParentInfo {
+  hasParent: boolean;
+  parentName?: string;
+  controls?: {
+    purchasesEnabled: boolean;
+    dailySpendLimit: number;  // in cents
+    monthlySpendLimit: number;  // in cents
+  };
+  linkStatus?: string;
+}
+
 export default function TokenShopPage() {
   const { user } = useAuth();
   const [selectedPackage, setSelectedPackage] = useState<typeof TOKEN_PACKAGES[0] | null>(null);
@@ -41,8 +52,20 @@ export default function TokenShopPage() {
   const [agreesToTerms, setAgreesToTerms] = useState(false);
   const [confirmsAge, setConfirmsAge] = useState(false);
   const [requestMessage, setRequestMessage] = useState("");
+  const [limitExceeded, setLimitExceeded] = useState<'daily' | 'monthly' | null>(null);
 
   const isMinor = (user as any)?.isMinor || false;
+
+  // Fetch parent info and controls for minor
+  const { data: parentInfo } = useQuery<ParentInfo>({
+    queryKey: ["/api/parent/my-parent"],
+    queryFn: async () => {
+      const res = await fetch("/api/parent/my-parent");
+      if (!res.ok) return { hasParent: false };
+      return res.json();
+    },
+    enabled: isMinor,
+  });
 
   // Fetch pending authorization requests for minor
   const { data: pendingRequests = [] } = useQuery<PendingRequest[]>({
@@ -54,6 +77,10 @@ export default function TokenShopPage() {
     },
     enabled: isMinor,
   });
+
+  // Get spending limits (default: $10/day, $50/month)
+  const dailyLimit = parentInfo?.controls?.dailySpendLimit || 1000; // 1000 cents = $10
+  const monthlyLimit = parentInfo?.controls?.monthlySpendLimit || 5000; // 5000 cents = $50
 
   // Request parent approval mutation
   const requestApprovalMutation = useMutation({
@@ -73,6 +100,7 @@ export default function TokenShopPage() {
       toast.success("Request sent to your parent for approval!");
       setShowRequestDialog(false);
       setRequestMessage("");
+      setLimitExceeded(null);
     },
     onError: (error: Error) => {
       toast.error(error.message);
@@ -81,17 +109,28 @@ export default function TokenShopPage() {
 
   const handlePurchase = (pkg: typeof TOKEN_PACKAGES[0]) => {
     setSelectedPackage(pkg);
-    
-    // Check if this purchase would exceed minor's monthly limit ($50)
     const priceInCents = Math.round(pkg.price * 100);
-    if (isMinor && priceInCents > 5000) {
-      // Over $50, need parent approval
-      setShowRequestDialog(true);
-    } else {
-      setShowPurchaseDialog(true);
-      setAgreesToTerms(false);
-      setConfirmsAge(false);
+    
+    // Check if minor with linked parent
+    if (isMinor && parentInfo?.hasParent) {
+      // Check daily limit first (stricter)
+      if (priceInCents > dailyLimit) {
+        setLimitExceeded('daily');
+        setShowRequestDialog(true);
+        return;
+      }
+      // Check monthly limit
+      if (priceInCents > monthlyLimit) {
+        setLimitExceeded('monthly');
+        setShowRequestDialog(true);
+        return;
+      }
     }
+    
+    // Within limits or not a linked minor - proceed to normal purchase
+    setShowPurchaseDialog(true);
+    setAgreesToTerms(false);
+    setConfirmsAge(false);
   };
 
   const handleConfirmPurchase = () => {
@@ -141,9 +180,10 @@ export default function TokenShopPage() {
           <div className="flex items-start gap-3">
             <AlertTriangle className="h-5 w-5 text-orange-400 mt-0.5" />
             <div>
-              <p className="font-bold text-orange-300">Minor Account Detected</p>
+              <p className="font-bold text-orange-300">Minor Account - Spending Limits Active</p>
               <p className="text-sm text-muted-foreground">
-                Your default spending limit is $50/month. For purchases over this limit, you can request parent approval. 
+                Your spending limits: <strong>${(dailyLimit / 100).toFixed(0)}/day</strong> and <strong>${(monthlyLimit / 100).toFixed(0)}/month</strong>. 
+                For purchases exceeding these limits, you can request parent approval. 
                 Your parent will receive a notification and can approve or deny the purchase.
               </p>
             </div>
@@ -715,7 +755,7 @@ export default function TokenShopPage() {
       </Dialog>
 
       {/* Request Parent Approval Dialog */}
-      <Dialog open={showRequestDialog} onOpenChange={setShowRequestDialog}>
+      <Dialog open={showRequestDialog} onOpenChange={(open) => { setShowRequestDialog(open); if (!open) setLimitExceeded(null); }}>
         <DialogContent className="bg-card">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -723,12 +763,25 @@ export default function TokenShopPage() {
               Request Parent Approval
             </DialogTitle>
             <DialogDescription>
-              This purchase exceeds your spending limit. Send a request to your parent for approval.
+              {limitExceeded === 'daily' 
+                ? `This purchase exceeds your daily limit of $${(dailyLimit / 100).toFixed(0)}. Send a request to your parent for approval.`
+                : `This purchase exceeds your monthly limit of $${(monthlyLimit / 100).toFixed(0)}. Send a request to your parent for approval.`
+              }
             </DialogDescription>
           </DialogHeader>
 
           {selectedPackage && (
             <div className="space-y-4">
+              <div className="bg-orange-500/20 border border-orange-500/30 rounded-lg p-3 text-sm">
+                <p className="text-orange-300 font-medium">
+                  <AlertTriangle className="h-4 w-4 inline mr-1" />
+                  {limitExceeded === 'daily' 
+                    ? `Exceeds daily limit: $${selectedPackage.price} > $${(dailyLimit / 100).toFixed(0)}/day`
+                    : `Exceeds monthly limit: $${selectedPackage.price} > $${(monthlyLimit / 100).toFixed(0)}/month`
+                  }
+                </p>
+              </div>
+
               <div className="bg-white/5 rounded-lg p-4 text-center">
                 <div className="flex items-center justify-center gap-2 mb-2">
                   <Coins className="h-6 w-6 text-yellow-400" />
