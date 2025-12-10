@@ -112,23 +112,22 @@ export default function TokenShopPage() {
     setSelectedPackage(pkg);
     const priceInCents = Math.round(pkg.price * 100);
     
-    // Check if minor with linked parent
+    // Check if minor with linked parent - ALL purchases require parent authorization
     if (isMinor && parentInfo?.hasParent) {
-      // Check daily limit first (stricter)
+      // Check if exceeds limits for informational purposes
       if (priceInCents > dailyLimit) {
         setLimitExceeded('daily');
-        setShowRequestDialog(true);
-        return;
-      }
-      // Check monthly limit
-      if (priceInCents > monthlyLimit) {
+      } else if (priceInCents > monthlyLimit) {
         setLimitExceeded('monthly');
-        setShowRequestDialog(true);
-        return;
+      } else {
+        setLimitExceeded(null);
       }
+      // ALL minor purchases require parent approval
+      setShowRequestDialog(true);
+      return;
     }
     
-    // Within limits or not a linked minor - proceed to normal purchase
+    // Not a linked minor - proceed to normal purchase
     setShowPurchaseDialog(true);
     setAgreesToTerms(false);
     setConfirmsAge(false);
@@ -181,11 +180,11 @@ export default function TokenShopPage() {
           <div className="flex items-start gap-3">
             <AlertTriangle className="h-5 w-5 text-orange-400 mt-0.5" />
             <div>
-              <p className="font-bold text-orange-300">Minor Account - Spending Limits Active</p>
+              <p className="font-bold text-orange-300">Minor Account - Parent Authorization Required</p>
               <p className="text-sm text-muted-foreground">
-                Your spending limits: <strong>${(dailyLimit / 100).toFixed(0)}/day</strong> and <strong>${(monthlyLimit / 100).toFixed(0)}/month</strong>. 
-                For purchases exceeding these limits, you can request parent approval. 
-                Your parent will receive a notification and can approve or deny the purchase.
+                <strong>All purchases require parent or guardian approval.</strong> When you select a package, 
+                a request will be sent to your parent's dashboard. Your parent will review and approve or deny the purchase.
+                Spending limits: ${(dailyLimit / 100).toFixed(0)}/day, ${(monthlyLimit / 100).toFixed(0)}/month.
               </p>
             </div>
           </div>
@@ -385,10 +384,10 @@ export default function TokenShopPage() {
                         <h4 className="font-bold text-orange-300 mb-2">Step 3: Minor Requests a Purchase</h4>
                         <ul className="space-y-1 text-muted-foreground text-sm">
                           <li>• The minor browses the Token Shop and selects a package they want</li>
-                          <li>• If the purchase is within daily/monthly limits ($10/day, $50/month), it proceeds normally</li>
-                          <li>• If the purchase exceeds limits, a <strong className="text-white">"Request Parent Approval"</strong> dialog appears</li>
+                          <li>• <strong className="text-white">ALL purchases require parent approval</strong> - a "Request Parent Approval" dialog appears</li>
                           <li>• The minor can add an optional message explaining why they want the purchase</li>
-                          <li>• The request is sent to the parent's dashboard</li>
+                          <li>• The request is sent to the parent's dashboard for review</li>
+                          <li>• Spending limits ($10/day, $50/month) help parents track spending patterns</li>
                         </ul>
                       </div>
 
@@ -537,9 +536,12 @@ export default function TokenShopPage() {
             <CardContent>
               <ScrollArea className="h-[500px] pr-4">
                 <div className="space-y-6 text-sm">
-                  {/* Spending Limits Banner */}
+                  {/* Parent Authorization Banner */}
                   <div className="bg-orange-500/20 border border-orange-500/30 rounded-xl p-6 text-center">
-                    <h3 className="text-xl font-bold text-orange-300 mb-4">Spending Limits for Minors</h3>
+                    <h3 className="text-xl font-bold text-orange-300 mb-4">Parent Authorization Required</h3>
+                    <p className="text-white font-medium mb-4">
+                      ALL purchases by minors require parent or guardian approval
+                    </p>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="bg-black/30 rounded-lg p-4">
                         <Clock className="h-8 w-8 mx-auto mb-2 text-orange-400" />
@@ -553,7 +555,7 @@ export default function TokenShopPage() {
                       </div>
                     </div>
                     <p className="text-sm text-muted-foreground mt-4">
-                      To purchase above these limits, a parent or guardian must approve the transaction.
+                      Spending limits help parents track and manage their child's spending patterns.
                     </p>
                   </div>
 
@@ -603,14 +605,14 @@ export default function TokenShopPage() {
                   <section>
                     <h3 className="font-bold text-lg mb-2 flex items-center gap-2">
                       <Shield className="h-5 w-5 text-blue-400" />
-                      5. Maximum Spending Limits
+                      5. All Purchases Require Authorization
                     </h3>
                     <ul className="space-y-2 text-muted-foreground">
-                      <li>To protect younger users, token spending is limited to:</li>
-                      <li className="ml-4">• <strong className="text-white">Daily limit: $10.00 USD</strong></li>
-                      <li className="ml-4">• <strong className="text-white">Monthly limit: $50.00 USD</strong></li>
-                      <li className="mt-2">If you want to purchase above these limits, your parent or guardian must approve the transaction from their Parent Dashboard.</li>
-                      <li>Parents can also adjust these limits from their dashboard.</li>
+                      <li><strong className="text-white">Every purchase by a minor requires parent approval.</strong></li>
+                      <li className="mt-2">Additionally, spending is tracked with limits:</li>
+                      <li className="ml-4">• <strong className="text-white">Daily tracking: $10.00 USD</strong></li>
+                      <li className="ml-4">• <strong className="text-white">Monthly tracking: $50.00 USD</strong></li>
+                      <li className="mt-2">Parents can view spending history and adjust these limits from their Parent Dashboard.</li>
                     </ul>
                   </section>
 
@@ -841,20 +843,33 @@ export default function TokenShopPage() {
             <DialogDescription>
               {limitExceeded === 'daily' 
                 ? `This purchase exceeds your daily limit of $${(dailyLimit / 100).toFixed(0)}. Send a request to your parent for approval.`
-                : `This purchase exceeds your monthly limit of $${(monthlyLimit / 100).toFixed(0)}. Send a request to your parent for approval.`
+                : limitExceeded === 'monthly'
+                  ? `This purchase exceeds your monthly limit of $${(monthlyLimit / 100).toFixed(0)}. Send a request to your parent for approval.`
+                  : `All purchases require parent or guardian approval. Send a request to your parent for authorization.`
               }
             </DialogDescription>
           </DialogHeader>
 
           {selectedPackage && (
             <div className="space-y-4">
-              <div className="bg-orange-500/20 border border-orange-500/30 rounded-lg p-3 text-sm">
-                <p className="text-orange-300 font-medium">
-                  <AlertTriangle className="h-4 w-4 inline mr-1" />
-                  {limitExceeded === 'daily' 
-                    ? `Exceeds daily limit: $${selectedPackage.price} > $${(dailyLimit / 100).toFixed(0)}/day`
-                    : `Exceeds monthly limit: $${selectedPackage.price} > $${(monthlyLimit / 100).toFixed(0)}/month`
-                  }
+              <div className={`${limitExceeded ? 'bg-orange-500/20 border-orange-500/30' : 'bg-blue-500/20 border-blue-500/30'} border rounded-lg p-3 text-sm`}>
+                <p className={`${limitExceeded ? 'text-orange-300' : 'text-blue-300'} font-medium`}>
+                  {limitExceeded === 'daily' ? (
+                    <>
+                      <AlertTriangle className="h-4 w-4 inline mr-1" />
+                      Exceeds daily limit: ${selectedPackage.price} &gt; ${(dailyLimit / 100).toFixed(0)}/day
+                    </>
+                  ) : limitExceeded === 'monthly' ? (
+                    <>
+                      <AlertTriangle className="h-4 w-4 inline mr-1" />
+                      Exceeds monthly limit: ${selectedPackage.price} &gt; ${(monthlyLimit / 100).toFixed(0)}/month
+                    </>
+                  ) : (
+                    <>
+                      <Shield className="h-4 w-4 inline mr-1" />
+                      Parent authorization required for all minor purchases
+                    </>
+                  )}
                 </p>
               </div>
 
