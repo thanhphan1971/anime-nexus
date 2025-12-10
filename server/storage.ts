@@ -23,6 +23,10 @@ import {
   type InsertDrawEntry,
   type DrawWinner,
   type InsertDrawWinner,
+  type ParentChildLink,
+  type InsertParentChildLink,
+  type ParentalControls,
+  type InsertParentalControls,
   users,
   posts,
   cards,
@@ -35,6 +39,8 @@ import {
   draws,
   drawEntries,
   drawWinners,
+  parentChildLinks,
+  parentalControls,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql, desc, ne } from "drizzle-orm";
@@ -110,6 +116,21 @@ export interface IStorage {
   createDrawWinner(winner: InsertDrawWinner): Promise<DrawWinner>;
   claimPrize(winnerId: string, userId: string): Promise<DrawWinner | undefined>;
   selectRandomWinner(drawId: string, prizeId: string): Promise<DrawWinner | undefined>;
+  
+  // Parent-child link operations
+  createParentChildLink(link: InsertParentChildLink): Promise<ParentChildLink>;
+  getParentChildLink(parentId: string, childId: string): Promise<ParentChildLink | undefined>;
+  getLinkByVerificationCode(code: string): Promise<ParentChildLink | undefined>;
+  getLinkedChildren(parentId: string): Promise<Array<ParentChildLink & { child: User }>>;
+  getParentLink(childId: string): Promise<ParentChildLink | undefined>;
+  verifyParentChildLink(linkId: string): Promise<ParentChildLink | undefined>;
+  revokeParentChildLink(linkId: string): Promise<void>;
+  
+  // Parental controls operations
+  getParentalControls(parentId: string, childId: string): Promise<ParentalControls | undefined>;
+  createParentalControls(controls: InsertParentalControls): Promise<ParentalControls>;
+  updateParentalControls(parentId: string, childId: string, updates: Partial<ParentalControls>): Promise<ParentalControls | undefined>;
+  getControlsForChild(childId: string): Promise<ParentalControls | undefined>;
 }
 
 export class DbStorage implements IStorage {
@@ -621,6 +642,119 @@ export class DbStorage implements IStorage {
     }).returning();
 
     return winner[0];
+  }
+
+  // Parent-child link operations
+  async createParentChildLink(link: InsertParentChildLink): Promise<ParentChildLink> {
+    const result = await db.insert(parentChildLinks).values(link).returning();
+    return result[0];
+  }
+
+  async getParentChildLink(parentId: string, childId: string): Promise<ParentChildLink | undefined> {
+    const result = await db
+      .select()
+      .from(parentChildLinks)
+      .where(and(
+        eq(parentChildLinks.parentId, parentId),
+        eq(parentChildLinks.childId, childId)
+      ))
+      .limit(1);
+    return result[0];
+  }
+
+  async getLinkByVerificationCode(code: string): Promise<ParentChildLink | undefined> {
+    const result = await db
+      .select()
+      .from(parentChildLinks)
+      .where(eq(parentChildLinks.verificationCode, code))
+      .limit(1);
+    return result[0];
+  }
+
+  async getLinkedChildren(parentId: string): Promise<Array<ParentChildLink & { child: User }>> {
+    const result = await db
+      .select()
+      .from(parentChildLinks)
+      .innerJoin(users, eq(parentChildLinks.childId, users.id))
+      .where(and(
+        eq(parentChildLinks.parentId, parentId),
+        eq(parentChildLinks.status, 'active')
+      ));
+    
+    return result.map((r: any) => ({
+      ...r.parent_child_links,
+      child: r.users,
+    }));
+  }
+
+  async getParentLink(childId: string): Promise<ParentChildLink | undefined> {
+    const result = await db
+      .select()
+      .from(parentChildLinks)
+      .where(and(
+        eq(parentChildLinks.childId, childId),
+        eq(parentChildLinks.status, 'active')
+      ))
+      .limit(1);
+    return result[0];
+  }
+
+  async verifyParentChildLink(linkId: string): Promise<ParentChildLink | undefined> {
+    const result = await db
+      .update(parentChildLinks)
+      .set({
+        status: 'active',
+        verifiedAt: new Date(),
+      })
+      .where(eq(parentChildLinks.id, linkId))
+      .returning();
+    return result[0];
+  }
+
+  async revokeParentChildLink(linkId: string): Promise<void> {
+    await db
+      .update(parentChildLinks)
+      .set({ status: 'revoked' })
+      .where(eq(parentChildLinks.id, linkId));
+  }
+
+  // Parental controls operations
+  async getParentalControls(parentId: string, childId: string): Promise<ParentalControls | undefined> {
+    const result = await db
+      .select()
+      .from(parentalControls)
+      .where(and(
+        eq(parentalControls.parentId, parentId),
+        eq(parentalControls.childId, childId)
+      ))
+      .limit(1);
+    return result[0];
+  }
+
+  async createParentalControls(controls: InsertParentalControls): Promise<ParentalControls> {
+    const result = await db.insert(parentalControls).values(controls).returning();
+    return result[0];
+  }
+
+  async updateParentalControls(parentId: string, childId: string, updates: Partial<ParentalControls>): Promise<ParentalControls | undefined> {
+    const result = await db
+      .update(parentalControls)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(and(
+        eq(parentalControls.parentId, parentId),
+        eq(parentalControls.childId, childId)
+      ))
+      .returning();
+    return result[0];
+  }
+
+  async getControlsForChild(childId: string): Promise<ParentalControls | undefined> {
+    const result = await db
+      .select()
+      .from(parentalControls)
+      .where(eq(parentalControls.childId, childId))
+      .limit(1);
+    return result[0];
   }
 }
 
