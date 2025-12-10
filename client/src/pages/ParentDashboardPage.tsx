@@ -13,10 +13,11 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
+import { Textarea } from "@/components/ui/textarea";
 import { 
   Shield, Users, Settings, CreditCard, MessageSquare, 
   Sparkles, ShoppingBag, UserPlus, Check, X, Eye,
-  AlertTriangle, Clock, DollarSign, Bell, Lock, Unlock
+  AlertTriangle, Clock, DollarSign, Bell, Lock, Unlock, Coins
 } from "lucide-react";
 
 interface ParentalControls {
@@ -48,6 +49,23 @@ interface LinkedChild {
     isMinor: boolean;
   };
   controls: ParentalControls;
+}
+
+interface AuthRequest {
+  id: string;
+  childId: string;
+  tokenAmount: number;
+  amountInCents: number;
+  reason: string | null;
+  status: string;
+  expiresAt: string;
+  createdAt: string;
+  child: {
+    id: string;
+    name: string;
+    handle: string;
+    avatar: string;
+  };
 }
 
 export default function ParentDashboardPage() {
@@ -107,6 +125,43 @@ export default function ParentDashboardPage() {
     onSuccess: () => {
       toast.success("Parental controls updated!");
       queryClient.invalidateQueries({ queryKey: ["/api/parent/children"] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
+  // Authorization requests
+  const [respondingTo, setRespondingTo] = useState<AuthRequest | null>(null);
+  const [responseNote, setResponseNote] = useState("");
+
+  const { data: authRequests = [] } = useQuery<AuthRequest[]>({
+    queryKey: ["/api/parent/auth-requests"],
+    queryFn: async () => {
+      const res = await fetch("/api/parent/auth-requests");
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  const respondMutation = useMutation({
+    mutationFn: async ({ requestId, status, parentNote }: { requestId: string; status: 'approved' | 'denied'; parentNote?: string }) => {
+      const res = await fetch(`/api/parent/auth-request/${requestId}/respond`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status, parentNote }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Response failed");
+      }
+      return res.json();
+    },
+    onSuccess: (_, variables) => {
+      toast.success(variables.status === 'approved' ? "Purchase approved!" : "Purchase denied.");
+      queryClient.invalidateQueries({ queryKey: ["/api/parent/auth-requests"] });
+      setRespondingTo(null);
+      setResponseNote("");
     },
     onError: (error: Error) => {
       toast.error(error.message);
@@ -180,6 +235,84 @@ export default function ParentDashboardPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Pending Purchase Authorization Requests */}
+      {authRequests.length > 0 && (
+        <Card className="bg-orange-500/10 border-orange-500/30">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-orange-400">
+              <AlertTriangle className="h-5 w-5" />
+              Purchase Authorization Requests ({authRequests.length})
+            </CardTitle>
+            <CardDescription>
+              Your children have requested approval for purchases that exceed their spending limits
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {authRequests.map((request) => (
+                <div key={request.id} className="p-4 bg-white/5 rounded-lg border border-white/10">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage src={request.child.avatar} />
+                        <AvatarFallback>{request.child.name[0]}</AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-medium">{request.child.name}</p>
+                        <p className="text-sm text-muted-foreground">@{request.child.handle}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="flex items-center gap-2 text-yellow-400">
+                        <Coins className="h-5 w-5" />
+                        <span className="font-bold text-lg">{request.tokenAmount.toLocaleString()}</span>
+                      </div>
+                      <p className="text-lg font-bold">${(request.amountInCents / 100).toFixed(2)}</p>
+                    </div>
+                  </div>
+                  
+                  {request.reason && (
+                    <div className="mt-3 p-3 bg-white/5 rounded-lg">
+                      <p className="text-sm text-muted-foreground">Message from child:</p>
+                      <p className="text-sm mt-1">"{request.reason}"</p>
+                    </div>
+                  )}
+                  
+                  <div className="flex items-center justify-between mt-4 pt-4 border-t border-white/10">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Clock className="h-4 w-4" />
+                      <span>Expires: {new Date(request.expiresAt).toLocaleDateString()}</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => respondMutation.mutate({ requestId: request.id, status: 'denied' })}
+                        disabled={respondMutation.isPending}
+                        data-testid={`button-deny-${request.id}`}
+                      >
+                        <X className="h-4 w-4 mr-1" />
+                        Deny
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="bg-green-500 hover:bg-green-600"
+                        onClick={() => respondMutation.mutate({ requestId: request.id, status: 'approved' })}
+                        disabled={respondMutation.isPending}
+                        data-testid={`button-approve-${request.id}`}
+                      >
+                        <Check className="h-4 w-4 mr-1" />
+                        Approve
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Children List */}

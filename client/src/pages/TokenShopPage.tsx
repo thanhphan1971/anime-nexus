@@ -1,14 +1,16 @@
 import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/context/AuthContext";
 import { 
   Coins, Sparkles, Crown, Shield, AlertTriangle, Clock, 
   CreditCard, CheckCircle, XCircle, Gift, Zap, Star,
-  FileText, Lock, UserCheck, Scale, Globe, Baby
+  FileText, Lock, UserCheck, Scale, Globe, Baby, Send
 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -23,18 +25,73 @@ const TOKEN_PACKAGES = [
   { id: "ultimate", name: "Ultimate Pack", tokens: 12000, bonus: 2000, price: 79.99, popular: false },
 ];
 
+interface PendingRequest {
+  id: string;
+  tokenAmount: number;
+  amountInCents: number;
+  status: string;
+  createdAt: string;
+}
+
 export default function TokenShopPage() {
   const { user } = useAuth();
   const [selectedPackage, setSelectedPackage] = useState<typeof TOKEN_PACKAGES[0] | null>(null);
   const [showPurchaseDialog, setShowPurchaseDialog] = useState(false);
+  const [showRequestDialog, setShowRequestDialog] = useState(false);
   const [agreesToTerms, setAgreesToTerms] = useState(false);
   const [confirmsAge, setConfirmsAge] = useState(false);
+  const [requestMessage, setRequestMessage] = useState("");
+
+  const isMinor = (user as any)?.isMinor || false;
+
+  // Fetch pending authorization requests for minor
+  const { data: pendingRequests = [] } = useQuery<PendingRequest[]>({
+    queryKey: ["/api/parent/my-pending-requests"],
+    queryFn: async () => {
+      const res = await fetch("/api/parent/my-pending-requests");
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: isMinor,
+  });
+
+  // Request parent approval mutation
+  const requestApprovalMutation = useMutation({
+    mutationFn: async (data: { packageId: string; tokenAmount: number; amountInCents: number; reason: string }) => {
+      const res = await fetch("/api/parent/auth-request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Failed to send request");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast.success("Request sent to your parent for approval!");
+      setShowRequestDialog(false);
+      setRequestMessage("");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
 
   const handlePurchase = (pkg: typeof TOKEN_PACKAGES[0]) => {
     setSelectedPackage(pkg);
-    setShowPurchaseDialog(true);
-    setAgreesToTerms(false);
-    setConfirmsAge(false);
+    
+    // Check if this purchase would exceed minor's monthly limit ($50)
+    const priceInCents = Math.round(pkg.price * 100);
+    if (isMinor && priceInCents > 5000) {
+      // Over $50, need parent approval
+      setShowRequestDialog(true);
+    } else {
+      setShowPurchaseDialog(true);
+      setAgreesToTerms(false);
+      setConfirmsAge(false);
+    }
   };
 
   const handleConfirmPurchase = () => {
@@ -46,7 +103,15 @@ export default function TokenShopPage() {
     setShowPurchaseDialog(false);
   };
 
-  const isMinor = (user as any)?.isMinor || false;
+  const handleRequestApproval = () => {
+    if (!selectedPackage) return;
+    requestApprovalMutation.mutate({
+      packageId: selectedPackage.id,
+      tokenAmount: selectedPackage.tokens + selectedPackage.bonus,
+      amountInCents: Math.round(selectedPackage.price * 100),
+      reason: requestMessage,
+    });
+  };
 
   return (
     <div className="space-y-6 pb-24">
@@ -78,11 +143,43 @@ export default function TokenShopPage() {
             <div>
               <p className="font-bold text-orange-300">Minor Account Detected</p>
               <p className="text-sm text-muted-foreground">
-                You have spending limits: Max $5/day, $25/month. A receipt will be sent to your parent/guardian for every purchase.
+                Your default spending limit is $50/month. For purchases over this limit, you can request parent approval. 
+                Your parent will receive a notification and can approve or deny the purchase.
               </p>
             </div>
           </div>
         </div>
+      )}
+
+      {/* Pending Requests for Minors */}
+      {isMinor && pendingRequests.length > 0 && (
+        <Card className="bg-blue-500/10 border-blue-500/30">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-blue-400">
+              <Clock className="h-5 w-5" />
+              Pending Approval Requests
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {pendingRequests.map((req) => (
+                <div key={req.id} className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <Coins className="h-5 w-5 text-yellow-400" />
+                    <div>
+                      <p className="font-medium">{req.tokenAmount.toLocaleString()} tokens</p>
+                      <p className="text-sm text-muted-foreground">${(req.amountInCents / 100).toFixed(2)}</p>
+                    </div>
+                  </div>
+                  <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/50">
+                    <Clock className="h-3 w-3 mr-1" />
+                    Waiting for Parent
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       <Tabs defaultValue="packages" className="space-y-6">
@@ -612,6 +709,70 @@ export default function TokenShopPage() {
             >
               <CheckCircle className="h-4 w-4 mr-2" />
               Complete Purchase
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Request Parent Approval Dialog */}
+      <Dialog open={showRequestDialog} onOpenChange={setShowRequestDialog}>
+        <DialogContent className="bg-card">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Send className="h-5 w-5 text-blue-400" />
+              Request Parent Approval
+            </DialogTitle>
+            <DialogDescription>
+              This purchase exceeds your spending limit. Send a request to your parent for approval.
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedPackage && (
+            <div className="space-y-4">
+              <div className="bg-white/5 rounded-lg p-4 text-center">
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <Coins className="h-6 w-6 text-yellow-400" />
+                  <span className="text-2xl font-bold">{selectedPackage.tokens.toLocaleString()}</span>
+                  {selectedPackage.bonus > 0 && (
+                    <span className="text-green-400">+{selectedPackage.bonus}</span>
+                  )}
+                  <span className="text-muted-foreground">tokens</span>
+                </div>
+                <p className="text-xl font-bold">${selectedPackage.price} USD</p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Message to Parent (optional)</label>
+                <Textarea
+                  placeholder="Tell your parent why you'd like to make this purchase..."
+                  value={requestMessage}
+                  onChange={(e) => setRequestMessage(e.target.value)}
+                  className="bg-white/5"
+                  data-testid="input-request-message"
+                />
+              </div>
+
+              <div className="bg-blue-500/20 border border-blue-500/30 rounded-lg p-3 text-sm">
+                <p className="text-blue-300">
+                  <Clock className="h-4 w-4 inline mr-1" />
+                  Your parent will receive this request and can approve or deny it. The request expires in 7 days.
+                </p>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowRequestDialog(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleRequestApproval}
+              disabled={requestApprovalMutation.isPending}
+              className="bg-gradient-to-r from-blue-500 to-purple-500"
+              data-testid="button-send-request"
+            >
+              <Send className="h-4 w-4 mr-2" />
+              {requestApprovalMutation.isPending ? "Sending..." : "Send Request"}
             </Button>
           </DialogFooter>
         </DialogContent>
