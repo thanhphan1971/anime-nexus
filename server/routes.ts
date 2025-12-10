@@ -1029,5 +1029,136 @@ export async function registerRoutes(
     }
   });
 
+  // Purchase Authorization Request Routes
+  
+  // Create authorization request (minor requests parent approval for over-limit purchase)
+  app.post("/api/parent/auth-request", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const { packageId, tokenAmount, amountInCents, reason } = req.body;
+      
+      // Get parent link for this child
+      const parentLink = await storage.getParentLink(req.session.userId);
+      if (!parentLink || parentLink.status !== 'active') {
+        return res.status(400).json({ error: "No active parent link found" });
+      }
+      
+      // Set expiration to 7 days from now
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7);
+      
+      const request = await storage.createPurchaseAuthRequest({
+        childId: req.session.userId,
+        parentId: parentLink.parentId,
+        packageId,
+        tokenAmount,
+        amountInCents,
+        reason,
+        expiresAt,
+      });
+      
+      res.json({
+        success: true,
+        request,
+        message: "Authorization request sent to parent"
+      });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+  
+  // Get pending authorization requests for parent
+  app.get("/api/parent/auth-requests", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const requests = await storage.getPendingAuthRequests(req.session.userId);
+      res.json(requests);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get child's pending requests
+  app.get("/api/parent/my-pending-requests", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const requests = await storage.getChildPendingRequests(req.session.userId);
+      res.json(requests);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Respond to authorization request (parent approves or denies)
+  app.post("/api/parent/auth-request/:requestId/respond", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const { status, parentNote } = req.body;
+      
+      if (!['approved', 'denied'].includes(status)) {
+        return res.status(400).json({ error: "Status must be 'approved' or 'denied'" });
+      }
+      
+      // Get the request and verify parent owns it
+      const authRequest = await storage.getAuthRequestById(req.params.requestId);
+      if (!authRequest) {
+        return res.status(404).json({ error: "Request not found" });
+      }
+      
+      if (authRequest.parentId !== req.session.userId) {
+        return res.status(403).json({ error: "Not authorized to respond to this request" });
+      }
+      
+      if (authRequest.status !== 'pending') {
+        return res.status(400).json({ error: "Request has already been processed" });
+      }
+      
+      // Check if expired
+      if (new Date() > authRequest.expiresAt) {
+        await storage.respondToAuthRequest(req.params.requestId, 'denied', 'Request expired');
+        return res.status(400).json({ error: "Request has expired" });
+      }
+      
+      const updatedRequest = await storage.respondToAuthRequest(
+        req.params.requestId,
+        status,
+        parentNote
+      );
+      
+      // If approved, process the purchase
+      if (status === 'approved' && updatedRequest) {
+        const child = await storage.getUser(authRequest.childId);
+        if (child) {
+          // Add tokens to child's account (this is a parent-authorized purchase)
+          await storage.updateUser(authRequest.childId, {
+            tokens: child.tokens + authRequest.tokenAmount
+          });
+        }
+      }
+      
+      res.json({
+        success: true,
+        request: updatedRequest,
+        message: status === 'approved' 
+          ? "Purchase approved and tokens added to child's account"
+          : "Purchase request denied"
+      });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
   return httpServer;
 }
