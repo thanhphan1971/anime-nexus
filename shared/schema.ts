@@ -315,8 +315,8 @@ export const parentalControls = pgTable("parental_controls", {
   parentId: varchar("parent_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
   childId: varchar("child_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
   purchasesEnabled: boolean("purchases_enabled").notNull().default(false),
-  dailySpendLimit: integer("daily_spend_limit").notNull().default(500), // in cents ($5.00)
-  monthlySpendLimit: integer("monthly_spend_limit").notNull().default(2500), // in cents ($25.00)
+  dailySpendLimit: integer("daily_spend_limit").notNull().default(1000), // in cents ($10.00)
+  monthlySpendLimit: integer("monthly_spend_limit").notNull().default(5000), // in cents ($50.00)
   drawsEnabled: boolean("draws_enabled").notNull().default(true),
   paidDrawsEnabled: boolean("paid_draws_enabled").notNull().default(false),
   gachaEnabled: boolean("gacha_enabled").notNull().default(true),
@@ -326,6 +326,22 @@ export const parentalControls = pgTable("parental_controls", {
   notifyOnPurchase: boolean("notify_on_purchase").notNull().default(true),
   notifyOnDraw: boolean("notify_on_draw").notNull().default(true),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Purchase Authorization Requests - for over-limit purchases needing parent approval
+export const purchaseAuthRequests = pgTable("purchase_auth_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  childId: varchar("child_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  parentId: varchar("parent_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  packageId: varchar("package_id").references(() => tokenPackages.id, { onDelete: 'set null' }),
+  tokenAmount: integer("token_amount").notNull(),
+  amountInCents: integer("amount_in_cents").notNull(),
+  reason: text("reason"), // child's message to parent
+  status: text("status").notNull().default('pending'), // pending, approved, denied, expired
+  parentNote: text("parent_note"), // parent's response message
+  expiresAt: timestamp("expires_at").notNull(), // requests expire after 7 days
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  respondedAt: timestamp("responded_at"),
 });
 
 // Insert schemas
@@ -481,6 +497,13 @@ export const insertParentalControlsSchema = createInsertSchema(parentalControls)
   updatedAt: true,
 });
 
+export const insertPurchaseAuthRequestSchema = createInsertSchema(purchaseAuthRequests).omit({
+  id: true,
+  createdAt: true,
+  status: true,
+  respondedAt: true,
+});
+
 // Export types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -553,3 +576,6 @@ export type ParentChildLink = typeof parentChildLinks.$inferSelect;
 
 export type InsertParentalControls = z.infer<typeof insertParentalControlsSchema>;
 export type ParentalControls = typeof parentalControls.$inferSelect;
+
+export type InsertPurchaseAuthRequest = z.infer<typeof insertPurchaseAuthRequestSchema>;
+export type PurchaseAuthRequest = typeof purchaseAuthRequests.$inferSelect;
