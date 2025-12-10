@@ -3,8 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useState } from "react";
-import { Zap, ArrowRight, Sparkles, Eye, EyeOff } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Zap, ArrowRight, Sparkles, Eye, EyeOff, AlertTriangle, Shield } from "lucide-react";
 import { useLocation } from "wouter";
 import heroBg from "@assets/generated_images/futuristic_neo-tokyo_cityscape.png";
 import { toast } from "sonner";
@@ -18,8 +18,22 @@ export default function AuthPage() {
     password: "",
     name: "",
     handle: "",
+    birthDate: "",
+    parentEmail: "",
   });
   const [showPassword, setShowPassword] = useState(false);
+  
+  const isMinor = useMemo(() => {
+    if (!formData.birthDate) return false;
+    const birth = new Date(formData.birthDate);
+    const today = new Date();
+    const age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      return age - 1 < 18;
+    }
+    return age < 18;
+  }, [formData.birthDate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,6 +44,12 @@ export default function AuthPage() {
         toast.success("Welcome back!");
         setLocation("/");
       } else {
+        // Validate minor registration
+        if (isMinor && !formData.parentEmail) {
+          toast.error("Parent/guardian email is required for users under 18");
+          return;
+        }
+        
         // Generate random avatar
         const avatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${formData.username}`;
         
@@ -42,8 +62,16 @@ export default function AuthPage() {
           bio: "New to AniRealm",
           animeInterests: [],
           theme: "cyberpunk",
+          birthDate: formData.birthDate ? new Date(formData.birthDate) : undefined,
+          isMinor,
+          parentEmail: isMinor ? formData.parentEmail : undefined,
         });
-        toast.success("Account created! Welcome to AniRealm!");
+        
+        if (isMinor) {
+          toast.success("Account created! A verification code has been sent to your parent/guardian.");
+        } else {
+          toast.success("Account created! Welcome to AniRealm!");
+        }
         setLocation("/");
       }
     } catch (error: any) {
@@ -111,6 +139,50 @@ export default function AuthPage() {
                       data-testid="input-handle"
                     />
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="birthDate">Date of Birth</Label>
+                    <Input 
+                      id="birthDate" 
+                      type="date" 
+                      value={formData.birthDate}
+                      onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
+                      className="bg-white/5 border-white/10 focus:border-primary focus:ring-primary/20"
+                      data-testid="input-birthdate"
+                      required
+                    />
+                  </div>
+                  
+                  {isMinor && (
+                    <div className="space-y-3">
+                      <div className="bg-orange-500/20 border border-orange-500/30 rounded-lg p-3">
+                        <div className="flex items-start gap-2">
+                          <AlertTriangle className="h-5 w-5 text-orange-400 mt-0.5 flex-shrink-0" />
+                          <div className="text-sm">
+                            <p className="font-bold text-orange-300">Under 18 Account</p>
+                            <p className="text-muted-foreground">
+                              A parent/guardian email is required. They will receive a verification code to link and manage your account.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="parentEmail" className="flex items-center gap-2">
+                          <Shield className="h-4 w-4 text-blue-400" />
+                          Parent/Guardian Email
+                        </Label>
+                        <Input 
+                          id="parentEmail" 
+                          type="email" 
+                          placeholder="parent@email.com"
+                          value={formData.parentEmail}
+                          onChange={(e) => setFormData({ ...formData, parentEmail: e.target.value })}
+                          className="bg-white/5 border-white/10 focus:border-primary focus:ring-primary/20"
+                          data-testid="input-parent-email"
+                          required
+                        />
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
               <div className="space-y-2">

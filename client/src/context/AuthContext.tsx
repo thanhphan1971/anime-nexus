@@ -36,6 +36,9 @@ interface SignupData {
   bio?: string;
   animeInterests?: string[];
   theme?: string;
+  birthDate?: Date;
+  isMinor?: boolean;
+  parentEmail?: string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);

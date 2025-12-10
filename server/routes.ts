@@ -12,7 +12,13 @@ export async function registerRoutes(
   // Auth routes
   app.post("/api/auth/signup", async (req, res) => {
     try {
-      const validatedData = insertUserSchema.parse(req.body);
+      // Parse birthDate from ISO string if provided
+      const bodyWithParsedDate = {
+        ...req.body,
+        birthDate: req.body.birthDate ? new Date(req.body.birthDate) : undefined,
+      };
+      
+      const validatedData = insertUserSchema.parse(bodyWithParsedDate);
       
       // Check if username or handle already exists
       const existingUser = await storage.getUserByUsername(validatedData.username);
@@ -898,12 +904,13 @@ export async function registerRoutes(
         return res.status(401).json({ error: "Not authenticated" });
       }
       
-      const children = await storage.getLinkedChildren(req.session.userId);
+      const parentId = req.session.userId;
+      const children = await storage.getLinkedChildren(parentId);
       
       // Get parental controls for each child
       const childrenWithControls = await Promise.all(
         children.map(async (link) => {
-          const controls = await storage.getParentalControls(req.session.userId, link.childId);
+          const controls = await storage.getParentalControls(parentId, link.childId);
           return {
             ...link,
             controls,
