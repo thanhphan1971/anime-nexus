@@ -3,19 +3,24 @@ import { Home, Users, User, LogOut, PlusSquare, Search, Zap, MessageSquare, Play
 import { useAuth } from "@/context/AuthContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { useSiteSettings } from "@/lib/api";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const { user, logout } = useAuth();
+  const { data: siteSettings } = useSiteSettings();
 
   if (!user) return <>{children}</>;
 
-  const navItems = [
+  // Check if token shop is enabled (defaults to false for beta)
+  const tokenShopEnabled = siteSettings?.tokenShopEnabled === 'true';
+
+  const baseNavItems = [
     { icon: Home, label: "Home", path: "/" },
     { icon: Users, label: "Find Nakama", path: "/friends" },
     { icon: MessageSquare, label: "Communities", path: "/communities" },
     { icon: Layers, label: "Cards", path: "/cards" },
-    { icon: Coins, label: "Token Shop", path: "/tokens" },
+    ...(tokenShopEnabled ? [{ icon: Coins, label: "Token Shop", path: "/tokens" }] : []),
     { icon: PlayCircle, label: "Watch List", path: "/watchlist" },
     { icon: PlusSquare, label: "Create", path: "/create" },
     { icon: User, label: "Profile", path: `/profile/${user.id}` },
@@ -24,6 +29,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { icon: Shield, label: "Parent Controls", path: "/parent" },
     { icon: Settings, label: "Admin", path: "/admin" },
   ];
+
+  const navItems = baseNavItems;
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col md:flex-row">

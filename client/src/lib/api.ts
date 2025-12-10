@@ -296,3 +296,26 @@ export function useGrantPremium() {
     },
   });
 }
+
+// Site Settings API
+export function useSiteSettings() {
+  return useQuery({
+    queryKey: ["siteSettings"],
+    queryFn: () => apiCall("/api/settings"),
+    staleTime: 60000, // Cache for 1 minute
+  });
+}
+
+export function useUpdateSiteSetting() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ key, value }: { key: string; value: string }) =>
+      apiCall("/api/admin/settings", {
+        method: "POST",
+        body: JSON.stringify({ key, value }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["siteSettings"] });
+    },
+  });
+}

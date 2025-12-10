@@ -12,7 +12,7 @@ import {
   BarChart, Users, Database, Sparkles, Calendar, Plus, Upload, Save, 
   ShieldAlert, Ban, UserCheck, MessageSquare, Flag, Trash2, Settings, 
   Activity, Crown, Lock, Unlock, Eye, Search, Loader2, Trophy, Gift,
-  Clock, Play, Pause, X, Ticket
+  Clock, Play, Pause, X, Ticket, Coins
 } from "lucide-react";
 import { 
   Table, 
@@ -23,7 +23,7 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useUsers, useBanUser, useUnbanUser, useGrantPremium, useCommunities, useAdminCards, useCreateCard, useDeleteCard, useArchiveCard, useUnarchiveCard } from "@/lib/api";
+import { useUsers, useBanUser, useUnbanUser, useGrantPremium, useCommunities, useAdminCards, useCreateCard, useDeleteCard, useArchiveCard, useUnarchiveCard, useSiteSettings, useUpdateSiteSetting } from "@/lib/api";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertTriangle, Archive, ArchiveRestore } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -59,10 +59,24 @@ export default function AdminPage() {
   });
   const unbanUser = useUnbanUser();
   const grantPremium = useGrantPremium();
+  const { data: siteSettings } = useSiteSettings();
+  const updateSiteSetting = useUpdateSiteSetting();
   const [dropRate, setDropRate] = useState([2]); // 2% UR rate
   const [promoActive, setPromoActive] = useState(false);
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [userSearch, setUserSearch] = useState("");
+  
+  // Token shop enabled state from database
+  const tokenShopEnabled = siteSettings?.tokenShopEnabled === 'true';
+  
+  const handleTokenShopToggle = async (enabled: boolean) => {
+    try {
+      await updateSiteSetting.mutateAsync({ key: 'tokenShopEnabled', value: String(enabled) });
+      sonnerToast.success(enabled ? 'Token Shop enabled' : 'Token Shop disabled');
+    } catch (error: any) {
+      sonnerToast.error(error.message || 'Failed to update setting');
+    }
+  };
   const [cardSearch, setCardSearch] = useState("");
   const [newCard, setNewCard] = useState({
     name: "",
@@ -1064,6 +1078,25 @@ export default function AdminPage() {
                    <p className="text-xs text-muted-foreground">Allow new users to sign up.</p>
                  </div>
                  <Switch defaultChecked />
+               </div>
+
+               <div className="flex items-center justify-between p-4 bg-yellow-500/10 rounded-lg border border-yellow-500/30">
+                 <div>
+                   <h4 className="font-bold flex items-center gap-2">
+                     <Coins className="h-4 w-4 text-yellow-400" />
+                     Token Shop
+                   </h4>
+                   <p className="text-xs text-muted-foreground">Enable token purchases. Disable for beta launch.</p>
+                   {!tokenShopEnabled && (
+                     <p className="text-xs text-yellow-400 mt-1">Currently disabled - Token Shop hidden from navigation</p>
+                   )}
+                 </div>
+                 <Switch 
+                   checked={tokenShopEnabled} 
+                   onCheckedChange={handleTokenShopToggle}
+                   disabled={updateSiteSetting.isPending}
+                   data-testid="switch-token-shop"
+                 />
                </div>
 
                <div className="flex items-center justify-between p-4 bg-white/5 rounded-lg border border-white/10">

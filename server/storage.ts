@@ -29,6 +29,7 @@ import {
   type InsertParentalControls,
   type PurchaseAuthRequest,
   type InsertPurchaseAuthRequest,
+  type SiteSetting,
   users,
   posts,
   cards,
@@ -44,6 +45,7 @@ import {
   parentChildLinks,
   parentalControls,
   purchaseAuthRequests,
+  siteSettings,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql, desc, ne } from "drizzle-orm";
@@ -141,6 +143,11 @@ export interface IStorage {
   getAuthRequestById(id: string): Promise<PurchaseAuthRequest | undefined>;
   respondToAuthRequest(id: string, status: 'approved' | 'denied', parentNote?: string): Promise<PurchaseAuthRequest | undefined>;
   getChildPendingRequests(childId: string): Promise<PurchaseAuthRequest[]>;
+  
+  // Site settings operations
+  getSiteSetting(key: string): Promise<string | undefined>;
+  setSiteSetting(key: string, value: string, adminId?: string): Promise<void>;
+  getAllSiteSettings(): Promise<Array<{ key: string; value: string }>>;
 }
 
 export class DbStorage implements IStorage {
@@ -821,6 +828,33 @@ export class DbStorage implements IStorage {
         eq(purchaseAuthRequests.status, 'pending')
       ))
       .orderBy(desc(purchaseAuthRequests.createdAt));
+  }
+
+  // Site settings operations
+  async getSiteSetting(key: string): Promise<string | undefined> {
+    const result = await db
+      .select()
+      .from(siteSettings)
+      .where(eq(siteSettings.key, key))
+      .limit(1);
+    return result[0]?.value;
+  }
+
+  async setSiteSetting(key: string, value: string, adminId?: string): Promise<void> {
+    await db
+      .insert(siteSettings)
+      .values({ key, value, updatedBy: adminId || null })
+      .onConflictDoUpdate({
+        target: siteSettings.key,
+        set: { value, updatedBy: adminId || null, updatedAt: new Date() }
+      });
+  }
+
+  async getAllSiteSettings(): Promise<Array<{ key: string; value: string }>> {
+    const result = await db
+      .select({ key: siteSettings.key, value: siteSettings.value })
+      .from(siteSettings);
+    return result;
   }
 }
 

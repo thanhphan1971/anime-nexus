@@ -1160,5 +1160,50 @@ export async function registerRoutes(
     }
   });
 
+  // Site settings endpoints
+  app.get("/api/settings", async (_req, res) => {
+    try {
+      const settings = await storage.getAllSiteSettings();
+      const settingsMap: Record<string, string> = {};
+      settings.forEach(s => { settingsMap[s.key] = s.value; });
+      res.json(settingsMap);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/settings/:key", async (req, res) => {
+    try {
+      const value = await storage.getSiteSetting(req.params.key);
+      res.json({ key: req.params.key, value: value || null });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/admin/settings", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      // Verify admin status
+      const user = await storage.getUser(req.session.userId);
+      if (!user?.isAdmin) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+      
+      const { key, value } = req.body;
+      if (!key || value === undefined) {
+        return res.status(400).json({ error: "Key and value are required" });
+      }
+      
+      await storage.setSiteSetting(key, String(value), req.session.userId);
+      res.json({ success: true, key, value });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   return httpServer;
 }

@@ -344,6 +344,16 @@ export const purchaseAuthRequests = pgTable("purchase_auth_requests", {
   respondedAt: timestamp("responded_at"),
 });
 
+// Site Settings - admin-controlled global settings
+export const siteSettings = pgTable("site_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  key: text("key").notNull().unique(),
+  value: text("value").notNull(),
+  description: text("description"),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  updatedBy: varchar("updated_by").references(() => users.id, { onDelete: 'set null' }),
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -579,3 +589,11 @@ export type ParentalControls = typeof parentalControls.$inferSelect;
 
 export type InsertPurchaseAuthRequest = z.infer<typeof insertPurchaseAuthRequestSchema>;
 export type PurchaseAuthRequest = typeof purchaseAuthRequests.$inferSelect;
+
+export const insertSiteSettingSchema = createInsertSchema(siteSettings).omit({
+  id: true,
+  updatedAt: true,
+});
+
+export type InsertSiteSetting = z.infer<typeof insertSiteSettingSchema>;
+export type SiteSetting = typeof siteSettings.$inferSelect;
