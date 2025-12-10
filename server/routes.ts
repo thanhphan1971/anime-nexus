@@ -819,5 +819,208 @@ export async function registerRoutes(
     }
   });
 
+  // Parent-Child Link Routes
+  
+  // Create a parent-child link (called when minor registers with parent email)
+  app.post("/api/parent/link", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const { childId, parentEmail } = req.body;
+      
+      // Generate verification code
+      const verificationCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+      
+      const link = await storage.createParentChildLink({
+        parentId: req.session.userId, // Will be updated when parent verifies
+        childId,
+        verificationCode,
+      });
+      
+      // In production, send email to parent with verification code/link
+      // For now, just return the code
+      res.json({ 
+        linkId: link.id, 
+        verificationCode,
+        message: "Verification code generated. Parent should use this to verify." 
+      });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Verify parent-child link (parent clicks verification link or enters code)
+  app.post("/api/parent/verify", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const { verificationCode } = req.body;
+      
+      const link = await storage.getLinkByVerificationCode(verificationCode);
+      if (!link) {
+        return res.status(404).json({ error: "Invalid verification code" });
+      }
+      
+      if (link.status !== 'pending') {
+        return res.status(400).json({ error: "Link already verified or revoked" });
+      }
+      
+      // Update the link with actual parent ID and verify
+      const updatedLink = await storage.verifyParentChildLink(link.id);
+      
+      // Create default parental controls
+      await storage.createParentalControls({
+        parentId: req.session.userId,
+        childId: link.childId,
+      });
+      
+      // Update child's parentalConsentGiven flag
+      await storage.updateUser(link.childId, { parentalConsentGiven: true });
+      
+      res.json({ 
+        success: true, 
+        link: updatedLink,
+        message: "Parent-child link verified successfully" 
+      });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Get linked children for current parent
+  app.get("/api/parent/children", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const children = await storage.getLinkedChildren(req.session.userId);
+      
+      // Get parental controls for each child
+      const childrenWithControls = await Promise.all(
+        children.map(async (link) => {
+          const controls = await storage.getParentalControls(req.session.userId, link.childId);
+          return {
+            ...link,
+            controls,
+          };
+        })
+      );
+      
+      res.json(childrenWithControls);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get parental controls for a specific child
+  app.get("/api/parent/controls/:childId", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const controls = await storage.getParentalControls(req.session.userId, req.params.childId);
+      if (!controls) {
+        return res.status(404).json({ error: "Controls not found" });
+      }
+      
+      res.json(controls);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Update parental controls for a child
+  app.put("/api/parent/controls/:childId", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      // Verify parent has link to this child
+      const link = await storage.getParentChildLink(req.session.userId, req.params.childId);
+      if (!link || link.status !== 'active') {
+        return res.status(403).json({ error: "Not authorized to manage this child's controls" });
+      }
+      
+      const {
+        purchasesEnabled,
+        dailySpendLimit,
+        monthlySpendLimit,
+        drawsEnabled,
+        paidDrawsEnabled,
+        gachaEnabled,
+        marketplaceEnabled,
+        chatEnabled,
+        friendRequestsEnabled,
+        notifyOnPurchase,
+        notifyOnDraw,
+      } = req.body;
+      
+      const controls = await storage.updateParentalControls(req.session.userId, req.params.childId, {
+        purchasesEnabled,
+        dailySpendLimit,
+        monthlySpendLimit,
+        drawsEnabled,
+        paidDrawsEnabled,
+        gachaEnabled,
+        marketplaceEnabled,
+        chatEnabled,
+        friendRequestsEnabled,
+        notifyOnPurchase,
+        notifyOnDraw,
+      });
+      
+      res.json(controls);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Revoke parent-child link
+  app.delete("/api/parent/link/:linkId", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      await storage.revokeParentChildLink(req.params.linkId);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Get parent info for a child (for minor's account view)
+  app.get("/api/parent/my-parent", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const link = await storage.getParentLink(req.session.userId);
+      if (!link) {
+        return res.json({ hasParent: false });
+      }
+      
+      const parent = await storage.getUser(link.parentId);
+      const controls = await storage.getControlsForChild(req.session.userId);
+      
+      res.json({
+        hasParent: true,
+        parentName: parent?.name || 'Parent',
+        controls,
+        linkStatus: link.status,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   return httpServer;
 }
