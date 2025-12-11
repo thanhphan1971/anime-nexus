@@ -76,7 +76,37 @@ export default function CardsPage() {
         </TabsList>
 
         {/* SUMMON TAB */}
-        <TabsContent value="summon" className="min-h-[500px] flex flex-col items-center justify-center relative">
+        <TabsContent value="summon" className="space-y-6">
+          {/* Rules & Info Section */}
+          {!reward && !summonCards.isPending && (
+            <div className="bg-gradient-to-r from-purple-500/10 via-primary/10 to-cyan-500/10 border border-white/10 rounded-xl p-4 mb-4">
+              <h3 className="font-display font-bold text-lg text-primary mb-3 flex items-center gap-2">
+                <Sparkles className="h-5 w-5" /> How Summoning Works
+              </h3>
+              <div className="grid md:grid-cols-2 gap-4 text-sm">
+                <div className="space-y-2">
+                  <p className="text-muted-foreground"><strong className="text-white">Cost:</strong> 100 Tokens per summon</p>
+                  <p className="text-muted-foreground"><strong className="text-white">Free Users:</strong> 1 card per summon</p>
+                  <p className="text-muted-foreground"><strong className="text-yellow-400">S-Class:</strong> 5 cards + higher luck for rare drops</p>
+                </div>
+                <div className="space-y-2">
+                  <p className="font-bold text-white mb-1">Card Rarities:</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    <Badge variant="outline" className="text-xs border-gray-500 text-gray-400">Common</Badge>
+                    <Badge variant="outline" className="text-xs border-blue-500 text-blue-400">Rare</Badge>
+                    <Badge variant="outline" className="text-xs border-purple-500 text-purple-400">Epic</Badge>
+                    <Badge variant="outline" className="text-xs border-yellow-500 text-yellow-400">Legendary</Badge>
+                    <Badge variant="outline" className="text-xs border-pink-500 text-pink-400">Mythic</Badge>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-3 pt-3 border-t border-white/10 text-xs text-muted-foreground">
+                <strong className="text-white">What can you do with cards?</strong> Collect them, trade with other players in the Market, or sell for tokens. Rare cards are worth more!
+              </div>
+            </div>
+          )}
+
+          <div className="min-h-[400px] flex flex-col items-center justify-center relative">
           <AnimatePresence mode="wait">
             {!reward && !summonCards.isPending && (
               <div className="text-center space-y-6">
@@ -89,7 +119,7 @@ export default function CardsPage() {
                   </div>
                 </div>
                 <p className="text-sm text-muted-foreground max-w-xs mx-auto">
-                  Use tokens to manifest cards from the AniRealm.
+                  Tap the card to spend tokens and summon a random anime card!
                 </p>
               </div>
             )}
@@ -124,6 +154,7 @@ export default function CardsPage() {
               </motion.div>
             )}
           </AnimatePresence>
+          </div>
         </TabsContent>
 
         {/* COLLECTION TAB */}
