@@ -1,0 +1,230 @@
+✅ REPLIT IMPLEMENTATION ORDER
+Weekly & Monthly Draw System (Dynamic, Safe, Minor-Friendly)
+1️⃣ SYSTEM OVERVIEW (LOCKED)
+
+The app includes two separate draw systems:
+
+🎁 Weekly Draw
+
+Purpose: Retention, goodwill, habit
+
+Entry: Free (manual)
+
+Winners: Many (dynamic scaling)
+
+Rewards: Small, cosmetic, non-progression
+
+🌟 Monthly Draw
+
+Purpose: Excitement, aspiration, community moment
+
+Entry: Manual
+
+Winners: Few
+
+Rewards: Bigger and more exciting than weekly, but not power-breaking
+
+Draws are not gacha, do not affect card odds, and are optional.
+
+2️⃣ WEEKLY DRAW — RULES
+📅 Reset
+
+Resets every Monday at 00:00 UTC
+
+Same reset time for all users
+
+🎟️ Entry Rules
+
+User must log in at least once during the week
+
+Entry is manual (user clicks “Enter Weekly Draw”)
+
+Base entries:
+
+Free users: 1
+
+Premium users: 3
+
+Bonus entries:
+
+“Bonus Weekly Entry” item adds +1 entry
+
+No automatic entry
+
+🏆 Weekly Winner Scaling (Dynamic)
+
+Metric: Weekly Active Users (WAU)
+
+Formula:
+
+weekly_winners = clamp(round(WAU × 0.05), min=30, max=200)
+
+
+Winner count increases as the active user base grows
+
+Each account can win at most once per week
+
+🎁 Weekly Prize Table (Fixed Quality)
+
+Reward quality never scales, only the number of winners.
+
+Distribution (scale proportionally):
+
+Reward	%	Notes
+50 Tokens	40%	Small economy fuel
+100 Tokens	20%	Still modest
+Cosmetic Badge / Frame	20%	Visual only
+Avatar Effect (7 days)	10%	Temporary cosmetic
+1 Common Card	5%	Common tier only
+Bonus Weekly Entry	5%	+1 entry next week
+
+Hard rules:
+
+❌ No Rare or higher cards
+
+❌ No power boosts
+
+❌ No paid-only weekly draws
+
+3️⃣ MONTHLY DRAW — RULES
+📅 Reset
+
+Resets on the 1st of each month at 00:00 UTC
+
+🎟️ Entry Rules
+
+Entry is manual
+
+Entries do not auto-renew
+
+User Type	Entry Access
+Premium users	1 free monthly entry
+Free users	Entry via tokens or events
+
+Monthly entry must always feel optional.
+
+4️⃣ MONTHLY WINNER STRUCTURE (BIGGER, BUT CONTROLLED)
+🥇 Grand Winner (1 user)
+
+Rotate one of the following per month:
+
+🎴 1 Epic Card (maximum rarity allowed)
+
+💰 1,000 Tokens
+
+🎨 Exclusive Monthly Cosmetic Set
+
+👑 30-Day Premium Pass
+
+This is the headline prize.
+
+🥈 Secondary Winners (10 users)
+
+Each secondary winner receives one of the following:
+
+💰 100–300 Tokens (MAX 300 tokens)
+
+🎨 High-quality cosmetic item
+
+👑 7-Day Premium Pass
+
+Hard rule:
+
+❌ Secondary winners may NOT receive Epic cards
+
+❌ Token rewards for secondary winners may NOT exceed 300 tokens
+
+🥉 Optional Participation Reward (Small)
+
+Optional and minimal:
+
+10–25 tokens or
+
+Sticker / badge
+
+5️⃣ WEEKLY vs MONTHLY — COMPARISON (INTENTIONAL)
+Aspect	Weekly	Monthly
+Winners	30–200 (dynamic)	11 total
+Max Tokens	100	1,000
+Cards	Common only	Epic (1 winner max)
+Cosmetics	Basic	Exclusive
+Emotional Impact	“Nice”	“WOW”
+
+Monthly prizes are 3–5× more exciting, not more powerful.
+
+6️⃣ VERIFICATION & ELIGIBILITY RULES (MANDATORY)
+Minimum requirements to WIN a draw:
+
+Account age ≥ 24 hours
+
+Email address verified
+
+One win per account per draw period
+
+Notes:
+
+Users may enter draws before meeting requirements
+
+Users who do not meet requirements simply cannot win yet
+
+No warnings or error messages shown
+
+7️⃣ ABUSE PREVENTION (MINIMAL & SAFE)
+
+No device fingerprinting in beta
+
+No phone number requirement
+
+No CAPTCHA
+
+Controls used:
+
+Account age check
+
+Email verification
+
+One win per account per period
+
+Manual entry only
+
+This approach is minor-safe, Québec-friendly, and App Store compliant.
+
+8️⃣ UI TRANSPARENCY REQUIREMENTS
+Weekly Draw UI
+
+🎉 This week: {{weekly_winners}} winners
+Winners increase as the community grows.
+
+Monthly Draw UI
+
+🌟 Monthly Grand Draw
+🥇 1 Grand Winner
+🥈 10 Secondary Winners
+Rewards are optional and do not affect progression.
+
+9️⃣ BACKEND FLOW (PLAIN LOGIC)
+Weekly Draw
+
+Count Weekly Active Users
+
+Compute number of winners using scaling formula
+
+Validate eligible entries
+
+Randomly select winners
+
+Assign rewards from fixed weekly table
+
+Notify winners
+
+Monthly Draw
+
+Collect valid entries
+
+Select 1 grand winner
+
+Select 10 secondary winners
+
+Assign rewards respecting max limits
+
+Announce winners (opt-in display)

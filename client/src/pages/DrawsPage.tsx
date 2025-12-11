@@ -464,48 +464,84 @@ export default function DrawsPage() {
           )}
         </div>
 
-        {/* How Prize Draws Work - Rules Section */}
-        <Card className="bg-gradient-to-r from-cyan-500/10 via-purple-500/10 to-pink-500/10 border-white/10">
+        {/* Weekly Draw Rules */}
+        <Card className="bg-gradient-to-r from-cyan-500/10 via-blue-500/10 to-cyan-500/10 border-cyan-500/30">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-lg text-cyan-400">
-              <Gift className="h-5 w-5" />
-              How Prize Draws Work
+              <Calendar className="h-5 w-5" />
+              Weekly Draw
+              <Badge className="ml-2 bg-green-500/20 text-green-400 text-xs">FREE ENTRY</Badge>
             </CardTitle>
           </CardHeader>
-          <CardContent className="text-sm space-y-4">
+          <CardContent className="text-sm space-y-3">
             <p className="text-muted-foreground">
-              Enter our <strong className="text-white">Weekly</strong> and <strong className="text-white">Monthly</strong> prize draws 
-              for a chance to win exclusive rewards! Winners are randomly selected when each draw ends.
+              Enter for free every week! Resets <strong className="text-white">Monday at 00:00 UTC</strong>. 
+              Winners increase as the community grows.
             </p>
             
             <div className="grid md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <p className="font-bold text-white flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-cyan-400" /> Draw Schedule
-                </p>
-                <p className="text-muted-foreground"><strong className="text-cyan-300">Weekly Draw:</strong> Every Sunday at 8 PM UTC</p>
-                <p className="text-muted-foreground"><strong className="text-purple-300">Monthly Draw:</strong> Last day of each month</p>
+                <p className="font-bold text-white">How to Enter:</p>
+                <p className="text-muted-foreground">Click "Enter Weekly Draw" (manual entry)</p>
+                <p className="text-muted-foreground"><strong className="text-white">Free Users:</strong> 1 entry</p>
+                <p className="text-muted-foreground"><strong className="text-yellow-400">S-Class:</strong> 3 entries</p>
               </div>
               <div className="space-y-2">
-                <p className="font-bold text-white flex items-center gap-2">
-                  <Gift className="h-4 w-4 text-yellow-400" /> Prizes You Can Win
-                </p>
+                <p className="font-bold text-white">Weekly Prizes:</p>
                 <div className="flex flex-wrap gap-1.5">
-                  <Badge variant="outline" className="text-xs border-yellow-500 text-yellow-400">Tokens</Badge>
-                  <Badge variant="outline" className="text-xs border-purple-500 text-purple-400">Rare Cards</Badge>
-                  <Badge variant="outline" className="text-xs border-cyan-500 text-cyan-400">Premium Days</Badge>
-                  <Badge variant="outline" className="text-xs border-pink-500 text-pink-400">Avatar Frames</Badge>
-                  <Badge variant="outline" className="text-xs border-green-500 text-green-400">Exclusive Badges</Badge>
+                  <Badge variant="outline" className="text-xs border-yellow-500 text-yellow-400">50-100 Tokens</Badge>
+                  <Badge variant="outline" className="text-xs border-cyan-500 text-cyan-400">Cosmetic Badges</Badge>
+                  <Badge variant="outline" className="text-xs border-purple-500 text-purple-400">Avatar Effects</Badge>
+                  <Badge variant="outline" className="text-xs border-gray-500 text-gray-400">Common Cards</Badge>
                 </div>
               </div>
             </div>
-
+            
             <div className="pt-2 border-t border-white/10 text-xs text-muted-foreground">
-              <strong className="text-white">How to enter:</strong> Active users automatically earn entries through daily logins and community activity. 
-              <strong className="text-yellow-400"> S-Class members</strong> get bonus entries and higher winning chances!
+              <strong className="text-cyan-400">Dynamic Winners:</strong> 30-200 winners based on active users. More players = more winners!
             </div>
           </CardContent>
         </Card>
+
+        {/* Monthly Draw Rules */}
+        <Card className="bg-gradient-to-r from-purple-500/10 via-pink-500/10 to-yellow-500/10 border-purple-500/30">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-lg text-purple-400">
+              <Star className="h-5 w-5" />
+              Monthly Grand Draw
+              <Badge className="ml-2 bg-yellow-500/20 text-yellow-400 text-xs">BIG PRIZES</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm space-y-3">
+            <p className="text-muted-foreground">
+              The biggest prizes of the month! Resets on the <strong className="text-white">1st of each month at 00:00 UTC</strong>.
+            </p>
+            
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <p className="font-bold text-white">How to Enter:</p>
+                <p className="text-muted-foreground"><strong className="text-yellow-400">S-Class:</strong> 1 free entry</p>
+                <p className="text-muted-foreground"><strong className="text-white">Free Users:</strong> Enter via tokens or events</p>
+              </div>
+              <div className="space-y-2">
+                <p className="font-bold text-white flex items-center gap-2">
+                  <Crown className="h-4 w-4 text-yellow-400" /> Winner Tiers:
+                </p>
+                <p className="text-muted-foreground"><strong className="text-yellow-400">🥇 1 Grand Winner:</strong> Epic Card, 1000 Tokens, or 30-Day Premium</p>
+                <p className="text-muted-foreground"><strong className="text-purple-400">🥈 10 Secondary Winners:</strong> 100-300 Tokens, Cosmetics, or 7-Day Premium</p>
+              </div>
+            </div>
+            
+            <div className="pt-2 border-t border-white/10 text-xs text-muted-foreground">
+              <strong className="text-purple-400">11 Total Winners</strong> each month. Entry is optional and does not affect game progression.
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Eligibility Notice */}
+        <div className="bg-white/5 border border-white/10 rounded-lg p-3 text-xs text-muted-foreground">
+          <strong className="text-white">Eligibility:</strong> To win, your account must be at least 24 hours old with a verified email. One win per account per draw period.
+        </div>
 
         {displayFeatured && (
           <FeaturedDrawBanner draw={displayFeatured} />
