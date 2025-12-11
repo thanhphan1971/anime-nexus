@@ -175,8 +175,8 @@ export async function registerRoutes(
         return res.status(401).json({ error: "Not authenticated" });
       }
       
-      await storage.likePost(req.params.id);
-      res.json({ success: true });
+      const result = await storage.toggleLikePost(req.params.id, req.session.userId);
+      res.json(result);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

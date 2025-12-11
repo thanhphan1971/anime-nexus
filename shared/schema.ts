@@ -39,6 +39,14 @@ export const posts = pgTable("posts", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Post Likes - tracks which users liked which posts
+export const postLikes = pgTable("post_likes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  postId: varchar("post_id").notNull().references(() => posts.id, { onDelete: 'cascade' }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 // Cards table
 export const cards = pgTable("cards", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

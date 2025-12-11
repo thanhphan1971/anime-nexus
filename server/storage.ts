@@ -32,6 +32,7 @@ import {
   type SiteSetting,
   users,
   posts,
+  postLikes,
   cards,
   userCards,
   marketListings,
@@ -62,8 +63,10 @@ export interface IStorage {
   // Post operations
   createPost(post: InsertPost): Promise<Post>;
   getPosts(limit?: number): Promise<Array<Post & { user: User }>>;
+  getPostsWithLikeStatus(userId: string, limit?: number): Promise<Array<Post & { user: User; likedByCurrentUser: boolean }>>;
   getUserPosts(userId: string): Promise<Post[]>;
-  likePost(postId: string): Promise<void>;
+  toggleLikePost(postId: string, userId: string): Promise<{ liked: boolean; likeCount: number }>;
+  hasUserLikedPost(postId: string, userId: string): Promise<boolean>;
   
   // Card operations
   getAllCards(): Promise<Card[]>;
@@ -205,8 +208,55 @@ export class DbStorage implements IStorage {
     return await db.select().from(posts).where(eq(posts.userId, userId)).orderBy(desc(posts.createdAt));
   }
 
-  async likePost(postId: string): Promise<void> {
-    await db.update(posts).set({ likes: sql`${posts.likes} + 1` }).where(eq(posts.id, postId));
+  async getPostsWithLikeStatus(userId: string, limit: number = 50): Promise<Array<Post & { user: User; likedByCurrentUser: boolean }>> {
+    const allPosts = await db.select().from(posts)
+      .innerJoin(users, eq(posts.userId, users.id))
+      .orderBy(desc(posts.createdAt))
+      .limit(limit);
+    
+    // Get all likes by this user for these posts
+    const postIds = allPosts.map(p => p.posts.id);
+    const userLikes = await db.select().from(postLikes)
+      .where(and(
+        eq(postLikes.userId, userId),
+        sql`${postLikes.postId} = ANY(${postIds})`
+      ));
+    
+    const likedPostIds = new Set(userLikes.map(l => l.postId));
+    
+    return allPosts.map(({ posts: post, users: user }) => ({
+      ...post,
+      user,
+      likedByCurrentUser: likedPostIds.has(post.id)
+    }));
+  }
+
+  async toggleLikePost(postId: string, userId: string): Promise<{ liked: boolean; likeCount: number }> {
+    // Check if user already liked this post
+    const existingLike = await db.select().from(postLikes)
+      .where(and(eq(postLikes.postId, postId), eq(postLikes.userId, userId)))
+      .limit(1);
+    
+    if (existingLike.length > 0) {
+      // Unlike: remove the like and decrement counter
+      await db.delete(postLikes).where(and(eq(postLikes.postId, postId), eq(postLikes.userId, userId)));
+      await db.update(posts).set({ likes: sql`GREATEST(${posts.likes} - 1, 0)` }).where(eq(posts.id, postId));
+      const updatedPost = await db.select().from(posts).where(eq(posts.id, postId)).limit(1);
+      return { liked: false, likeCount: updatedPost[0]?.likes || 0 };
+    } else {
+      // Like: add the like and increment counter
+      await db.insert(postLikes).values({ postId, userId });
+      await db.update(posts).set({ likes: sql`${posts.likes} + 1` }).where(eq(posts.id, postId));
+      const updatedPost = await db.select().from(posts).where(eq(posts.id, postId)).limit(1);
+      return { liked: true, likeCount: updatedPost[0]?.likes || 0 };
+    }
+  }
+
+  async hasUserLikedPost(postId: string, userId: string): Promise<boolean> {
+    const like = await db.select().from(postLikes)
+      .where(and(eq(postLikes.postId, postId), eq(postLikes.userId, userId)))
+      .limit(1);
+    return like.length > 0;
   }
 
   // Card operations

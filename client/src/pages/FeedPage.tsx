@@ -12,6 +12,8 @@ export default function FeedPage() {
   const { data: posts, isLoading } = usePosts();
   const likePost = useLikePost();
   const [, setLocation] = useLocation();
+  const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
+  const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
   
   const mockFeaturedDraw = {
     name: "WEEKLY DRAW",
@@ -41,8 +43,59 @@ export default function FeedPage() {
     return () => clearInterval(interval);
   }, []);
 
-  const handleLike = (postId: string) => {
-    likePost.mutate(postId);
+  const handleLike = (postId: string, currentLikes: number) => {
+    const isCurrentlyLiked = likedPosts.has(postId);
+    
+    // Optimistic update
+    setLikedPosts(prev => {
+      const newSet = new Set(prev);
+      if (isCurrentlyLiked) {
+        newSet.delete(postId);
+      } else {
+        newSet.add(postId);
+      }
+      return newSet;
+    });
+    
+    setLikeCounts(prev => ({
+      ...prev,
+      [postId]: isCurrentlyLiked ? (prev[postId] ?? currentLikes) - 1 : (prev[postId] ?? currentLikes) + 1
+    }));
+    
+    likePost.mutate(postId, {
+      onSuccess: (data: { liked: boolean; likeCount: number }) => {
+        // Sync with server response
+        setLikedPosts(prev => {
+          const newSet = new Set(prev);
+          if (data.liked) {
+            newSet.add(postId);
+          } else {
+            newSet.delete(postId);
+          }
+          return newSet;
+        });
+        setLikeCounts(prev => ({
+          ...prev,
+          [postId]: data.likeCount
+        }));
+      },
+      onError: () => {
+        // Revert on error
+        setLikedPosts(prev => {
+          const newSet = new Set(prev);
+          if (isCurrentlyLiked) {
+            newSet.add(postId);
+          } else {
+            newSet.delete(postId);
+          }
+          return newSet;
+        });
+        setLikeCounts(prev => ({
+          ...prev,
+          [postId]: currentLikes
+        }));
+      }
+    });
   };
 
   if (isLoading) {
@@ -260,12 +313,12 @@ export default function FeedPage() {
                   <Button 
                     variant="ghost" 
                     size="sm" 
-                    className="text-muted-foreground hover:text-pink-500 hover:bg-pink-500/10 group"
-                    onClick={() => handleLike(post.id)}
+                    className={`hover:text-pink-500 hover:bg-pink-500/10 group ${likedPosts.has(post.id) ? 'text-pink-500' : 'text-muted-foreground'}`}
+                    onClick={() => handleLike(post.id, post.likes)}
                     data-testid={`button-like-${post.id}`}
                   >
-                    <Heart className="h-5 w-5 mr-1 group-hover:fill-current" />
-                    {post.likes}
+                    <Heart className={`h-5 w-5 mr-1 ${likedPosts.has(post.id) ? 'fill-current' : 'group-hover:fill-current'}`} />
+                    {likeCounts[post.id] ?? post.likes}
                   </Button>
                   <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-blue-400 hover:bg-blue-400/10">
                     <MessageCircle className="h-5 w-5 mr-1" />
