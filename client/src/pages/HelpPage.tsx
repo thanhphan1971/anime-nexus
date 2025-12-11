@@ -34,7 +34,7 @@ export default function HelpPage() {
     },
     {
       question: "What are the benefits of S-Class?",
-      answer: "S-Class Elite members get 5x Daily Summons, higher luck for UR cards, animated profile avatars, exclusive access to VIP chat rooms, and the ability to see who liked their profile in Find Nakama."
+      answer: "S-Class Elite members get 2x Daily Summons, higher luck for rare cards, animated profile avatars, exclusive access to VIP chat rooms, and the ability to see who liked their profile in Find Nakama."
     },
     {
       question: "How does the 'Find Nakama' matching work?",

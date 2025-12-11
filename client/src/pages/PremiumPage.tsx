@@ -8,7 +8,7 @@ export default function PremiumPage() {
     {
       name: "Daily Gacha Pulls",
       free: "1 Pull / Day",
-      premium: "5 Pulls / Day + Higher Luck",
+      premium: "2 Pulls / Day + Higher Luck",
       icon: Star
     },
     {

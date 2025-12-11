@@ -61,7 +61,7 @@ export default function CardsPage() {
         <div className="bg-gradient-to-r from-yellow-500/20 via-purple-500/20 to-transparent p-3 rounded-lg border border-white/10 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Crown className="h-5 w-5 text-yellow-400" />
-            <p className="text-sm font-medium"><span className="text-yellow-400 font-bold">Upgrade to S-Class</span> for 5x pulls + Luck Boost.</p>
+            <p className="text-sm font-medium"><span className="text-yellow-400 font-bold">Upgrade to S-Class</span> for 2x pulls + Luck Boost.</p>
           </div>
           <Button size="sm" variant="secondary" className="h-7 text-xs" onClick={() => setLocation("/sclass")}>View Perks</Button>
         </div>
@@ -87,7 +87,7 @@ export default function CardsPage() {
                 <div className="space-y-2">
                   <p className="text-muted-foreground"><strong className="text-white">Cost:</strong> 100 Tokens per summon</p>
                   <p className="text-muted-foreground"><strong className="text-white">Free Users:</strong> 1 card per summon</p>
-                  <p className="text-muted-foreground"><strong className="text-yellow-400">S-Class:</strong> 5 cards + higher luck for rare drops</p>
+                  <p className="text-muted-foreground"><strong className="text-yellow-400">S-Class:</strong> 2 cards + higher luck for rare drops</p>
                 </div>
                 <div className="space-y-2">
                   <p className="font-bold text-white mb-1">Card Rarities:</p>
@@ -115,7 +115,7 @@ export default function CardsPage() {
                     <Sparkles className="h-16 w-16 mx-auto mb-4 text-muted-foreground group-hover:text-primary animate-pulse" />
                     <p className="font-display font-bold text-xl">SUMMON NOW</p>
                     <p className="text-xs text-muted-foreground mt-2">Cost: 100 Tokens</p>
-                    <p className="text-xs text-muted-foreground">{user?.isPremium ? "5x S-Class Pull" : "Single Pull"}</p>
+                    <p className="text-xs text-muted-foreground">{user?.isPremium ? "2x S-Class Pull" : "Single Pull"}</p>
                   </div>
                 </div>
                 <p className="text-sm text-muted-foreground max-w-xs mx-auto">
