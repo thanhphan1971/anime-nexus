@@ -138,6 +138,12 @@ export default function FriendsPage() {
 
   return (
     <div className="pb-24">
+      {/* Page Header */}
+      <div className="text-center pb-4 mb-4">
+        <h1 className="text-2xl font-display font-bold neon-text">FIND FRIENDS</h1>
+        <p className="text-sm text-muted-foreground">Swipe to discover anime fans with similar interests and make new connections</p>
+      </div>
+
       <Tabs defaultValue="discover" className="w-full">
         <TabsList className="w-full bg-card/50 border border-white/10 p-1 mb-6 grid grid-cols-2">
           <TabsTrigger value="discover" data-testid="tab-discover">

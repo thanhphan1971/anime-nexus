@@ -42,7 +42,7 @@ export default function CardsPage() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-card/30 p-4 rounded-xl border border-white/10 backdrop-blur-md sticky top-0 z-10">
         <div>
           <h1 className="text-2xl font-display font-bold neon-text">CARDS HUB</h1>
-          <p className="text-xs text-muted-foreground">Collect, Trade, and Battle</p>
+          <p className="text-xs text-muted-foreground">Summon rare anime cards, build your collection, and trade with others</p>
         </div>
         <div className="flex items-center gap-4 w-full md:w-auto">
           <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 font-bold text-sm" data-testid="text-tokens">
@@ -128,6 +128,9 @@ export default function CardsPage() {
 
         {/* COLLECTION TAB */}
         <TabsContent value="collection" className="space-y-6">
+          <div className="text-center pb-4 border-b border-white/10 mb-4">
+            <p className="text-sm text-muted-foreground">View all the anime cards you've collected through summoning and trading</p>
+          </div>
           <div className="flex gap-2 overflow-x-auto pb-2">
             {["All", "UR", "SSR", "SR", "R", "N"].map(filter => (
               <Badge key={filter} variant="outline" className="cursor-pointer hover:bg-primary hover:text-white">
@@ -163,6 +166,9 @@ export default function CardsPage() {
 
         {/* MARKET TAB */}
         <TabsContent value="market" className="space-y-6">
+          <div className="text-center pb-4 border-b border-white/10 mb-4">
+            <p className="text-sm text-muted-foreground">Buy and sell cards with other players using your tokens</p>
+          </div>
           <div className="flex gap-2">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -224,6 +230,9 @@ export default function CardsPage() {
 
         {/* OFFERS TAB */}
         <TabsContent value="offers">
+          <div className="text-center pb-4 border-b border-white/10 mb-4">
+            <p className="text-sm text-muted-foreground">View and manage trade offers from other players</p>
+          </div>
           <div className="text-center py-12 border border-dashed border-white/10 rounded-xl bg-card/20">
             <ArrowRightLeft className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-xl font-bold mb-2">No Active Offers</h3>

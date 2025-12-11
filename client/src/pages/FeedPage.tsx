@@ -139,6 +139,12 @@ export default function FeedPage() {
   }
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
+      {/* Page Header */}
+      <div className="text-center pb-2">
+        <h1 className="text-2xl font-display font-bold neon-text">HOME</h1>
+        <p className="text-sm text-muted-foreground">Share your thoughts, discover posts, and connect with the anime community</p>
+      </div>
+
       {/* Stories / Status Bar */}
       <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide mask-fade-right">
         <div className="flex flex-col items-center space-y-2 min-w-[80px]">
