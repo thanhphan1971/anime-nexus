@@ -464,6 +464,49 @@ export default function DrawsPage() {
           )}
         </div>
 
+        {/* How Prize Draws Work - Rules Section */}
+        <Card className="bg-gradient-to-r from-cyan-500/10 via-purple-500/10 to-pink-500/10 border-white/10">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-lg text-cyan-400">
+              <Gift className="h-5 w-5" />
+              How Prize Draws Work
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm space-y-4">
+            <p className="text-muted-foreground">
+              Enter our <strong className="text-white">Weekly</strong> and <strong className="text-white">Monthly</strong> prize draws 
+              for a chance to win exclusive rewards! Winners are randomly selected when each draw ends.
+            </p>
+            
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <p className="font-bold text-white flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-cyan-400" /> Draw Schedule
+                </p>
+                <p className="text-muted-foreground"><strong className="text-cyan-300">Weekly Draw:</strong> Every Sunday at 8 PM UTC</p>
+                <p className="text-muted-foreground"><strong className="text-purple-300">Monthly Draw:</strong> Last day of each month</p>
+              </div>
+              <div className="space-y-2">
+                <p className="font-bold text-white flex items-center gap-2">
+                  <Gift className="h-4 w-4 text-yellow-400" /> Prizes You Can Win
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  <Badge variant="outline" className="text-xs border-yellow-500 text-yellow-400">Tokens</Badge>
+                  <Badge variant="outline" className="text-xs border-purple-500 text-purple-400">Rare Cards</Badge>
+                  <Badge variant="outline" className="text-xs border-cyan-500 text-cyan-400">Premium Days</Badge>
+                  <Badge variant="outline" className="text-xs border-pink-500 text-pink-400">Avatar Frames</Badge>
+                  <Badge variant="outline" className="text-xs border-green-500 text-green-400">Exclusive Badges</Badge>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-white/10 text-xs text-muted-foreground">
+              <strong className="text-white">How to enter:</strong> Active users automatically earn entries through daily logins and community activity. 
+              <strong className="text-yellow-400"> S-Class members</strong> get bonus entries and higher winning chances!
+            </div>
+          </CardContent>
+        </Card>
+
         {displayFeatured && (
           <FeaturedDrawBanner draw={displayFeatured} />
         )}
