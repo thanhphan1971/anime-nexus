@@ -214,12 +214,19 @@ export class DbStorage implements IStorage {
       .orderBy(desc(posts.createdAt))
       .limit(limit);
     
+    // If no posts, return empty array
+    if (allPosts.length === 0) {
+      return [];
+    }
+    
     // Get all likes by this user for these posts
     const postIds = allPosts.map(p => p.posts.id);
+    
+    // Query user likes for these specific posts
     const userLikes = await db.select().from(postLikes)
       .where(and(
         eq(postLikes.userId, userId),
-        sql`${postLikes.postId} = ANY(${postIds})`
+        sql`${postLikes.postId} IN (${sql.join(postIds.map(id => sql`${id}`), sql`, `)})`
       ));
     
     const likedPostIds = new Set(userLikes.map(l => l.postId));
