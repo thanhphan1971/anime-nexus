@@ -83,20 +83,27 @@ export default function CardsPage() {
               <h3 className="font-display font-bold text-lg text-primary mb-3 flex items-center gap-2">
                 <Sparkles className="h-5 w-5" /> How Summoning Works
               </h3>
-              <div className="grid md:grid-cols-2 gap-4 text-sm">
-                <div className="space-y-2">
-                  <p className="text-muted-foreground"><strong className="text-white">Cost:</strong> 100 Tokens per summon</p>
-                  <p className="text-muted-foreground"><strong className="text-white">Free Users:</strong> 1 card per summon</p>
-                  <p className="text-muted-foreground"><strong className="text-yellow-400">S-Class:</strong> 2 cards + higher luck for rare drops</p>
-                </div>
-                <div className="space-y-2">
-                  <p className="font-bold text-white mb-1">Card Rarities:</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    <Badge variant="outline" className="text-xs border-gray-500 text-gray-400">Common</Badge>
-                    <Badge variant="outline" className="text-xs border-blue-500 text-blue-400">Rare</Badge>
-                    <Badge variant="outline" className="text-xs border-purple-500 text-purple-400">Epic</Badge>
-                    <Badge variant="outline" className="text-xs border-yellow-500 text-yellow-400">Legendary</Badge>
-                    <Badge variant="outline" className="text-xs border-pink-500 text-pink-400">Mythic</Badge>
+              <div className="text-sm space-y-3">
+                <p className="text-muted-foreground">
+                  Spend <strong className="text-yellow-400">100 Tokens</strong> to summon a random anime card. 
+                  The system will randomly select a card from one of the 5 rarity categories below. 
+                  Higher rarities are harder to get but more valuable!
+                </p>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <p className="font-bold text-white">What You Win:</p>
+                    <p className="text-muted-foreground"><strong className="text-white">Free Users:</strong> 1 random card per summon</p>
+                    <p className="text-muted-foreground"><strong className="text-yellow-400">S-Class Members:</strong> 2 random cards + higher luck for rare drops</p>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="font-bold text-white">Card Rarities:</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      <Badge variant="outline" className="text-xs border-gray-500 text-gray-400">Common</Badge>
+                      <Badge variant="outline" className="text-xs border-blue-500 text-blue-400">Rare</Badge>
+                      <Badge variant="outline" className="text-xs border-purple-500 text-purple-400">Epic</Badge>
+                      <Badge variant="outline" className="text-xs border-yellow-500 text-yellow-400">Legendary</Badge>
+                      <Badge variant="outline" className="text-xs border-pink-500 text-pink-400">Mythic</Badge>
+                    </div>
                   </div>
                 </div>
               </div>
