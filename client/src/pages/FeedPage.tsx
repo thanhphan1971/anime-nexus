@@ -14,6 +14,23 @@ export default function FeedPage() {
   const [, setLocation] = useLocation();
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
   const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
+  const [pendingLikes, setPendingLikes] = useState<Set<string>>(new Set());
+  
+  // Initialize liked state from server data
+  useEffect(() => {
+    if (posts) {
+      const likedIds = new Set<string>();
+      const counts: Record<string, number> = {};
+      posts.forEach((post: any) => {
+        if (post.likedByCurrentUser) {
+          likedIds.add(post.id);
+        }
+        counts[post.id] = post.likes;
+      });
+      setLikedPosts(likedIds);
+      setLikeCounts(counts);
+    }
+  }, [posts]);
   
   const mockFeaturedDraw = {
     name: "WEEKLY DRAW",
@@ -43,8 +60,15 @@ export default function FeedPage() {
     return () => clearInterval(interval);
   }, []);
 
-  const handleLike = (postId: string, currentLikes: number) => {
+  const handleLike = (postId: string) => {
+    // Prevent double-clicks
+    if (pendingLikes.has(postId)) return;
+    
     const isCurrentlyLiked = likedPosts.has(postId);
+    const currentLikes = likeCounts[postId] ?? 0;
+    
+    // Mark as pending
+    setPendingLikes(prev => new Set(prev).add(postId));
     
     // Optimistic update
     setLikedPosts(prev => {
@@ -59,7 +83,7 @@ export default function FeedPage() {
     
     setLikeCounts(prev => ({
       ...prev,
-      [postId]: isCurrentlyLiked ? (prev[postId] ?? currentLikes) - 1 : (prev[postId] ?? currentLikes) + 1
+      [postId]: isCurrentlyLiked ? Math.max(0, currentLikes - 1) : currentLikes + 1
     }));
     
     likePost.mutate(postId, {
@@ -94,6 +118,14 @@ export default function FeedPage() {
           ...prev,
           [postId]: currentLikes
         }));
+      },
+      onSettled: () => {
+        // Remove from pending
+        setPendingLikes(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(postId);
+          return newSet;
+        });
       }
     });
   };
@@ -314,7 +346,8 @@ export default function FeedPage() {
                     variant="ghost" 
                     size="sm" 
                     className={`hover:text-pink-500 hover:bg-pink-500/10 group ${likedPosts.has(post.id) ? 'text-pink-500' : 'text-muted-foreground'}`}
-                    onClick={() => handleLike(post.id, post.likes)}
+                    onClick={() => handleLike(post.id)}
+                    disabled={pendingLikes.has(post.id)}
                     data-testid={`button-like-${post.id}`}
                   >
                     <Heart className={`h-5 w-5 mr-1 ${likedPosts.has(post.id) ? 'fill-current' : 'group-hover:fill-current'}`} />

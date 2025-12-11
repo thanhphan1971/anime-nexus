@@ -144,8 +144,14 @@ export async function registerRoutes(
   // Post routes
   app.get("/api/posts", async (req, res) => {
     try {
-      const posts = await storage.getPosts();
-      res.json(posts);
+      // If user is authenticated, return posts with like status
+      if (req.session.userId) {
+        const posts = await storage.getPostsWithLikeStatus(req.session.userId);
+        res.json(posts);
+      } else {
+        const posts = await storage.getPosts();
+        res.json(posts);
+      }
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

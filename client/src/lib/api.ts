@@ -45,8 +45,16 @@ export function useLikePost() {
   return useMutation({
     mutationFn: (postId: string) =>
       apiCall(`/api/posts/${postId}/like`, { method: "POST" }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["posts"] });
+    onSuccess: (data: { liked: boolean; likeCount: number }, postId: string) => {
+      // Update React Query cache directly to prevent stale data issues
+      queryClient.setQueryData(["posts"], (oldData: any[] | undefined) => {
+        if (!oldData) return oldData;
+        return oldData.map((post: any) => 
+          post.id === postId 
+            ? { ...post, likes: data.likeCount, likedByCurrentUser: data.liked }
+            : post
+        );
+      });
     },
   });
 }
