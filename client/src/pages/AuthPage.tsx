@@ -23,17 +23,21 @@ export default function AuthPage() {
   });
   const [showPassword, setShowPassword] = useState(false);
   
-  const isMinor = useMemo(() => {
-    if (!formData.birthDate) return false;
+  // Calculate age from birth date
+  const userAge = useMemo(() => {
+    if (!formData.birthDate) return null;
     const birth = new Date(formData.birthDate);
     const today = new Date();
-    const age = today.getFullYear() - birth.getFullYear();
+    let age = today.getFullYear() - birth.getFullYear();
     const monthDiff = today.getMonth() - birth.getMonth();
     if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-      return age - 1 < 18;
+      age--;
     }
-    return age < 18;
+    return age;
   }, [formData.birthDate]);
+
+  const isMinor = userAge !== null && userAge < 18;
+  const isUnder13 = userAge !== null && userAge < 13; // COPPA compliance
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,9 +48,9 @@ export default function AuthPage() {
         toast.success("Welcome back!");
         setLocation("/");
       } else {
-        // Validate minor registration
-        if (isMinor && !formData.parentEmail) {
-          toast.error("Parent/guardian email is required for users under 18");
+        // COPPA compliance: Only require parent email for users under 13
+        if (isUnder13 && !formData.parentEmail) {
+          toast.error("Parent/guardian email is required for users under 13 (COPPA compliance)");
           return;
         }
         
@@ -64,11 +68,11 @@ export default function AuthPage() {
           theme: "cyberpunk",
           birthDate: formData.birthDate ? new Date(formData.birthDate) : undefined,
           isMinor,
-          parentEmail: isMinor ? formData.parentEmail : undefined,
+          parentEmail: isUnder13 ? formData.parentEmail : undefined, // Only for COPPA (under 13)
         });
         
-        if (isMinor) {
-          toast.success("Account created! A verification code has been sent to your parent/guardian.");
+        if (isUnder13) {
+          toast.success("Account created! A verification email has been sent to your parent/guardian for COPPA compliance.");
         } else {
           toast.success("Account created! Welcome to AniRealm!");
         }
@@ -152,15 +156,16 @@ export default function AuthPage() {
                     />
                   </div>
                   
-                  {isMinor && (
+                  {/* COPPA: Parent email only required for users under 13 */}
+                  {isUnder13 && (
                     <div className="space-y-3">
                       <div className="bg-orange-500/20 border border-orange-500/30 rounded-lg p-3">
                         <div className="flex items-start gap-2">
                           <AlertTriangle className="h-5 w-5 text-orange-400 mt-0.5 flex-shrink-0" />
                           <div className="text-sm">
-                            <p className="font-bold text-orange-300">Under 18 Account</p>
+                            <p className="font-bold text-orange-300">COPPA Compliance (Under 13)</p>
                             <p className="text-muted-foreground">
-                              A parent/guardian email is required. They will receive a verification code to link and manage your account.
+                              A parent/guardian email is required for users under 13. They will verify your account.
                             </p>
                           </div>
                         </div>
@@ -180,6 +185,21 @@ export default function AuthPage() {
                           data-testid="input-parent-email"
                           required
                         />
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Info for 13-17 year olds - they can join freely */}
+                  {isMinor && !isUnder13 && (
+                    <div className="bg-blue-500/20 border border-blue-500/30 rounded-lg p-3">
+                      <div className="flex items-start gap-2">
+                        <Shield className="h-5 w-5 text-blue-400 mt-0.5 flex-shrink-0" />
+                        <div className="text-sm">
+                          <p className="font-bold text-blue-300">Teen Account (13-17)</p>
+                          <p className="text-muted-foreground">
+                            You can explore, collect cards, chat, and make friends! Parent approval is only needed for purchases.
+                          </p>
+                        </div>
                       </div>
                     </div>
                   )}

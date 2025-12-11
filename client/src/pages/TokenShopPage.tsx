@@ -112,7 +112,13 @@ export default function TokenShopPage() {
     setSelectedPackage(pkg);
     const priceInCents = Math.round(pkg.price * 100);
     
-    // Check if minor with linked parent - ALL purchases require parent authorization
+    // Minor without linked parent - block purchase and prompt to link
+    if (isMinor && !parentInfo?.hasParent) {
+      toast.error("Please link a parent account first to make purchases");
+      return;
+    }
+    
+    // Minor with linked parent - ALL purchases require parent authorization
     if (isMinor && parentInfo?.hasParent) {
       // Check if exceeds limits for informational purposes
       if (priceInCents > dailyLimit) {
@@ -127,7 +133,7 @@ export default function TokenShopPage() {
       return;
     }
     
-    // Not a linked minor - proceed to normal purchase
+    // Adult user - proceed to normal purchase
     setShowPurchaseDialog(true);
     setAgreesToTerms(false);
     setConfirmsAge(false);
@@ -174,18 +180,36 @@ export default function TokenShopPage() {
         </div>
       </div>
 
-      {/* Minor Warning Banner */}
-      {isMinor && (
-        <div className="bg-orange-500/20 border border-orange-500/30 rounded-xl p-4">
+      {/* Minor Purchase Info Banner */}
+      {isMinor && parentInfo?.hasParent && (
+        <div className="bg-blue-500/20 border border-blue-500/30 rounded-xl p-4">
           <div className="flex items-start gap-3">
-            <AlertTriangle className="h-5 w-5 text-orange-400 mt-0.5" />
+            <UserCheck className="h-5 w-5 text-blue-400 mt-0.5" />
             <div>
-              <p className="font-bold text-orange-300">Minor Account - Parent Authorization Required</p>
+              <p className="font-bold text-blue-300">Parent Account Linked</p>
               <p className="text-sm text-muted-foreground">
-                <strong>All purchases require parent or guardian approval.</strong> When you select a package, 
-                a request will be sent to your parent's dashboard. Your parent will review and approve or deny the purchase.
+                All purchases require parent approval. When you select a package, a request will be sent to your parent's dashboard.
                 Spending limits: ${(dailyLimit / 100).toFixed(0)}/day, ${(monthlyLimit / 100).toFixed(0)}/month.
               </p>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Minor without linked parent - prompt to link */}
+      {isMinor && !parentInfo?.hasParent && (
+        <div className="bg-orange-500/20 border border-orange-500/30 rounded-xl p-4">
+          <div className="flex items-start gap-3">
+            <Lock className="h-5 w-5 text-orange-400 mt-0.5" />
+            <div>
+              <p className="font-bold text-orange-300">Link a Parent Account to Purchase</p>
+              <p className="text-sm text-muted-foreground mb-3">
+                To make purchases, you need to link a parent or guardian account first. This helps keep your spending safe!
+              </p>
+              <Button variant="outline" size="sm" className="border-orange-500/50 text-orange-300 hover:bg-orange-500/20">
+                <Shield className="h-4 w-4 mr-2" />
+                Link Parent Account
+              </Button>
             </div>
           </div>
         </div>
