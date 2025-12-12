@@ -30,6 +30,10 @@ import {
   type PurchaseAuthRequest,
   type InsertPurchaseAuthRequest,
   type SiteSetting,
+  type WatchlistItem,
+  type InsertWatchlistItem,
+  type AnimeCache,
+  type InsertAnimeCache,
   users,
   posts,
   postLikes,
@@ -47,6 +51,8 @@ import {
   parentalControls,
   purchaseAuthRequests,
   siteSettings,
+  watchlistItems,
+  animeCache,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql, desc, ne, inArray } from "drizzle-orm";
@@ -155,6 +161,19 @@ export interface IStorage {
   getSiteSetting(key: string): Promise<string | undefined>;
   setSiteSetting(key: string, value: string, adminId?: string): Promise<void>;
   getAllSiteSettings(): Promise<Array<{ key: string; value: string }>>;
+  
+  // Watchlist operations
+  getUserWatchlist(userId: string): Promise<WatchlistItem[]>;
+  getWatchlistItem(id: string): Promise<WatchlistItem | undefined>;
+  getWatchlistItemByAnime(userId: string, anilistId: number): Promise<WatchlistItem | undefined>;
+  createWatchlistItem(item: InsertWatchlistItem): Promise<WatchlistItem>;
+  updateWatchlistItem(id: string, updates: Partial<WatchlistItem>): Promise<WatchlistItem | undefined>;
+  deleteWatchlistItem(id: string): Promise<void>;
+  
+  // Anime cache operations
+  getCachedAnime(anilistId: number): Promise<AnimeCache | undefined>;
+  setCachedAnime(anilistId: number, payload: any): Promise<void>;
+  getCachedAnimeMultiple(anilistIds: number[]): Promise<AnimeCache[]>;
 }
 
 export class DbStorage implements IStorage {
@@ -998,6 +1017,82 @@ export class DbStorage implements IStorage {
       .select({ key: siteSettings.key, value: siteSettings.value })
       .from(siteSettings);
     return result;
+  }
+
+  // Watchlist operations
+  async getUserWatchlist(userId: string): Promise<WatchlistItem[]> {
+    return await db
+      .select()
+      .from(watchlistItems)
+      .where(eq(watchlistItems.userId, userId))
+      .orderBy(desc(watchlistItems.updatedAt));
+  }
+
+  async getWatchlistItem(id: string): Promise<WatchlistItem | undefined> {
+    const result = await db
+      .select()
+      .from(watchlistItems)
+      .where(eq(watchlistItems.id, id))
+      .limit(1);
+    return result[0];
+  }
+
+  async getWatchlistItemByAnime(userId: string, anilistId: number): Promise<WatchlistItem | undefined> {
+    const result = await db
+      .select()
+      .from(watchlistItems)
+      .where(and(
+        eq(watchlistItems.userId, userId),
+        eq(watchlistItems.anilistId, anilistId)
+      ))
+      .limit(1);
+    return result[0];
+  }
+
+  async createWatchlistItem(item: InsertWatchlistItem): Promise<WatchlistItem> {
+    const result = await db.insert(watchlistItems).values(item).returning();
+    return result[0];
+  }
+
+  async updateWatchlistItem(id: string, updates: Partial<WatchlistItem>): Promise<WatchlistItem | undefined> {
+    const result = await db
+      .update(watchlistItems)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(watchlistItems.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteWatchlistItem(id: string): Promise<void> {
+    await db.delete(watchlistItems).where(eq(watchlistItems.id, id));
+  }
+
+  // Anime cache operations
+  async getCachedAnime(anilistId: number): Promise<AnimeCache | undefined> {
+    const result = await db
+      .select()
+      .from(animeCache)
+      .where(eq(animeCache.anilistId, anilistId))
+      .limit(1);
+    return result[0];
+  }
+
+  async setCachedAnime(anilistId: number, payload: any): Promise<void> {
+    await db
+      .insert(animeCache)
+      .values({ anilistId, payload })
+      .onConflictDoUpdate({
+        target: animeCache.anilistId,
+        set: { payload, cachedAt: new Date() }
+      });
+  }
+
+  async getCachedAnimeMultiple(anilistIds: number[]): Promise<AnimeCache[]> {
+    if (anilistIds.length === 0) return [];
+    return await db
+      .select()
+      .from(animeCache)
+      .where(inArray(animeCache.anilistId, anilistIds));
   }
 }
 

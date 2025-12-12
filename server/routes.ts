@@ -1251,6 +1251,252 @@ export async function registerRoutes(
     }
   });
 
+  // AniList proxy endpoints
+  const ANILIST_API = 'https://graphql.anilist.co';
+  const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+  app.get("/api/anime/search", async (req, res) => {
+    try {
+      const query = req.query.q as string;
+      if (!query || query.length < 2) {
+        return res.status(400).json({ error: "Search query must be at least 2 characters" });
+      }
+
+      const graphqlQuery = `
+        query ($search: String) {
+          Page(page: 1, perPage: 20) {
+            media(search: $search, type: ANIME) {
+              id
+              title { romaji english }
+              coverImage { large }
+              episodes
+              format
+              seasonYear
+              genres
+              status
+            }
+          }
+        }
+      `;
+
+      const response = await fetch(ANILIST_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: graphqlQuery, variables: { search: query } }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`AniList API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const results = data.data?.Page?.media || [];
+      
+      // Cache the results
+      for (const anime of results) {
+        await storage.setCachedAnime(anime.id, anime);
+      }
+
+      res.json(results);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to search anime" });
+    }
+  });
+
+  app.get("/api/anime/:id", async (req, res) => {
+    try {
+      const anilistId = parseInt(req.params.id);
+      if (isNaN(anilistId)) {
+        return res.status(400).json({ error: "Invalid anime ID" });
+      }
+
+      // Check cache first
+      const cached = await storage.getCachedAnime(anilistId);
+      if (cached) {
+        const cacheAge = Date.now() - new Date(cached.cachedAt).getTime();
+        if (cacheAge < CACHE_TTL_MS) {
+          return res.json(cached.payload);
+        }
+      }
+
+      const graphqlQuery = `
+        query ($id: Int) {
+          Media(id: $id, type: ANIME) {
+            id
+            title { romaji english native }
+            coverImage { large extraLarge }
+            bannerImage
+            description
+            episodes
+            format
+            status
+            seasonYear
+            season
+            genres
+            averageScore
+            studios { nodes { name } }
+          }
+        }
+      `;
+
+      const response = await fetch(ANILIST_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: graphqlQuery, variables: { id: anilistId } }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`AniList API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const anime = data.data?.Media;
+      
+      if (!anime) {
+        return res.status(404).json({ error: "Anime not found" });
+      }
+
+      // Cache the result
+      await storage.setCachedAnime(anilistId, anime);
+      res.json(anime);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to fetch anime" });
+    }
+  });
+
+  // Watchlist CRUD endpoints
+  app.get("/api/watchlist", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const items = await storage.getUserWatchlist(req.session.userId);
+      
+      // Get cached anime data for all items
+      const anilistIds = items.map(i => i.anilistId);
+      const cachedAnime = await storage.getCachedAnimeMultiple(anilistIds);
+      const animeMap = new Map(cachedAnime.map(a => [a.anilistId, a.payload]));
+
+      // Combine watchlist items with anime data
+      const result = items.map(item => ({
+        ...item,
+        anime: animeMap.get(item.anilistId) || null,
+      }));
+
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/watchlist", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const { anilistId, status = 'PLANNING' } = req.body;
+      if (!anilistId || typeof anilistId !== 'number') {
+        return res.status(400).json({ error: "anilistId is required and must be a number" });
+      }
+
+      // Check if already in watchlist
+      const existing = await storage.getWatchlistItemByAnime(req.session.userId, anilistId);
+      if (existing) {
+        return res.status(400).json({ error: "Anime already in watchlist" });
+      }
+
+      const validStatuses = ['WATCHING', 'COMPLETED', 'PLANNING', 'PAUSED', 'DROPPED'];
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({ error: "Invalid status" });
+      }
+
+      const item = await storage.createWatchlistItem({
+        userId: req.session.userId,
+        anilistId,
+        status,
+      });
+
+      res.json(item);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.patch("/api/watchlist/:id", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const item = await storage.getWatchlistItem(req.params.id);
+      if (!item) {
+        return res.status(404).json({ error: "Watchlist item not found" });
+      }
+
+      if (item.userId !== req.session.userId) {
+        return res.status(403).json({ error: "Not authorized" });
+      }
+
+      const { status, progress, score, notes } = req.body;
+      const updates: any = {};
+
+      if (status !== undefined) {
+        const validStatuses = ['WATCHING', 'COMPLETED', 'PLANNING', 'PAUSED', 'DROPPED'];
+        if (!validStatuses.includes(status)) {
+          return res.status(400).json({ error: "Invalid status" });
+        }
+        updates.status = status;
+      }
+
+      if (progress !== undefined) {
+        if (typeof progress !== 'number' || progress < 0) {
+          return res.status(400).json({ error: "Progress must be a non-negative number" });
+        }
+        updates.progress = progress;
+      }
+
+      if (score !== undefined) {
+        if (score !== null && (typeof score !== 'number' || score < 0 || score > 10)) {
+          return res.status(400).json({ error: "Score must be between 0 and 10" });
+        }
+        updates.score = score;
+      }
+
+      if (notes !== undefined) {
+        updates.notes = notes;
+      }
+
+      const updated = await storage.updateWatchlistItem(req.params.id, updates);
+      res.json(updated);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/watchlist/:id", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const item = await storage.getWatchlistItem(req.params.id);
+      if (!item) {
+        return res.status(404).json({ error: "Watchlist item not found" });
+      }
+
+      if (item.userId !== req.session.userId) {
+        return res.status(403).json({ error: "Not authorized" });
+      }
+
+      await storage.deleteWatchlistItem(req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Site settings endpoints
   app.get("/api/settings", async (_req, res) => {
     try {
