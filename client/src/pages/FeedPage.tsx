@@ -276,23 +276,22 @@ export default function FeedPage() {
       </Card>
 
       {/* AI Assistant Prompt */}
-      <Card className="bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20">
-        <CardContent className="p-4 flex items-center gap-4">
-          <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center">
-            <Sparkles className="text-primary h-5 w-5" />
+      <Card className="bg-gradient-to-r from-primary/20 via-accent/20 to-primary/20 border-primary/30 shadow-lg">
+        <CardContent className="p-5 flex items-center gap-4">
+          <div className="h-14 w-14 rounded-full bg-primary/30 flex items-center justify-center shadow-[0_0_20px_hsl(var(--primary)/0.4)]">
+            <Sparkles className="text-primary h-7 w-7" />
           </div>
           <div className="flex-1">
-            <p className="text-sm font-medium text-foreground">AI Assistant</p>
-            <p className="text-xs text-muted-foreground">"How about sharing your latest fan theory?"</p>
+            <p className="text-xl font-display font-bold text-white neon-text">Create & Share</p>
+            <p className="text-sm text-muted-foreground mt-1">Post your thoughts, share fan art, or generate your unique AI anime avatar!</p>
           </div>
           <Button 
-            size="sm" 
-            variant="secondary" 
-            className="bg-primary/20 hover:bg-primary/30 text-primary border-none"
+            size="lg" 
+            className="bg-primary hover:bg-primary/90 text-white font-bold shadow-[0_0_15px_hsl(var(--primary)/0.5)]"
             onClick={() => setLocation("/create")}
             data-testid="button-create-post"
           >
-            Create
+            Create Now
           </Button>
         </CardContent>
       </Card>
