@@ -394,6 +394,17 @@ export const siteSettings = pgTable("site_settings", {
   updatedBy: varchar("updated_by").references(() => users.id, { onDelete: 'set null' }),
 });
 
+// Stories - ephemeral user content (24h expiration)
+export const stories = pgTable("stories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  mediaUrl: text("media_url").notNull(),
+  mediaType: text("media_type").notNull(), // 'image' or 'video'
+  caption: text("caption"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at").notNull(),
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -654,3 +665,11 @@ export type WatchlistItem = typeof watchlistItems.$inferSelect;
 
 export type InsertAnimeCache = z.infer<typeof insertAnimeCacheSchema>;
 export type AnimeCache = typeof animeCache.$inferSelect;
+
+export const insertStorySchema = createInsertSchema(stories).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertStory = z.infer<typeof insertStorySchema>;
+export type Story = typeof stories.$inferSelect;

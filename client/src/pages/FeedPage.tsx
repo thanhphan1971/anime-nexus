@@ -2,11 +2,13 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardFooter } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Heart, MessageCircle, Share2, MoreHorizontal, Sparkles, Loader2, Trophy, Clock, Gift, ChevronRight } from "lucide-react";
-import { motion } from "framer-motion";
+import { Heart, MessageCircle, Share2, MoreHorizontal, Sparkles, Loader2, Trophy, Clock, Gift, ChevronRight, X, Play } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { usePosts, useLikePost } from "@/lib/api";
 import { useLocation } from "wouter";
 import { formatDistanceToNow, differenceInSeconds } from "date-fns";
+import { useQuery } from "@tanstack/react-query";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 export default function FeedPage() {
   const { data: posts, isLoading } = usePosts();
@@ -15,6 +17,11 @@ export default function FeedPage() {
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
   const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
   const [pendingLikes, setPendingLikes] = useState<Set<string>>(new Set());
+  const [selectedStory, setSelectedStory] = useState<any>(null);
+
+  const { data: stories } = useQuery<any[]>({
+    queryKey: ["/api/stories"],
+  });
   
   // Initialize liked state from server data
   useEffect(() => {
@@ -147,25 +154,115 @@ export default function FeedPage() {
 
       {/* Stories / Status Bar */}
       <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide mask-fade-right">
-        <div className="flex flex-col items-center space-y-2 min-w-[80px]">
-          <div className="h-16 w-16 rounded-full bg-gradient-to-tr from-primary to-accent p-[2px] cursor-pointer hover:scale-105 transition-transform">
+        <div 
+          className="flex flex-col items-center space-y-2 min-w-[80px] cursor-pointer"
+          onClick={() => setLocation("/create")}
+          data-testid="button-add-story"
+        >
+          <div className="h-16 w-16 rounded-full bg-gradient-to-tr from-primary to-accent p-[2px] hover:scale-105 transition-transform">
             <div className="h-full w-full rounded-full bg-card border-2 border-background flex items-center justify-center">
                <span className="text-2xl">+</span>
             </div>
           </div>
           <span className="text-xs font-medium">Add Story</span>
         </div>
-        {[1, 2, 3, 4, 5].map((i) => (
-          <div key={i} className="flex flex-col items-center space-y-2 min-w-[80px]">
-            <div className="h-16 w-16 rounded-full bg-gradient-to-tr from-primary via-purple-500 to-secondary p-[2px] cursor-pointer hover:scale-105 transition-transform">
-              <div className="h-full w-full rounded-full bg-card border-2 border-background overflow-hidden">
-                 <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${i}`} alt="avatar" className="h-full w-full object-cover" />
+        {stories && stories.length > 0 ? (
+          stories.map((story: any) => (
+            <div 
+              key={story.id} 
+              className="flex flex-col items-center space-y-2 min-w-[80px] cursor-pointer"
+              onClick={() => setSelectedStory(story)}
+              data-testid={`story-circle-${story.id}`}
+            >
+              <div className="h-16 w-16 rounded-full bg-gradient-to-tr from-primary via-purple-500 to-secondary p-[2px] hover:scale-105 transition-transform">
+                <div className="h-full w-full rounded-full bg-card border-2 border-background overflow-hidden relative">
+                  {story.mediaType === "video" ? (
+                    <>
+                      <img 
+                        src={story.user?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${story.userId}`} 
+                        alt="avatar" 
+                        className="h-full w-full object-cover" 
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                        <Play className="h-4 w-4 text-white fill-white" />
+                      </div>
+                    </>
+                  ) : (
+                    <img 
+                      src={story.user?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${story.userId}`} 
+                      alt="avatar" 
+                      className="h-full w-full object-cover" 
+                    />
+                  )}
+                </div>
               </div>
+              <span className="text-xs font-medium text-muted-foreground truncate max-w-[70px]">
+                {story.user?.name || "User"}
+              </span>
             </div>
-            <span className="text-xs font-medium text-muted-foreground">User {i}</span>
+          ))
+        ) : (
+          <div className="flex items-center justify-center text-muted-foreground text-sm py-2 px-4">
+            No stories yet
           </div>
-        ))}
+        )}
       </div>
+
+      {/* Story Viewer Dialog */}
+      <Dialog open={!!selectedStory} onOpenChange={() => setSelectedStory(null)}>
+        <DialogContent className="max-w-md p-0 bg-black border-white/10 overflow-hidden">
+          {selectedStory && (
+            <div className="relative">
+              <div className="absolute top-4 left-4 right-4 z-10 flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full overflow-hidden border-2 border-white/30">
+                  <img 
+                    src={selectedStory.user?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${selectedStory.userId}`} 
+                    alt="avatar" 
+                    className="h-full w-full object-cover" 
+                  />
+                </div>
+                <div className="flex-1">
+                  <p className="text-white font-medium text-sm">{selectedStory.user?.name || "User"}</p>
+                  <p className="text-white/60 text-xs">
+                    {formatDistanceToNow(new Date(selectedStory.createdAt), { addSuffix: true })}
+                  </p>
+                </div>
+                <Button 
+                  size="icon" 
+                  variant="ghost" 
+                  className="text-white hover:bg-white/20"
+                  onClick={() => setSelectedStory(null)}
+                >
+                  <X className="h-5 w-5" />
+                </Button>
+              </div>
+              
+              <div className="aspect-[9/16] bg-black">
+                {selectedStory.mediaType === "video" ? (
+                  <video 
+                    src={selectedStory.mediaUrl} 
+                    controls 
+                    autoPlay 
+                    className="w-full h-full object-contain"
+                  />
+                ) : (
+                  <img 
+                    src={selectedStory.mediaUrl} 
+                    alt="Story" 
+                    className="w-full h-full object-contain"
+                  />
+                )}
+              </div>
+              
+              {selectedStory.caption && (
+                <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent">
+                  <p className="text-white text-sm">{selectedStory.caption}</p>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Featured Draw Banner */}
       <motion.div

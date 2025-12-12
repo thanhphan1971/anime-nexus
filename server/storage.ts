@@ -34,6 +34,8 @@ import {
   type InsertWatchlistItem,
   type AnimeCache,
   type InsertAnimeCache,
+  type Story,
+  type InsertStory,
   users,
   posts,
   postLikes,
@@ -53,6 +55,7 @@ import {
   siteSettings,
   watchlistItems,
   animeCache,
+  stories,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql, desc, ne, inArray } from "drizzle-orm";
@@ -174,6 +177,13 @@ export interface IStorage {
   getCachedAnime(anilistId: number): Promise<AnimeCache | undefined>;
   setCachedAnime(anilistId: number, payload: any): Promise<void>;
   getCachedAnimeMultiple(anilistIds: number[]): Promise<AnimeCache[]>;
+  
+  // Story operations
+  createStory(story: InsertStory): Promise<Story>;
+  getActiveStories(): Promise<Array<Story & { user: User }>>;
+  getUserStories(userId: string): Promise<Story[]>;
+  getUserStoryCountIn24h(userId: string): Promise<number>;
+  deleteStory(id: string): Promise<void>;
 }
 
 export class DbStorage implements IStorage {
@@ -1093,6 +1103,55 @@ export class DbStorage implements IStorage {
       .select()
       .from(animeCache)
       .where(inArray(animeCache.anilistId, anilistIds));
+  }
+
+  // Story operations
+  async createStory(story: InsertStory): Promise<Story> {
+    const result = await db.insert(stories).values(story).returning();
+    return result[0];
+  }
+
+  async getActiveStories(): Promise<Array<Story & { user: User }>> {
+    const now = new Date();
+    const result = await db
+      .select()
+      .from(stories)
+      .innerJoin(users, eq(stories.userId, users.id))
+      .where(sql`${stories.expiresAt} > ${now}`)
+      .orderBy(desc(stories.createdAt));
+    
+    return result.map((r: any) => ({
+      ...r.stories,
+      user: r.users,
+    }));
+  }
+
+  async getUserStories(userId: string): Promise<Story[]> {
+    const now = new Date();
+    return await db
+      .select()
+      .from(stories)
+      .where(and(
+        eq(stories.userId, userId),
+        sql`${stories.expiresAt} > ${now}`
+      ))
+      .orderBy(desc(stories.createdAt));
+  }
+
+  async getUserStoryCountIn24h(userId: string): Promise<number> {
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const result = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(stories)
+      .where(and(
+        eq(stories.userId, userId),
+        sql`${stories.createdAt} > ${twentyFourHoursAgo}`
+      ));
+    return Number(result[0]?.count) || 0;
+  }
+
+  async deleteStory(id: string): Promise<void> {
+    await db.delete(stories).where(eq(stories.id, id));
   }
 }
 

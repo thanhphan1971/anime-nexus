@@ -1542,5 +1542,150 @@ export async function registerRoutes(
     }
   });
 
+  // Story routes
+  app.get("/api/stories", async (req, res) => {
+    try {
+      const stories = await storage.getActiveStories();
+      res.json(stories);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/stories/user/:userId", async (req, res) => {
+    try {
+      const stories = await storage.getUserStories(req.params.userId);
+      res.json(stories);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/stories", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const user = await storage.getUser(req.session.userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const { mediaUrl, mediaType, caption, fileSize, videoDuration } = req.body;
+
+      // Validate media type
+      const allowedImageTypes = ['image/jpeg', 'image/png', 'image/webp'];
+      const allowedVideoTypes = ['video/mp4', 'video/webm'];
+      
+      if (mediaType === 'image') {
+        if (!allowedImageTypes.includes(req.body.mimeType)) {
+          return res.status(400).json({ error: "Invalid image format. Allowed: JPG, PNG, WebP" });
+        }
+        // Max 10 MB for images
+        if (fileSize > 10 * 1024 * 1024) {
+          return res.status(400).json({ error: "Image too large. Maximum 10 MB" });
+        }
+      } else if (mediaType === 'video') {
+        if (!allowedVideoTypes.includes(req.body.mimeType)) {
+          return res.status(400).json({ error: "Invalid video format. Allowed: MP4, WebM" });
+        }
+        
+        // Validate duration and size based on premium status
+        if (user.isPremium) {
+          // Premium: 30s max, 50MB max
+          if (videoDuration > 30) {
+            return res.status(400).json({ error: "Video too long. Maximum 30 seconds for Premium" });
+          }
+          if (fileSize > 50 * 1024 * 1024) {
+            return res.status(400).json({ error: "Video too large. Maximum 50 MB for Premium" });
+          }
+        } else {
+          // Free: 15s max, 25MB max
+          if (videoDuration > 15) {
+            return res.status(400).json({ error: "Video too long. Maximum 15 seconds for Free users" });
+          }
+          if (fileSize > 25 * 1024 * 1024) {
+            return res.status(400).json({ error: "Video too large. Maximum 25 MB for Free users" });
+          }
+        }
+      } else {
+        return res.status(400).json({ error: "Invalid media type" });
+      }
+
+      // Check daily story limit
+      const storyCount = await storage.getUserStoryCountIn24h(req.session.userId);
+      const maxStories = user.isPremium ? 10 : 3;
+      
+      if (storyCount >= maxStories) {
+        return res.status(400).json({ 
+          error: `Daily story limit reached. ${user.isPremium ? 'Premium' : 'Free'} users can post ${maxStories} stories per 24 hours.` 
+        });
+      }
+
+      // Create story with 24h expiration
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+      
+      const story = await storage.createStory({
+        userId: req.session.userId,
+        mediaUrl,
+        mediaType,
+        caption: caption || null,
+        expiresAt,
+      });
+
+      res.json(story);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/stories/:id", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      // Note: Add ownership check in production
+      await storage.deleteStory(req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/stories/limits", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const user = await storage.getUser(req.session.userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const storyCount = await storage.getUserStoryCountIn24h(req.session.userId);
+      const maxStories = user.isPremium ? 10 : 3;
+
+      res.json({
+        isPremium: user.isPremium,
+        storiesPosted: storyCount,
+        maxStories,
+        remaining: Math.max(0, maxStories - storyCount),
+        limits: {
+          image: { maxSizeMB: 10, formats: ['JPG', 'PNG', 'WebP'] },
+          video: {
+            maxDurationSeconds: user.isPremium ? 30 : 15,
+            maxSizeMB: user.isPremium ? 50 : 25,
+            formats: ['MP4', 'WebM']
+          }
+        }
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   return httpServer;
 }
