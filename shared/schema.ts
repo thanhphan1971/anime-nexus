@@ -364,6 +364,26 @@ export const purchaseAuthRequests = pgTable("purchase_auth_requests", {
   respondedAt: timestamp("responded_at"),
 });
 
+// Watchlist Items - user's anime tracking list (AniList integration)
+export const watchlistItems = pgTable("watchlist_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  anilistId: integer("anilist_id").notNull(),
+  status: text("status").notNull().default('PLANNING'), // WATCHING, COMPLETED, PLANNING, PAUSED, DROPPED
+  progress: integer("progress").notNull().default(0),
+  score: integer("score"), // 0-10
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Anime Cache - caches AniList API responses for performance
+export const animeCache = pgTable("anime_cache", {
+  anilistId: integer("anilist_id").primaryKey(),
+  payload: jsonb("payload").notNull(),
+  cachedAt: timestamp("cached_at").notNull().defaultNow(),
+});
+
 // Site Settings - admin-controlled global settings
 export const siteSettings = pgTable("site_settings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -616,5 +636,21 @@ export const insertSiteSettingSchema = createInsertSchema(siteSettings).omit({
   updatedAt: true,
 });
 
+export const insertWatchlistItemSchema = createInsertSchema(watchlistItems).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertAnimeCacheSchema = createInsertSchema(animeCache).omit({
+  cachedAt: true,
+});
+
 export type InsertSiteSetting = z.infer<typeof insertSiteSettingSchema>;
 export type SiteSetting = typeof siteSettings.$inferSelect;
+
+export type InsertWatchlistItem = z.infer<typeof insertWatchlistItemSchema>;
+export type WatchlistItem = typeof watchlistItems.$inferSelect;
+
+export type InsertAnimeCache = z.infer<typeof insertAnimeCacheSchema>;
+export type AnimeCache = typeof animeCache.$inferSelect;

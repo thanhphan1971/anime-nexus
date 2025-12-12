@@ -1,0 +1,252 @@
+REPLIT — IMPLEMENT “WATCHLIST (BEST VERSION)”
+
+0) First: Detect current app architecture (do this before coding)
+
+Inspect repo structure and tell me what stack this is:
+
+Frontend: React / Next.js / other
+
+Backend: Express API / Next API routes / other
+
+DB/Auth: Supabase / Postgres / Firebase / SQLite / other
+
+Then implement the steps below using the correct file paths for THIS repo.
+
+1) Goal
+
+Replace demo Watchlist with a real feature like MyAnimeList/AniList:
+
+Users can search real anime titles (covers, official data)
+
+Add to watchlist
+
+Update status + episode progress + score
+
+Data persists in DB per user
+
+Fast loading (caching anime metadata)
+
+2) Data source (Anime Database)
+
+Use AniList GraphQL (preferred “best quality”).
+
+Implement AniList search endpoint
+
+Implement AniList details endpoint
+
+Use caching to avoid hammering AniList
+
+(Do NOT connect to streaming services. Watchlist is tracking only.)
+
+3) Database schema (must be persistent)
+
+Create table: watchlist_items
+
+Fields:
+
+id UUID primary key
+
+user_id (type must match existing auth user id)
+
+anilist_id INT not null
+
+status TEXT not null (values: WATCHING, COMPLETED, PLANNING, PAUSED, DROPPED)
+
+progress INT default 0
+
+score NUMERIC nullable (0–10)
+
+notes TEXT nullable
+
+created_at timestamp default now
+
+updated_at timestamp default now
+
+Constraints / indexes:
+
+Unique constraint on (user_id, anilist_id) to prevent duplicates
+
+Index (user_id, status)
+
+Index (user_id, updated_at DESC)
+
+If there’s already a DB migration system in the repo, use it. Otherwise apply SQL directly via the DB admin method used in this project.
+
+4) Anime metadata cache (performance)
+
+Create table: anime_cache
+
+Fields:
+
+anilist_id INT primary key
+
+payload JSON not null
+
+cached_at timestamp default now
+
+Caching rules:
+
+When fetching anime details, if cache exists and cached_at is within last 24 hours, use it.
+
+Else query AniList and update cache.
+
+5) Backend/API endpoints (secure, per-user)
+
+Implement endpoints using whatever backend exists in this repo.
+
+5.1 AniList proxy endpoints (server-side)
+
+GET /api/anime/search?q=...
+Return array of:
+
+anilist_id
+
+title
+
+coverImage
+
+episodes
+
+format
+
+seasonYear
+
+genres
+
+GET /api/anime/:id
+Return:
+
+anilist_id
+
+title
+
+coverImage
+
+episodes
+
+description (optional)
+
+genres
+
+Both must handle errors + rate limits gracefully.
+
+5.2 Watchlist CRUD (must enforce auth)
+
+GET /api/watchlist
+Returns the user’s watchlist items (from DB), enriched with cached AniList details.
+
+POST /api/watchlist
+Body: { anilist_id, status? }
+
+Default status = PLANNING
+
+Create row if not exists
+
+If duplicate, return 409 with “Already in watchlist”
+
+PATCH /api/watchlist/:id
+Body can include: { status, progress, score, notes }
+Rules:
+
+progress cannot be negative
+
+if episodes known, cap progress <= episodes
+
+if status becomes COMPLETED and episodes known → set progress = episodes
+
+DELETE /api/watchlist/:id
+
+SECURITY REQUIREMENT:
+Do NOT trust client user_id. Use server session/auth. Every endpoint must only access rows belonging to the logged-in user.
+
+6) Frontend/UI (Cards-style UI, real usage)
+
+Replace demo watchlist with real UI that reads/writes DB:
+
+6.1 Watchlist Page layout
+
+Tabs or filter chips: All, Watching, Completed, Planning, Paused, Dropped
+
+Default view: Watching first
+
+Within a status: sort by updated_at desc
+
+Each watchlist item card shows:
+
+Cover image
+
+Title
+
+Status dropdown
+
+Progress controls:
+
+“-” and “+” buttons
+
+numeric input
+
+show “X / totalEpisodes” if known
+
+Score input (0–10)
+
+Remove button
+
+Optional Notes textarea
+
+6.2 Add Anime flow
+
+Add button: Add Anime
+
+opens modal or page with search input
+
+calls /api/anime/search?q=...
+
+shows results grid with cover + title
+
+“Add” button adds to watchlist via POST /api/watchlist
+
+6.3 Search within Watchlist
+
+Add a local search box on watchlist page to filter existing watchlist by title (client-side).
+
+7) Edge cases / quality rules
+
+If episodes is unknown/null: allow any progress (no cap)
+
+If progress reaches episodes and user is still WATCHING: optionally suggest COMPLETED (non-blocking)
+
+Loading states: skeletons/spinners for search and list
+
+Empty states:
+
+“No anime yet — Add Anime”
+
+Errors shown nicely (toast or inline)
+
+8) Acceptance test (must pass)
+
+User searches “Naruto” → sees real results with covers
+
+User adds an anime → refresh page → it’s still there
+
+User changes status + progress + score → refresh → saved
+
+Duplicate add is prevented
+
+API never returns another user’s data (auth enforcement)
+
+AniList details are cached (repeat loads do not re-fetch every time)
+
+9) Deliverables from you (Replit)
+
+When done, reply with:
+
+What stack you detected
+
+Which files were changed/created (paths)
+
+The SQL/migration used
+
+Any environment variables needed (if any)
+
+Quick test steps I can follow in the UI
