@@ -49,7 +49,7 @@ export default function CardsPage() {
             size="lg" 
             onClick={() => setLocation("/cards/catalog")} 
             data-testid="button-view-catalog"
-            className="bg-gradient-to-r from-purple-600 to-cyan-500 hover:from-purple-500 hover:to-cyan-400 text-white font-bold shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 transition-all hover:scale-105 animate-pulse"
+            className="bg-gradient-to-r from-purple-600 to-cyan-500 hover:from-purple-500 hover:to-cyan-400 text-white font-bold shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 transition-all hover:scale-105"
           >
             <Book className="h-5 w-5 mr-2" /> View Catalog
           </Button>
