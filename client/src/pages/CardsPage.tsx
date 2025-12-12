@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Coins, Sparkles, Layers, ShoppingBag, ArrowRightLeft, Filter, Search, ShieldCheck, Gift, Star, Crown, Loader2 } from "lucide-react";
+import { Coins, Sparkles, Layers, ShoppingBag, ArrowRightLeft, Filter, Search, ShieldCheck, Gift, Star, Crown, Loader2, Book } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
 import { useUserCards, useSummonCards, useMarketListings, usePurchaseListing } from "@/lib/api";
@@ -45,6 +45,9 @@ export default function CardsPage() {
           <p className="text-xs text-muted-foreground">Summon rare anime cards, build your collection, and trade with others</p>
         </div>
         <div className="flex items-center gap-4 w-full md:w-auto">
+          <Button size="sm" variant="outline" onClick={() => setLocation("/cards/catalog")} data-testid="button-view-catalog">
+            <Book className="h-4 w-4 mr-1" /> Catalog
+          </Button>
           <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 font-bold text-sm" data-testid="text-tokens">
             <Coins className="h-4 w-4" /> {user?.tokens || 0}
           </div>

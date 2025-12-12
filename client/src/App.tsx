@@ -11,6 +11,7 @@ import CommunitiesPage from "@/pages/CommunitiesPage";
 import CommunityDetailPage from "@/pages/CommunityDetailPage";
 import AnimeListPage from "@/pages/AnimeListPage";
 import CardsPage from "@/pages/CardsPage";
+import CardCatalogPage from "@/pages/CardCatalogPage";
 import PremiumPage from "@/pages/PremiumPage";
 import CreatePostPage from "@/pages/CreatePostPage";
 import HelpPage from "@/pages/HelpPage";
@@ -50,6 +51,7 @@ function Router() {
         <Route path="/community/:id" component={CommunityDetailPage} />
         <Route path="/watchlist" component={AnimeListPage} />
         <Route path="/cards" component={CardsPage} />
+        <Route path="/cards/catalog" component={CardCatalogPage} />
         <Route path="/draws" component={DrawsPage} />
         <Route path="/sclass" component={PremiumPage} />
         <Route path="/create" component={CreatePostPage} />

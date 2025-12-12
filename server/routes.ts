@@ -197,6 +197,29 @@ export async function registerRoutes(
       res.status(500).json({ error: error.message });
     }
   });
+
+  // Card catalog with pagination and filtering
+  app.get("/api/cards/catalog", async (req, res) => {
+    try {
+      const page = Math.max(1, parseInt(req.query.page as string) || 1);
+      const limit = Math.min(Math.max(1, parseInt(req.query.limit as string) || 20), 50);
+      const sortOrder = (req.query.sort as string) === 'oldest' ? 'oldest' : 'newest';
+      
+      // Whitelist valid rarities to prevent injection
+      const validRarities = ['Common', 'Rare', 'Epic', 'Legendary', 'Mythic'];
+      let rarities: string[] | undefined;
+      if (req.query.rarities) {
+        const requestedRarities = (req.query.rarities as string).split(',');
+        rarities = requestedRarities.filter(r => validRarities.includes(r));
+        if (rarities.length === 0) rarities = undefined;
+      }
+      
+      const result = await storage.getCatalogCards({ page, limit, rarities, sortOrder });
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
   
   app.get("/api/users/:userId/cards", async (req, res) => {
     try {

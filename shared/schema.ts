@@ -58,6 +58,13 @@ export const cards = pgTable("cards", {
   power: integer("power").notNull(),
   element: text("element").notNull(),
   isArchived: boolean("is_archived").notNull().default(false), // Archived cards are removed from gacha but stay in user collections
+  isReleased: boolean("is_released").notNull().default(true), // Only released cards appear in catalog
+  isLimited: boolean("is_limited").notNull().default(false), // Limited/event cards get special tag
+  obtainableFrom: text("obtainable_from").array().default(sql`ARRAY['daily']::text[]`), // daily, weekly, monthly, event
+  season: text("season"), // Season/event name (e.g., "Summer 2024", "Halloween Event")
+  lore: text("lore"), // Card backstory/description for details modal
+  releaseDate: timestamp("release_date").defaultNow(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
 // User Cards (collection)
@@ -389,6 +396,7 @@ export const insertPostSchema = createInsertSchema(posts).omit({
 
 export const insertCardSchema = createInsertSchema(cards).omit({
   id: true,
+  createdAt: true,
 });
 
 export const insertUserCardSchema = createInsertSchema(userCards).omit({

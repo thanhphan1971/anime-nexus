@@ -49,7 +49,7 @@ import {
   siteSettings,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, sql, desc, ne } from "drizzle-orm";
+import { eq, and, sql, desc, ne, inArray } from "drizzle-orm";
 
 export interface IStorage {
   // User operations
@@ -80,6 +80,7 @@ export interface IStorage {
   getCardsWithOwnerCounts(): Promise<Array<Card & { ownerCount: number }>>;
   getUserCards(userId: string): Promise<Array<UserCard & { card: Card }>>;
   addCardToUser(userCard: InsertUserCard): Promise<UserCard>;
+  getCatalogCards(options: { page?: number; limit?: number; rarities?: string[]; sortOrder?: 'newest' | 'oldest' }): Promise<{ cards: Card[]; total: number; page: number; totalPages: number }>;
   
   // Marketplace operations
   getActiveListings(): Promise<Array<MarketListing & { seller: User; card: Card }>>;
@@ -347,6 +348,45 @@ export class DbStorage implements IStorage {
   async addCardToUser(insertUserCard: InsertUserCard): Promise<UserCard> {
     const result = await db.insert(userCards).values(insertUserCard).returning();
     return result[0];
+  }
+
+  async getCatalogCards(options: { page?: number; limit?: number; rarities?: string[]; sortOrder?: 'newest' | 'oldest' }): Promise<{ cards: Card[]; total: number; page: number; totalPages: number }> {
+    const page = options.page || 1;
+    const limit = options.limit || 20;
+    const offset = (page - 1) * limit;
+    const sortOrder = options.sortOrder || 'newest';
+    
+    // Build conditions: only released, non-archived cards
+    let conditions = and(eq(cards.isReleased, true), eq(cards.isArchived, false));
+    
+    // Filter by rarities if provided - using parameterized inArray for safety
+    if (options.rarities && options.rarities.length > 0) {
+      conditions = and(conditions, inArray(cards.rarity, options.rarities));
+    }
+    
+    // Get total count
+    const countResult = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(cards)
+      .where(conditions);
+    const total = Number(countResult[0]?.count || 0);
+    
+    // Get paginated cards
+    const orderBy = sortOrder === 'newest' ? desc(cards.createdAt) : cards.createdAt;
+    const result = await db
+      .select()
+      .from(cards)
+      .where(conditions)
+      .orderBy(orderBy)
+      .limit(limit)
+      .offset(offset);
+    
+    return {
+      cards: result,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit)
+    };
   }
 
   // Marketplace operations
