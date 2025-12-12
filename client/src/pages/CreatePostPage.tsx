@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
-import { Image, Type, Video, Wand2, Send, X, AlertCircle } from "lucide-react";
+import { Image as ImageIcon, Type, Video, Wand2, Send, X, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useAuth } from "@/context/AuthContext";
 import { useLocation } from "wouter";
@@ -126,7 +126,7 @@ export default function CreatePostPage() {
                     className="text-muted-foreground hover:text-white hover:bg-white/10"
                     onClick={() => document.getElementById("image-upload")?.click()}
                   >
-                    <Image className="h-4 w-4 mr-2" /> Add Image
+                    <ImageIcon className="h-4 w-4 mr-2" /> Add Image
                   </Button>
                 </div>
                 <Button 
@@ -201,19 +201,56 @@ export default function CreatePostPage() {
         {/* STORY TAB */}
         <TabsContent value="story">
           <Card className="bg-card/40 border-white/10">
-            <CardContent className="p-12 flex flex-col items-center justify-center text-center space-y-4">
-              <div className="h-16 w-16 rounded-full bg-white/5 flex items-center justify-center">
-                <Video className="h-8 w-8 text-muted-foreground" />
-              </div>
-              <div>
+            <CardContent className="p-8 space-y-6">
+              <div className="text-center space-y-2">
+                <div className="h-16 w-16 rounded-full bg-white/5 flex items-center justify-center mx-auto">
+                  <Video className="h-8 w-8 text-muted-foreground" />
+                </div>
                 <h3 className="text-xl font-bold">Create Story</h3>
-                <p className="text-muted-foreground max-w-xs mx-auto mt-2">
+                <p className="text-muted-foreground max-w-md mx-auto">
                   Share a moment from your day. Stories disappear after 24 hours.
                 </p>
               </div>
-              <Button variant="outline" className="border-white/10">
-                Open Camera / Upload
-              </Button>
+
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-3">
+                  <div className="flex items-center gap-2 text-primary font-semibold">
+                    <ImageIcon className="h-5 w-5" />
+                    <span>Upload Images</span>
+                  </div>
+                  <ul className="text-sm text-muted-foreground space-y-1">
+                    <li>• Maximum 5 images per story</li>
+                    <li>• Max file size: 5MB each</li>
+                    <li>• Formats: JPG, PNG, GIF, WebP</li>
+                  </ul>
+                  <Button variant="outline" className="w-full border-white/10" data-testid="button-upload-images">
+                    Select Images
+                  </Button>
+                </div>
+
+                <div className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-3">
+                  <div className="flex items-center gap-2 text-primary font-semibold">
+                    <Video className="h-5 w-5" />
+                    <span>Upload Video</span>
+                  </div>
+                  <ul className="text-sm text-muted-foreground space-y-1">
+                    <li>• Maximum 1 video per story</li>
+                    <li>• Max length: 60 seconds</li>
+                    <li>• Max file size: 50MB</li>
+                    <li>• Formats: MP4, MOV, WebM</li>
+                  </ul>
+                  <Button variant="outline" className="w-full border-white/10" data-testid="button-upload-video">
+                    Select Video
+                  </Button>
+                </div>
+              </div>
+
+              <Alert className="bg-yellow-500/10 border-yellow-500/20">
+                <AlertCircle className="h-4 w-4 text-yellow-400" />
+                <AlertDescription className="text-yellow-200/80">
+                  Stories are visible for 24 hours only. After that, they will be automatically removed.
+                </AlertDescription>
+              </Alert>
             </CardContent>
           </Card>
         </TabsContent>
