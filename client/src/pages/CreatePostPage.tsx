@@ -18,6 +18,22 @@ export default function CreatePostPage() {
   const createPost = useCreatePost();
   const [content, setContent] = useState("");
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const handleGenerate = async () => {
+    if (!aiPrompt.trim()) {
+      toast.error("Please enter a prompt first");
+      return;
+    }
+    
+    setIsGenerating(true);
+    // Simulate generation delay
+    setTimeout(() => {
+      setIsGenerating(false);
+      toast.info("AI Generation coming soon! This feature will generate anime art from your prompts.");
+    }, 1500);
+  };
 
   const handlePost = async () => {
     if (!content.trim() && !selectedImage) return;
@@ -151,9 +167,17 @@ export default function CreatePostPage() {
                   <Input 
                     placeholder="E.g., Cyberpunk samurai eating ramen in rain..." 
                     className="bg-white/5 border-white/10 focus:border-primary"
+                    value={aiPrompt}
+                    onChange={(e) => setAiPrompt(e.target.value)}
+                    data-testid="input-ai-prompt"
                   />
-                  <Button className="bg-primary hover:bg-primary/90 whitespace-nowrap">
-                    <Wand2 className="mr-2 h-4 w-4" /> Generate
+                  <Button 
+                    className="bg-primary hover:bg-primary/90 whitespace-nowrap"
+                    onClick={handleGenerate}
+                    disabled={isGenerating}
+                    data-testid="button-generate"
+                  >
+                    <Wand2 className="mr-2 h-4 w-4" /> {isGenerating ? "Generating..." : "Generate"}
                   </Button>
                 </div>
               </div>
