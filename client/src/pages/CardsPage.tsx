@@ -45,8 +45,13 @@ export default function CardsPage() {
           <p className="text-xs text-muted-foreground">Summon rare anime cards, build your collection, and trade with others</p>
         </div>
         <div className="flex items-center gap-4 w-full md:w-auto">
-          <Button size="sm" variant="outline" onClick={() => setLocation("/cards/catalog")} data-testid="button-view-catalog">
-            <Book className="h-4 w-4 mr-1" /> Catalog
+          <Button 
+            size="lg" 
+            onClick={() => setLocation("/cards/catalog")} 
+            data-testid="button-view-catalog"
+            className="bg-gradient-to-r from-purple-600 to-cyan-500 hover:from-purple-500 hover:to-cyan-400 text-white font-bold shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 transition-all hover:scale-105 animate-pulse"
+          >
+            <Book className="h-5 w-5 mr-2" /> View Catalog
           </Button>
           <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 font-bold text-sm" data-testid="text-tokens">
             <Coins className="h-4 w-4" /> {user?.tokens || 0}
