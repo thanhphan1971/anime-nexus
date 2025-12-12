@@ -115,8 +115,11 @@ export interface IStorage {
   // Draw entry operations
   getDrawEntries(drawId: string): Promise<Array<DrawEntry & { user: User }>>;
   getUserDrawEntries(userId: string): Promise<Array<DrawEntry & { draw: Draw }>>;
+  getUserEntryForDraw(userId: string, drawId: string): Promise<DrawEntry | undefined>;
   createDrawEntry(entry: InsertDrawEntry): Promise<DrawEntry>;
+  updateDrawEntry(entryId: string, updates: Partial<DrawEntry>): Promise<DrawEntry | undefined>;
   getEntryCount(drawId: string): Promise<number>;
+  getUserWinsInPeriod(userId: string, cadence: string): Promise<number>;
   
   // Draw winner operations
   getDrawWinners(drawId: string): Promise<Array<DrawWinner & { user: User; prize: Prize }>>;
@@ -611,11 +614,54 @@ export class DbStorage implements IStorage {
     return result[0];
   }
 
+  async updateDrawEntry(entryId: string, updates: Partial<DrawEntry>): Promise<DrawEntry | undefined> {
+    const result = await db.update(drawEntries).set(updates).where(eq(drawEntries.id, entryId)).returning();
+    return result[0];
+  }
+
   async getEntryCount(drawId: string): Promise<number> {
     const result = await db
       .select({ count: sql<number>`count(*)` })
       .from(drawEntries)
       .where(eq(drawEntries.drawId, drawId));
+    return Number(result[0]?.count || 0);
+  }
+
+  async getUserEntryForDraw(userId: string, drawId: string): Promise<DrawEntry | undefined> {
+    const result = await db
+      .select()
+      .from(drawEntries)
+      .where(and(eq(drawEntries.userId, userId), eq(drawEntries.drawId, drawId)))
+      .limit(1);
+    return result[0];
+  }
+
+  async getUserWinsInPeriod(userId: string, cadence: string): Promise<number> {
+    let startDate: Date;
+    const now = new Date();
+    
+    if (cadence === 'weekly') {
+      const dayOfWeek = now.getDay();
+      const diff = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+      startDate = new Date(now.setDate(diff));
+      startDate.setHours(0, 0, 0, 0);
+    } else if (cadence === 'monthly') {
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    } else {
+      return 0;
+    }
+    
+    const result = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(drawWinners)
+      .innerJoin(draws, eq(drawWinners.drawId, draws.id))
+      .where(
+        and(
+          eq(drawWinners.userId, userId),
+          eq(draws.cadence, cadence),
+          sql`${drawWinners.awardedAt} >= ${startDate}`
+        )
+      );
     return Number(result[0]?.count || 0);
   }
 

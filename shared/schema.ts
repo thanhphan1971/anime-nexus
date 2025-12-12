@@ -233,8 +233,12 @@ export const draws = pgTable("draws", {
   endAt: timestamp("end_at").notNull(),
   drawAt: timestamp("draw_at").notNull(), // when winner is selected
   prizePool: jsonb("prize_pool").notNull(), // array of { prizeId, quantity, odds }
-  entryRules: jsonb("entry_rules"), // { minLevel, premiumOnly, activityRequired }
-  maxEntries: integer("max_entries"), // null = unlimited
+  entryRules: jsonb("entry_rules"), // { minLevel, premiumOnly, activityRequired, minAccountAgeDays, requireEmailVerified }
+  maxEntries: integer("max_entries"), // null = unlimited total entries
+  maxEntriesPerUser: integer("max_entries_per_user").notNull().default(1), // entries per free user
+  premiumEntriesPerUser: integer("premium_entries_per_user").notNull().default(1), // entries per S-Class user
+  winnerScaling: jsonb("winner_scaling"), // { minWinners, maxWinners, entriesPerWinner } for dynamic winner counts
+  winnerTiers: jsonb("winner_tiers"), // { grand: { count, prizeIds }, secondary: { count, prizeIds } } for monthly
   bannerImage: text("banner_image"),
   isVisible: boolean("is_visible").notNull().default(true),
   isFeatured: boolean("is_featured").notNull().default(false),
@@ -264,6 +268,7 @@ export const drawWinners = pgTable("draw_winners", {
   entryId: varchar("entry_id").references(() => drawEntries.id, { onDelete: 'set null' }),
   prizeId: varchar("prize_id").notNull().references(() => prizes.id, { onDelete: 'cascade' }),
   prizeDetails: jsonb("prize_details"), // snapshot of prize at time of win
+  winnerTier: text("winner_tier").notNull().default('standard'), // standard, grand, secondary (for monthly draws)
   claimStatus: text("claim_status").notNull().default('pending'), // pending, claimed, expired
   claimExpiresAt: timestamp("claim_expires_at"),
   claimedAt: timestamp("claimed_at"),

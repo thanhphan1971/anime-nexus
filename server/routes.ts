@@ -651,24 +651,86 @@ export async function registerRoutes(
 
       // Check entry rules
       const entryRules = draw.entryRules as any || {};
+      
+      // Level requirement
       if (entryRules.minLevel && user.level < entryRules.minLevel) {
         return res.status(400).json({ error: `Minimum level ${entryRules.minLevel} required` });
       }
+      
+      // Premium-only check (for free entry on monthly draws)
       if (entryRules.premiumOnly && !user.isPremium) {
-        return res.status(400).json({ error: "Premium members only" });
+        return res.status(400).json({ error: "S-Class members only for free entry" });
       }
-
-      // Calculate tickets (premium gets bonus)
-      const tickets = user.isPremium ? 3 : 1;
       
-      const entry = await storage.createDrawEntry({
-        drawId: req.params.id,
-        userId: req.session.userId,
-        tickets,
-        entrySource: 'manual',
+      // Account age check (≥24 hours)
+      if (entryRules.minAccountAgeDays) {
+        const accountAgeMs = Date.now() - new Date(user.createdAt).getTime();
+        const accountAgeDays = accountAgeMs / (1000 * 60 * 60 * 24);
+        if (accountAgeDays < entryRules.minAccountAgeDays) {
+          return res.status(400).json({ 
+            error: `Account must be at least ${entryRules.minAccountAgeDays} day(s) old to enter` 
+          });
+        }
+      }
+      
+      // Email verification check (ready for when email verification is implemented)
+      // Currently no isEmailVerified field on users - add check here when implemented
+      if (entryRules.requireEmailVerified) {
+        const userWithEmail = user as any;
+        if (userWithEmail.isEmailVerified === false) {
+          return res.status(400).json({ 
+            error: "Email verification required to enter this draw" 
+          });
+        }
+      }
+      
+      // One win per period check
+      const winsInPeriod = await storage.getUserWinsInPeriod(user.id, draw.cadence);
+      if (winsInPeriod > 0) {
+        return res.status(400).json({ 
+          error: `You already won a ${draw.cadence} draw this period. Try again next ${draw.cadence === 'weekly' ? 'week' : 'month'}!` 
+        });
+      }
+      
+      // Determine max entries per user based on draw settings and user type
+      const maxEntriesAllowed = user.isPremium 
+        ? (draw.premiumEntriesPerUser || 3) 
+        : (draw.maxEntriesPerUser || 1);
+      
+      // Check existing entries for this user in this draw
+      const existingEntry = await storage.getUserEntryForDraw(user.id, req.params.id);
+      const currentTickets = existingEntry?.tickets || 0;
+      
+      if (currentTickets >= maxEntriesAllowed) {
+        return res.status(400).json({ 
+          error: `You've reached your maximum of ${maxEntriesAllowed} entries for this draw` 
+        });
+      }
+      
+      // Calculate tickets to add (1 per manual entry, up to max)
+      const ticketsToAdd = 1;
+      const newTotalTickets = currentTickets + ticketsToAdd;
+      
+      let entry;
+      if (existingEntry) {
+        // Update existing entry with more tickets
+        entry = await storage.updateDrawEntry(existingEntry.id, { tickets: newTotalTickets });
+      } else {
+        // Create new entry
+        entry = await storage.createDrawEntry({
+          drawId: req.params.id,
+          userId: req.session.userId,
+          tickets: ticketsToAdd,
+          entrySource: 'manual',
+        });
+      }
+      
+      res.json({ 
+        ...entry, 
+        message: `Entry added! You now have ${newTotalTickets} of ${maxEntriesAllowed} entries.`,
+        currentEntries: newTotalTickets,
+        maxEntries: maxEntriesAllowed
       });
-      
-      res.json(entry);
     } catch (error: any) {
       res.status(400).json({ error: error.message });
     }

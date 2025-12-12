@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { cards, communities, users } from "@shared/schema";
+import { cards, communities, users, prizes } from "@shared/schema";
 import bcrypt from "bcrypt";
 
 export async function seedDatabase() {
@@ -188,6 +188,30 @@ export async function seedDatabase() {
   ];
 
   await db.insert(communities).values(communityData);
+
+  // Seed prizes for draw system
+  const prizeData = [
+    // Weekly Draw Prizes (small prizes)
+    { name: "50 Tokens", description: "A small token reward", type: "tokens", rarity: "common", value: 50 },
+    { name: "100 Tokens", description: "A token reward", type: "tokens", rarity: "common", value: 100 },
+    { name: "200 Tokens", description: "A nice token reward", type: "tokens", rarity: "rare", value: 200 },
+    { name: "Bronze Frame", description: "A bronze avatar frame", type: "avatar_frame", rarity: "common", value: 1 },
+    { name: "Silver Frame", description: "A silver avatar frame", type: "avatar_frame", rarity: "rare", value: 1 },
+    { name: "Random Common Card", description: "A random common rarity card", type: "card", rarity: "common", value: 30 },
+    { name: "Random Rare Card", description: "A random rare rarity card", type: "card", rarity: "rare", value: 50 },
+    // Monthly Draw Prizes (grand prizes)
+    { name: "5000 Tokens", description: "A massive token jackpot!", type: "tokens", rarity: "legendary", value: 5000 },
+    { name: "1 Month S-Class", description: "One month of S-Class membership", type: "premium_days", rarity: "legendary", value: 30 },
+    { name: "Legendary Card Pack", description: "Contains a guaranteed legendary card", type: "card", rarity: "legendary", value: 85 },
+    { name: "Mythic Card", description: "An ultra-rare mythic card", type: "card", rarity: "mythic", value: 100 },
+    // Monthly Secondary Prizes
+    { name: "1000 Tokens", description: "A generous token reward", type: "tokens", rarity: "epic", value: 1000 },
+    { name: "7 Days S-Class", description: "One week of S-Class membership", type: "premium_days", rarity: "epic", value: 7 },
+    { name: "Epic Card Pack", description: "Contains a guaranteed epic card", type: "card", rarity: "epic", value: 65 },
+    { name: "Gold Frame", description: "A prestigious gold avatar frame", type: "avatar_frame", rarity: "epic", value: 1 },
+  ];
+
+  await db.insert(prizes).values(prizeData);
 
   // Seed sample users for matching
   const hashedPassword = await bcrypt.hash("demo123", 10);
