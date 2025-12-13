@@ -14,6 +14,7 @@ export default function AuthPage() {
   const [, setLocation] = useLocation();
   const [isLogin, setIsLogin] = useState(true);
   const [formData, setFormData] = useState({
+    email: "",
     username: "",
     password: "",
     name: "",
@@ -23,7 +24,6 @@ export default function AuthPage() {
   });
   const [showPassword, setShowPassword] = useState(false);
   
-  // Calculate age from birth date
   const userAge = useMemo(() => {
     if (!formData.birthDate) return null;
     const birth = new Date(formData.birthDate);
@@ -37,27 +37,26 @@ export default function AuthPage() {
   }, [formData.birthDate]);
 
   const isMinor = userAge !== null && userAge < 18;
-  const isUnder13 = userAge !== null && userAge < 13; // COPPA compliance
+  const isUnder13 = userAge !== null && userAge < 13;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     try {
       if (isLogin) {
-        await login(formData.username, formData.password);
+        await login(formData.email, formData.password);
         toast.success("Welcome back!");
         setLocation("/");
       } else {
-        // COPPA compliance: Only require parent email for users under 13
         if (isUnder13 && !formData.parentEmail) {
           toast.error("Parent/guardian email is required for users under 13 (COPPA compliance)");
           return;
         }
         
-        // Generate random avatar
         const avatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${formData.username}`;
         
         await signup({
+          email: formData.email,
           username: formData.username,
           password: formData.password,
           name: formData.name || formData.username,
@@ -68,7 +67,7 @@ export default function AuthPage() {
           theme: "cyberpunk",
           birthDate: formData.birthDate ? new Date(formData.birthDate) : undefined,
           isMinor,
-          parentEmail: isUnder13 ? formData.parentEmail : undefined, // Only for COPPA (under 13)
+          parentEmail: isUnder13 ? formData.parentEmail : undefined,
         });
         
         if (isUnder13) {
@@ -85,7 +84,6 @@ export default function AuthPage() {
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-background relative overflow-hidden">
-      {/* Background Image with Overlay */}
       <div className="absolute inset-0 z-0">
         <img src={heroBg} alt="Background" className="w-full h-full object-cover opacity-30" />
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent" />
@@ -132,6 +130,19 @@ export default function AuthPage() {
                     />
                   </div>
                   <div className="space-y-2">
+                    <Label htmlFor="username">Username</Label>
+                    <Input 
+                      id="username" 
+                      type="text" 
+                      placeholder="neokai"
+                      value={formData.username}
+                      onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                      required
+                      className="bg-white/5 border-white/10 focus:border-primary focus:ring-primary/20"
+                      data-testid="input-username"
+                    />
+                  </div>
+                  <div className="space-y-2">
                     <Label htmlFor="handle">Handle</Label>
                     <Input 
                       id="handle" 
@@ -156,7 +167,6 @@ export default function AuthPage() {
                     />
                   </div>
                   
-                  {/* COPPA: Parent email only required for users under 13 */}
                   {isUnder13 && (
                     <div className="space-y-3">
                       <div className="bg-orange-500/20 border border-orange-500/30 rounded-lg p-3">
@@ -189,7 +199,6 @@ export default function AuthPage() {
                     </div>
                   )}
                   
-                  {/* Info for 13-17 year olds - they can join freely */}
                   {isMinor && !isUnder13 && (
                     <div className="bg-blue-500/20 border border-blue-500/30 rounded-lg p-3">
                       <div className="flex items-start gap-2">
@@ -206,16 +215,16 @@ export default function AuthPage() {
                 </>
               )}
               <div className="space-y-2">
-                <Label htmlFor="username">Username</Label>
+                <Label htmlFor="email">Email</Label>
                 <Input 
-                  id="username" 
-                  type="text" 
-                  placeholder="username"
-                  value={formData.username}
-                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                  id="email" 
+                  type="email" 
+                  placeholder="you@example.com"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   required
                   className="bg-white/5 border-white/10 focus:border-primary focus:ring-primary/20"
-                  data-testid="input-username"
+                  data-testid="input-email"
                 />
               </div>
               <div className="space-y-2">

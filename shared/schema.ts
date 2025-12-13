@@ -6,8 +6,9 @@ import { z } from "zod";
 // Users table - core user data
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: text("email").notNull().unique(),
   username: text("username").notNull().unique(),
-  password: text("password").notNull(),
+  password: text("password").default(''),
   name: text("name").notNull(),
   handle: text("handle").notNull().unique(),
   avatar: text("avatar").notNull().default('https://api.dicebear.com/7.x/avataaars/svg?seed=default'),
@@ -394,10 +395,27 @@ export const siteSettings = pgTable("site_settings", {
   updatedBy: varchar("updated_by").references(() => users.id, { onDelete: 'set null' }),
 });
 
+// Media - tracks uploaded files (no base64, just references)
+export const media = pgTable("media", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  storageProvider: text("storage_provider").notNull().default('supabase'), // supabase or r2
+  bucket: text("bucket").notNull(),
+  objectKey: text("object_key").notNull().unique(),
+  mimeType: text("mime_type").notNull(),
+  sizeBytes: integer("size_bytes").notNull(),
+  kind: text("kind").notNull(), // post, story, avatar, card
+  publicUrl: text("public_url"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at"),
+});
+
 // Stories - ephemeral user content (24h expiration)
 export const stories = pgTable("stories", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  mediaId: varchar("media_id").references(() => media.id, { onDelete: 'set null' }),
   mediaUrl: text("media_url").notNull(),
   mediaType: text("media_type").notNull(), // 'image' or 'video'
   caption: text("caption"),
@@ -671,5 +689,13 @@ export const insertStorySchema = createInsertSchema(stories).omit({
   createdAt: true,
 });
 
+export const insertMediaSchema = createInsertSchema(media).omit({
+  id: true,
+  createdAt: true,
+});
+
 export type InsertStory = z.infer<typeof insertStorySchema>;
 export type Story = typeof stories.$inferSelect;
+
+export type InsertMedia = z.infer<typeof insertMediaSchema>;
+export type Media = typeof media.$inferSelect;

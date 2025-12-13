@@ -3,11 +3,106 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertUserSchema, insertPostSchema, insertSwipeActionSchema, insertCommunityMessageSchema, insertDrawSchema, insertPrizeSchema, insertDrawEntrySchema } from "@shared/schema";
 import bcrypt from "bcrypt";
+import { verifySupabaseToken } from "./lib/supabaseAuth";
+import { sql } from "drizzle-orm";
+import { z } from "zod";
+
+const createProfileSchema = z.object({
+  id: z.string().min(1),
+  email: z.string().email(),
+  username: z.string().min(3).max(30).regex(/^[a-zA-Z0-9_]+$/),
+  name: z.string().min(1).max(100),
+  handle: z.string().min(3).max(30).regex(/^@[a-zA-Z0-9_]+$/),
+  avatar: z.string().url().optional(),
+  bio: z.string().max(500).optional(),
+  animeInterests: z.array(z.string()).max(20).optional(),
+  theme: z.enum(['cyberpunk', 'neon', 'sakura', 'ocean']).optional(),
+  birthDate: z.string().optional(),
+  isMinor: z.boolean().optional(),
+  parentEmail: z.string().email().optional().nullable(),
+});
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  
+  // Supabase config endpoint (public keys only)
+  app.get("/api/config/supabase", (req, res) => {
+    res.json({
+      url: process.env.SUPABASE_URL,
+      anonKey: process.env.SUPABASE_ANON_KEY,
+    });
+  });
+  
+  // Profile routes for Supabase Auth
+  app.get("/api/profiles/:id", verifySupabaseToken, async (req, res) => {
+    try {
+      const user = await storage.getUser(req.params.id);
+      if (!user) {
+        return res.status(404).json({ error: "Profile not found" });
+      }
+      const { password, ...profile } = user;
+      res.json(profile);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  app.post("/api/profiles", verifySupabaseToken, async (req, res) => {
+    try {
+      const validationResult = createProfileSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ error: validationResult.error.errors[0]?.message || "Invalid profile data" });
+      }
+      
+      const { id, email, username, name, handle, avatar, bio, animeInterests, theme, birthDate, isMinor, parentEmail } = validationResult.data;
+      
+      // Verify the request is from the same user
+      if (req.supabaseUser?.id !== id) {
+        return res.status(403).json({ error: "Unauthorized" });
+      }
+      
+      // Check if username or handle already exists
+      const existingUser = await storage.getUserByUsername(username);
+      if (existingUser) {
+        return res.status(400).json({ error: "Username already taken" });
+      }
+      
+      const existingHandle = await storage.getUserByHandle(handle);
+      if (existingHandle) {
+        return res.status(400).json({ error: "Handle already taken" });
+      }
+      
+      // Check if email already exists
+      const existingEmail = await storage.getUserByEmail(email);
+      if (existingEmail) {
+        return res.status(400).json({ error: "Email already in use" });
+      }
+      
+      // Create profile with Supabase user ID
+      const user = await storage.createUserWithId(id, {
+        email,
+        username,
+        name,
+        handle,
+        avatar,
+        bio: bio || "New to AniRealm",
+        animeInterests: animeInterests || [],
+        theme: theme || "cyberpunk",
+        birthDate: birthDate ? new Date(birthDate) : undefined,
+        isMinor: isMinor || false,
+        parentEmail,
+        password: '', // No local password for Supabase Auth users
+      });
+      
+      const { password, ...profile } = user;
+      res.json(profile);
+    } catch (error: any) {
+      console.error("Profile creation error:", error);
+      res.status(400).json({ error: error.message || "Failed to create profile" });
+    }
+  });
   
   // Auth routes
   app.post("/api/auth/signup", async (req, res) => {
@@ -31,8 +126,10 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Handle already taken" });
       }
       
-      // Hash password
-      const hashedPassword = await bcrypt.hash(validatedData.password, 10);
+      // Hash password (only if provided - Supabase Auth users won't have local password)
+      const hashedPassword = validatedData.password 
+        ? await bcrypt.hash(validatedData.password, 10)
+        : '';
       
       // Create user
       const user = await storage.createUser({
@@ -64,7 +161,7 @@ export async function registerRoutes(
         return res.status(403).json({ error: "Account banned" });
       }
       
-      const validPassword = await bcrypt.compare(password, user.password);
+      const validPassword = user.password && await bcrypt.compare(password, user.password);
       if (!validPassword) {
         return res.status(401).json({ error: "Invalid credentials" });
       }
@@ -1683,6 +1780,215 @@ export async function registerRoutes(
         }
       });
     } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Admin: Launch reset - wipe content but keep user accounts
+  app.post("/api/admin/launch-reset", async (req, res) => {
+    try {
+      const { secret } = req.body;
+      const ADMIN_RESET_SECRET = process.env.ADMIN_RESET_SECRET;
+      
+      if (!ADMIN_RESET_SECRET) {
+        return res.status(500).json({ error: "ADMIN_RESET_SECRET not configured" });
+      }
+      
+      if (secret !== ADMIN_RESET_SECRET) {
+        return res.status(403).json({ error: "Invalid reset secret" });
+      }
+
+      const { getMediaAdapter } = await import('./media/adapter');
+      const adapter = getMediaAdapter();
+
+      // Get all media to delete from storage
+      const allMedia = await storage.getExpiredMedia(); // We'll use a broader query
+      for (const m of allMedia) {
+        try {
+          await adapter.deleteObject(m.objectKey);
+        } catch (e) {
+          console.error("Failed to delete media from storage:", e);
+        }
+      }
+
+      // Wipe tables in correct order (respecting foreign keys)
+      const { db } = await import('./db');
+      
+      await db.execute(sql`TRUNCATE TABLE 
+        media, stories, post_likes, posts, community_messages, 
+        swipe_actions, draw_winners, draw_entries, market_listings, user_cards
+        CASCADE`);
+
+      console.log("Launch reset completed - content wiped, accounts preserved");
+
+      res.json({
+        success: true,
+        message: "Content wiped. User accounts preserved.",
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error: any) {
+      console.error("Launch reset error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Admin: Cleanup expired stories and media
+  app.post("/api/admin/cleanup-expired-stories", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const user = await storage.getUser(req.session.userId);
+      if (!user?.isAdmin) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      const { getMediaAdapter } = await import('./media/adapter');
+      const adapter = getMediaAdapter();
+
+      const expiredMedia = await storage.getExpiredMedia();
+      let deletedCount = 0;
+      let failedCount = 0;
+
+      for (const mediaRecord of expiredMedia) {
+        try {
+          await adapter.deleteObject(mediaRecord.objectKey);
+          await storage.deleteMedia(mediaRecord.id);
+          deletedCount++;
+        } catch (error: any) {
+          console.error(`Failed to delete expired media ${mediaRecord.id}:`, error);
+          failedCount++;
+        }
+      }
+
+      res.json({
+        success: true,
+        deleted: deletedCount,
+        failed: failedCount,
+        total: expiredMedia.length,
+      });
+    } catch (error: any) {
+      console.error("Cleanup error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Media upload routes
+  app.post("/api/media/upload-url", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const { contentType, sizeBytes, kind } = req.body;
+
+      if (!contentType || !sizeBytes || !kind) {
+        return res.status(400).json({ error: "Missing required fields: contentType, sizeBytes, kind" });
+      }
+
+      const validKinds = ['post', 'story', 'avatar', 'card'];
+      if (!validKinds.includes(kind)) {
+        return res.status(400).json({ error: "Invalid kind. Must be: post, story, avatar, or card" });
+      }
+
+      const { getMediaAdapter } = await import('./media/adapter');
+      const adapter = getMediaAdapter();
+
+      const result = await adapter.getSignedUploadUrl({
+        userId: req.session.userId,
+        contentType,
+        sizeBytes,
+        kind,
+      });
+
+      res.json(result);
+    } catch (error: any) {
+      console.error("Upload URL error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/media/complete", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const { objectKey, kind, mimeType, sizeBytes, metadata } = req.body;
+
+      if (!objectKey || !kind || !mimeType || !sizeBytes) {
+        return res.status(400).json({ error: "Missing required fields: objectKey, kind, mimeType, sizeBytes" });
+      }
+
+      const { getMediaAdapter } = await import('./media/adapter');
+      const adapter = getMediaAdapter();
+
+      const finalizeResult = await adapter.finalizeUpload({
+        userId: req.session.userId,
+        objectKey,
+        kind,
+        metadata,
+      });
+
+      const expiresAt = kind === 'story' ? new Date(Date.now() + 24 * 60 * 60 * 1000) : undefined;
+
+      const mediaRecord = await storage.createMedia({
+        userId: req.session.userId,
+        storageProvider: process.env.MEDIA_PROVIDER || 'supabase',
+        bucket: 'media',
+        objectKey,
+        mimeType,
+        sizeBytes,
+        kind,
+        publicUrl: finalizeResult.publicUrl,
+        metadata: metadata || null,
+        expiresAt,
+      });
+
+      res.json({
+        id: mediaRecord.id,
+        publicUrl: mediaRecord.publicUrl,
+        objectKey: mediaRecord.objectKey,
+      });
+    } catch (error: any) {
+      console.error("Media complete error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/media/:id", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const mediaRecord = await storage.getMedia(req.params.id);
+      if (!mediaRecord) {
+        return res.status(404).json({ error: "Media not found" });
+      }
+
+      if (mediaRecord.userId !== req.session.userId) {
+        const user = await storage.getUser(req.session.userId);
+        if (!user?.isAdmin) {
+          return res.status(403).json({ error: "Not authorized to delete this media" });
+        }
+      }
+
+      const { getMediaAdapter } = await import('./media/adapter');
+      const adapter = getMediaAdapter();
+
+      try {
+        await adapter.deleteObject(mediaRecord.objectKey);
+      } catch (storageError: any) {
+        console.error("Storage delete error (continuing with DB delete):", storageError);
+      }
+
+      await storage.deleteMedia(req.params.id);
+
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Media delete error:", error);
       res.status(500).json({ error: error.message });
     }
   });

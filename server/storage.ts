@@ -36,6 +36,8 @@ import {
   type InsertAnimeCache,
   type Story,
   type InsertStory,
+  type Media,
+  type InsertMedia,
   users,
   posts,
   postLikes,
@@ -56,6 +58,7 @@ import {
   watchlistItems,
   animeCache,
   stories,
+  media,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql, desc, ne, inArray } from "drizzle-orm";
@@ -65,7 +68,9 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   getUserByHandle(handle: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  createUserWithId(id: string, user: InsertUser): Promise<User>;
   updateUser(id: string, updates: Partial<User>): Promise<User | undefined>;
   getAllUsers(): Promise<User[]>;
   
@@ -184,6 +189,13 @@ export interface IStorage {
   getUserStories(userId: string): Promise<Story[]>;
   getUserStoryCountIn24h(userId: string): Promise<number>;
   deleteStory(id: string): Promise<void>;
+  
+  // Media operations
+  createMedia(mediaData: InsertMedia): Promise<Media>;
+  getMedia(id: string): Promise<Media | undefined>;
+  getMediaByObjectKey(objectKey: string): Promise<Media | undefined>;
+  deleteMedia(id: string): Promise<void>;
+  getExpiredMedia(): Promise<Media[]>;
 }
 
 export class DbStorage implements IStorage {
@@ -203,8 +215,18 @@ export class DbStorage implements IStorage {
     return result[0];
   }
 
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    return result[0];
+  }
+
   async createUser(insertUser: InsertUser): Promise<User> {
     const result = await db.insert(users).values(insertUser).returning();
+    return result[0];
+  }
+
+  async createUserWithId(id: string, insertUser: InsertUser): Promise<User> {
+    const result = await db.insert(users).values({ ...insertUser, id }).returning();
     return result[0];
   }
 
@@ -1152,6 +1174,34 @@ export class DbStorage implements IStorage {
 
   async deleteStory(id: string): Promise<void> {
     await db.delete(stories).where(eq(stories.id, id));
+  }
+
+  // Media operations
+  async createMedia(mediaData: InsertMedia): Promise<Media> {
+    const result = await db.insert(media).values(mediaData).returning();
+    return result[0];
+  }
+
+  async getMedia(id: string): Promise<Media | undefined> {
+    const result = await db.select().from(media).where(eq(media.id, id)).limit(1);
+    return result[0];
+  }
+
+  async getMediaByObjectKey(objectKey: string): Promise<Media | undefined> {
+    const result = await db.select().from(media).where(eq(media.objectKey, objectKey)).limit(1);
+    return result[0];
+  }
+
+  async deleteMedia(id: string): Promise<void> {
+    await db.delete(media).where(eq(media.id, id));
+  }
+
+  async getExpiredMedia(): Promise<Media[]> {
+    const now = new Date();
+    return await db
+      .select()
+      .from(media)
+      .where(sql`${media.expiresAt} IS NOT NULL AND ${media.expiresAt} < ${now}`);
   }
 }
 

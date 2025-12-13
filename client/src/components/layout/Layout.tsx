@@ -4,6 +4,7 @@ import { useAuth } from "@/context/AuthContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useSiteSettings } from "@/lib/api";
+import { BetaBanner } from "@/components/BetaBanner";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
@@ -33,7 +34,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const navItems = baseNavItems;
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col md:flex-row">
+    <div className="min-h-screen bg-background text-foreground flex flex-col">
+      <BetaBanner />
+      <div className="flex flex-col md:flex-row flex-1">
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex w-64 flex-col border-r border-border/40 bg-card/30 backdrop-blur-xl sticky top-0 h-screen p-6">
         <div className="flex items-center gap-2 mb-10">
@@ -112,6 +115,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </Link>
         ))}
       </nav>
+      </div>
     </div>
   );
 }
