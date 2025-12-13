@@ -1,0 +1,228 @@
+✅ FINAL ORDER FOR REPLIT (COMPLETE IMPLEMENTATION)
+
+Implement AniRealm media system with strict content rules, Cloudflare R2 storage, Supabase metadata, and quality tiers (Free vs Premium).
+
+1) Hard content rules (enforce in UI + backend)
+
+General Feed (permanent): allow Text posts + Image posts only. No videos in feed.
+Stories (ephemeral): allow Images + Videos, auto-delete after 24 hours.
+
+2) Storage architecture (mandatory)
+
+Do NOT store media in Postgres (no base64/bytea).
+
+Use Cloudflare R2 to store media objects.
+
+Use Supabase Postgres for metadata only.
+
+All uploads must be direct-to-R2 using presigned PUT URLs created by a Supabase Edge Function.
+
+Media serving uses either public CDN URLs (for public media) or signed URLs (recommended, TTL 2–5 minutes).
+
+3) Plan rules (Free vs Premium)
+A) General feed images (permanent)
+
+Upload cap (all users): 10MB
+
+All users: images are compressed into derivatives for feed display (never serve originals in feed).
+
+Free users: stronger compression (lower quality).
+
+Premium users: lighter compression (better quality).
+
+Premium users: preserve original file in R2 (for “View Original” feature).
+
+Free users: delete original after derivatives are created successfully.
+
+B) Story images (24h)
+
+Upload cap (all users): 10MB
+
+All users: story images are compressed into a story_display variant.
+
+Free users: stronger compression (lower quality).
+
+Premium users: lighter compression (better quality).
+
+Originals are not served by default; story media is deleted after 24h regardless.
+
+C) Story videos (24h)
+
+Free: 15 seconds / 25MB
+
+Premium: 30 seconds / 50MB
+
+Videos are transcoded into optimized variants for playback (at least 360p + 720p).
+
+Delete story videos after 24h.
+
+4) Database schema (Supabase Postgres)
+
+Create tables:
+
+posts: id, user_id, type('text'|'image'), text, media_id nullable, created_at
+
+Enforce: feed cannot have video posts (type only text/image).
+
+stories: id, user_id, media_id, created_at, expires_at (expires_at = created_at + 24h)
+
+media:
+id, owner_user_id, context('feed'|'story'), type('image'|'video'), status('uploading'|'processing'|'ready'|'failed'|'deleted'), mime, duration_sec nullable, created_at, expires_at nullable,
+original_key nullable,
+thumb_key nullable, display_key nullable, story_display_key nullable,
+video_360_key nullable, video_720_key nullable,
+bytes_original, bytes_display, bytes_thumb, bytes_story_display, bytes_video_360, bytes_video_720, width, height
+
+media_access_logs (for “View Original” abuse control):
+id, viewer_user_id, media_id, variant, created_at, ip_hash
+
+5) Upload flow (direct-to-R2)
+
+Implement Supabase Edge Functions:
+
+POST /media/init
+
+Input: context(feed|story), type(image|video), mime, bytes, duration_sec(optional), post_id(optional), story_id(optional)
+
+Validate: user auth, plan limits, context rules (no feed video), size limits, duration limits.
+
+Create media row with status=uploading and generate original_key.
+
+Return: presigned PUT URL for R2 + media_id + original_key.
+
+POST /media/commit
+
+Verify object exists in R2 (HEAD).
+
+Update status=processing.
+
+Trigger processing job (worker).
+
+6) Processing worker (compression/transcoding)
+
+After commit, worker downloads original from R2 and generates derivatives:
+
+A) Images (Feed permanent images)
+
+Strip EXIF metadata.
+
+Generate:
+
+thumb (200px wide) WebP/AVIF
+
+display (max width 1080px) WebP/AVIF
+
+Compression targets:
+
+Free: display target 150–300KB, more aggressive quality
+
+Premium: display target 250–450KB, less aggressive quality
+
+Update keys + byte sizes in DB.
+
+If owner is Free: delete original_key.
+
+If owner is Premium: keep original_key for View Original.
+
+B) Images (Story images, 24h)
+
+Generate story_display variant:
+
+Free: max 1080px, target 150–300KB
+
+Premium: max 1440px, target 250–450KB
+
+Update keys + byte sizes in DB.
+
+Keep originals only if needed temporarily; all story media is deleted after 24h anyway.
+
+C) Videos (Story videos, 24h)
+
+Validate limits: Free 15s/25MB, Premium 30s/50MB.
+
+Transcode and upload:
+
+video_360 for autoplay/fast load
+
+video_720 for tap-to-watch
+
+Update DB and set status=ready.
+
+7) Serving rules (critical)
+
+Feed must always serve display_key (never original).
+
+Profile grids serve thumb_key.
+
+Post detail view serves display_key by default.
+
+“View Original” is Premium-only and only works if original_key exists (i.e., uploader is Premium).
+
+Stories serve story_display for images and 360/720 variants for video.
+
+Implement Edge Function: GET /media/url?media_id&variant=
+
+Returns signed URL (TTL 2–5 minutes) for: thumb|display|story_display|video_360|video_720|original.
+
+Enforce permissions (especially for original).
+
+8) Premium “View Original” + rate limits (anti-scrape)
+
+Only Premium viewers can request variant=original.
+
+Only available if uploader is Premium (original exists).
+
+Rate limit original access per Premium user:
+
+View Original: 50/hour
+
+Download Original: 20/hour
+
+Daily cap: 200/day
+
+Log every original access in media_access_logs.
+
+9) Story cleanup (24h deletion)
+
+Cron job every 10–15 minutes: find stories where expires_at < now()
+
+Delete associated R2 objects (story_display/video variants/original if any)
+
+Mark DB rows deleted or remove them.
+
+10) UI requirements
+
+Feed composer shows only: Text and Image options.
+
+Story composer shows: Image and Video options with limits.
+
+Premium-only: show “View Original” on image posts only when original exists.
+
+Non-Premium tapping “View Original” shows upgrade modal.
+
+UI copy (ready to paste)
+Buttons
+
+View Original
+
+Download Original
+
+Full Quality
+
+Upgrade modal
+
+Title: Full Quality is Premium
+
+Body: Premium lets you view and download original-resolution images when available.
+
+Buttons: Upgrade / Not now
+
+Rate-limit messages
+
+You’ve hit your full-quality limit. Try again later.
+
+Too many downloads—please wait a bit.
+
+Info tooltip (optional)
+
+Original files are larger and may take longer to load.
