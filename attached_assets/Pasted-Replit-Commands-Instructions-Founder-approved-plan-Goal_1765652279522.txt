@@ -1,0 +1,211 @@
+Replit Commands / Instructions (Founder-approved plan)
+
+Goal: Keep Supabase Auth accounts + profiles, but wipe all beta content/media + follows/friends at official launch.
+Beta uses Supabase Storage for media. At launch, switch ALL platforms (web + iOS + Android) to Cloudflare R2.
+Must be secure, cost-efficient, and migration-friendly.
+
+1) Environment + Key Rules (MANDATORY)
+
+Add these secrets in Replit Secrets:
+
+SUPABASE_URL
+
+SUPABASE_ANON_KEY
+
+SUPABASE_SERVICE_ROLE_KEY
+
+Create two Supabase clients:
+
+client/src/lib/supabaseClient.ts uses SUPABASE_URL + SUPABASE_ANON_KEY ONLY
+
+server/lib/supabaseAdmin.ts uses SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY and is server-only
+
+Hard rule: service role key must never appear in any client file or get bundled.
+
+2) Make Supabase Auth the Only Login Source
+
+Implement login/signup using Supabase Auth on the client:
+
+email + password
+
+store session, refresh
+
+On the server, verify user identity by validating Supabase JWT on every protected route (middleware).
+
+Ensure profiles table exists (or equivalent) and is keyed by user_id = auth user id.
+
+3) Media System: Adapter Pattern (Beta now → R2 later)
+
+Create a provider switch:
+
+Add env var:
+
+MEDIA_PROVIDER = "supabase" (beta default)
+
+later set to "r2" (launch)
+
+Implement a StorageAdapter interface in server/media/adapter.ts with:
+
+getSignedUploadUrl({ userId, contentType, sizeBytes, kind })
+
+finalizeUpload({ userId, objectKey, kind, metadata })
+
+deleteObject(objectKey)
+
+Provide:
+
+server/media/supabaseStorageAdapter.ts (for beta)
+
+server/media/r2StorageAdapter.ts (placeholder for now; implement after Cloudflare signup)
+
+4) Required API Routes (secure + scalable)
+
+Implement these Express routes:
+
+POST /api/media/upload-url
+
+Auth required
+
+Validate:
+
+free/premium limits (max files/day, max size)
+
+allowed mime types (image/video)
+
+Return signed upload URL + objectKey
+
+Client uploads directly to storage using the signed URL
+
+POST /api/media/complete
+
+Auth required
+
+Client sends { objectKey, kind, mimeType, sizeBytes, width?, height?, duration? }
+
+Server writes a DB row for the media and associates it to post/story record
+
+Return final media record
+
+DELETE /api/media/:id
+
+Auth required
+
+Only owner (or admin) can delete
+
+Deletes DB row + storage object
+
+5) Database Schema Rules (cost-efficient)
+
+Never store base64 or file bytes in DB.
+
+Store only:
+
+storage_provider (supabase|r2)
+
+bucket (optional)
+
+object_key
+
+mime_type
+
+size_bytes
+
+timestamps
+
+expires_at for stories
+
+6) Story Expiration Cleanup (beta + launch-safe)
+
+Implement a server job + manual route:
+
+Job runs every N minutes (ex: 10–30 min):
+
+Find expired stories (expires_at < now())
+
+Delete associated storage objects via adapter
+
+Delete story rows + media rows
+
+Also add:
+
+POST /api/admin/cleanup-expired-stories
+
+Protected by an admin secret OR admin user role
+
+This allows manual run during testing
+
+7) Launch Reset Plan (KEEP accounts, WIPE everything else)
+
+Create a server-only script: server/scripts/launchReset.ts
+
+KEEP (do not delete):
+
+Supabase Auth users
+
+profiles table (username, avatar, bio, settings)
+
+any roles table (optional)
+
+any “beta consent” flags (optional)
+
+WIPE (truncate/delete):
+
+posts
+
+stories
+
+comments
+
+likes/reactions
+
+notifications
+
+activity logs
+
+messages (if any)
+
+follows/friends/social graph tables
+
+media metadata tables (or any table referencing objects)
+
+WIPE media files:
+
+For beta, delete everything in Supabase Storage bucket(s)
+
+(At launch, you will start writing new uploads to R2)
+
+Add a single command endpoint for you only:
+
+POST /api/admin/launch-reset
+
+requires ADMIN_RESET_SECRET in headers
+
+calls the reset script
+
+logs counts deleted
+
+8) User Communication (in-app)
+
+Add a “beta disclaimer” banner system:
+
+During beta:
+
+Show banner: “Beta content may be reset before official launch. Your account will remain.”
+
+2–4 weeks before launch:
+
+Update banner with firm date (you’ll provide it later)
+
+On first login after reset:
+
+Show modal: “Welcome to v1.0. Beta content was cleared. Your account is intact.”
+
+What I want you (Replit) to deliver back to me
+
+File list + locations created/edited
+
+The exact route URLs + request/response examples
+
+The reset script + which tables it wipes/keeps
+
+Confirmation that service role key is server-only
