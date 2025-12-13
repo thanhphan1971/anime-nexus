@@ -160,7 +160,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (data.session && data.user) {
         setSession(data.session);
         setSupabaseUser(data.user);
-        const profile = await fetchProfile(data.user.id, data.session.access_token);
+        let profile = await fetchProfile(data.user.id, data.session.access_token);
+        
+        // If profile doesn't exist, create it from user metadata (for email-confirmed users)
+        if (!profile && data.user.user_metadata) {
+          const metadata = data.user.user_metadata;
+          const profileResponse = await fetch("/api/profiles", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${data.session.access_token}`,
+            },
+            body: JSON.stringify({
+              id: data.user.id,
+              email: data.user.email,
+              username: metadata.username || data.user.email?.split('@')[0],
+              name: metadata.name || metadata.username || 'User',
+              handle: metadata.handle || `@${metadata.username || data.user.email?.split('@')[0]}`,
+              bio: "New to AniRealm",
+              animeInterests: [],
+              theme: "cyberpunk",
+            }),
+          });
+          
+          if (profileResponse.ok) {
+            profile = await profileResponse.json();
+          }
+        }
+        
         if (!profile) {
           throw new Error("Profile not found. Please contact support.");
         }
@@ -203,11 +230,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error("Failed to create account");
       }
       
+      // Check if email confirmation is required (session will be null)
+      if (!authData.session) {
+        throw new Error("Please check your email to confirm your account before logging in.");
+      }
+      
       const profileResponse = await fetch("/api/profiles", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${authData.session?.access_token}`,
+          Authorization: `Bearer ${authData.session.access_token}`,
         },
         body: JSON.stringify({
           id: authData.user.id,
@@ -232,11 +264,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       const profile = await profileResponse.json();
       
-      if (authData.session) {
-        setSession(authData.session);
-        setSupabaseUser(authData.user);
-        setUser(profile);
-      }
+      setSession(authData.session);
+      setSupabaseUser(authData.user);
+      setUser(profile);
     } catch (error: any) {
       console.error("Signup failed:", error);
       throw error;
