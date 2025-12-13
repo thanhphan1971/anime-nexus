@@ -27,6 +27,7 @@ export const users = pgTable("users", {
   parentEmail: text("parent_email"),
   parentalConsentGiven: boolean("parental_consent_given").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  supabaseUserId: varchar("supabase_user_id").unique(),
 });
 
 // Posts table
@@ -434,6 +435,7 @@ export const insertUserSchema = createInsertSchema(users).omit({
   isPremium: true,
   isBanned: true,
   isAdmin: true,
+  supabaseUserId: true,
 });
 
 export const insertPostSchema = createInsertSchema(posts).omit({

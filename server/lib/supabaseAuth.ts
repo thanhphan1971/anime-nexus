@@ -1,5 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { supabaseAdmin } from './supabaseAdmin';
+import { storage } from '../storage';
+import type { User } from '@shared/schema';
 
 declare global {
   namespace Express {
@@ -8,6 +10,7 @@ declare global {
         id: string;
         email: string;
       };
+      dbUser?: User;
     }
   }
 }
@@ -37,6 +40,12 @@ export async function verifySupabaseToken(
       email: user.email || '',
     };
     
+    // Look up the database user by supabaseUserId
+    const dbUser = await storage.getUserBySupabaseId(user.id);
+    if (dbUser) {
+      req.dbUser = dbUser;
+    }
+    
     next();
   } catch (error) {
     console.error('Token verification error:', error);
@@ -44,7 +53,7 @@ export async function verifySupabaseToken(
   }
 }
 
-export function optionalSupabaseAuth(
+export async function optionalSupabaseAuth(
   req: Request,
   res: Response,
   next: NextFunction
@@ -57,15 +66,21 @@ export function optionalSupabaseAuth(
   
   const token = authHeader.substring(7);
   
-  supabaseAdmin.auth.getUser(token)
-    .then(({ data: { user }, error }) => {
-      if (!error && user) {
-        req.supabaseUser = {
-          id: user.id,
-          email: user.email || '',
-        };
+  try {
+    const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
+    if (!error && user) {
+      req.supabaseUser = {
+        id: user.id,
+        email: user.email || '',
+      };
+      // Look up the database user by supabaseUserId
+      const dbUser = await storage.getUserBySupabaseId(user.id);
+      if (dbUser) {
+        req.dbUser = dbUser;
       }
-      next();
-    })
-    .catch(() => next());
+    }
+    next();
+  } catch {
+    next();
+  }
 }

@@ -1,0 +1,108 @@
+Copy/paste to Replit: “Unify Auth + Safe Migration Plan”
+
+Goal: Supabase Auth becomes the single source of truth. Legacy DB-password login is deprecated and removed. Existing legacy users keep their accounts by being migrated/linked.
+
+1) Decide single auth source (MANDATORY)
+
+Make Supabase Auth the only login system for:
+
+web beta now
+
+iOS/Android later
+
+Deprecate legacy session auth: /api/auth/login.
+
+2) Update DB schema for safe linking
+
+Add a column to users table:
+
+supabaseUserId (varchar/text, unique, nullable)
+
+Add index/unique constraint on supabaseUserId.
+
+The users.id remains our internal app user id for now (or we can later switch to supabase id as primary).
+
+3) Stop storing passwords (security)
+
+Stop writing to users.password for all new signups.
+
+Never return or log password hashes.
+
+Add a migration note: users.password is legacy-only and will be removed later.
+
+4) Auth flow changes (client + server)
+
+Client:
+
+Login/signup ONLY via Supabase Auth.
+
+After login, call /api/profiles (or equivalent) to ensure users row exists/updated.
+
+Server middleware:
+
+Protect all user routes using Supabase JWT verification (Authorization: Bearer …).
+
+From JWT, get supabase_user_id and load the internal users row by users.supabaseUserId.
+
+5) Legacy user migration (keep accounts)
+
+Implement /api/auth/migrate:
+
+Requires user to enter email
+
+If email exists in legacy users table and supabaseUserId is null:
+
+Trigger Supabase Auth password reset email OR magic link sign-in (preferred)
+
+On successful Supabase login, server links:
+
+users.supabaseUserId = authUser.id
+
+Do NOT require knowing the old password (avoid takeover risks)
+
+6) Temporarily keep legacy login behind a kill switch
+
+Add env var: LEGACY_AUTH_ENABLED=true (beta only)
+
+/api/auth/login must:
+
+return 410 Gone if LEGACY_AUTH_ENABLED=false
+
+include banner response telling user to migrate
+
+7) Launch policy
+
+2–4 weeks before launch: set LEGACY_AUTH_ENABLED=false
+
+Force all remaining legacy users to migrate via Supabase reset/magic link.
+
+After launch: delete /api/auth/login route entirely.
+
+8) Update launch reset logic to keep accounts
+
+When wiping beta data:
+
+KEEP users table rows and their supabaseUserId
+
+WIPE content tables as previously defined
+
+Do NOT touch Supabase Auth user pool
+
+Why this is the safest approach (in one line)
+
+Legacy password login + Supabase Auth side-by-side = account duplication + hijack risk + broken sessions. Unifying to Supabase Auth eliminates that.
+
+Two things you should tell Replit to do immediately
+
+Add supabaseUserId to users and start filling it for every Supabase signup/login.
+
+Add the kill switch LEGACY_AUTH_ENABLED so you can shut legacy auth off without code changes.
+
+Quick decision (I’ll assume this unless you object)
+
+For migrating legacy users, the best method is:
+✅ Supabase “reset password” email or magic link, then link accounts by email after successful login.
+
+If you want, paste your current /api/auth/login and /api/profiles handlers (just those two route blocks). I’ll rewrite them into the clean unified version so Replit can’t mis-implement it.
+
+ChatGPT can make mistakes. Check important info. Se

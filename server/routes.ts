@@ -96,8 +96,11 @@ export async function registerRoutes(
         password: '', // No local password for Supabase Auth users
       });
       
+      // Link the Supabase user ID to the profile
+      await storage.updateUserSupabaseId(user.id, id);
+      
       const { password, ...profile } = user;
-      res.json(profile);
+      res.json({ ...profile, supabaseUserId: id });
     } catch (error: any) {
       console.error("Profile creation error:", error);
       res.status(400).json({ error: error.message || "Failed to create profile" });
@@ -150,6 +153,15 @@ export async function registerRoutes(
   
   app.post("/api/auth/login", async (req, res) => {
     try {
+      // Check legacy auth kill switch
+      const legacyAuthEnabled = process.env.LEGACY_AUTH_ENABLED !== 'false';
+      if (!legacyAuthEnabled) {
+        return res.status(410).json({ 
+          error: "Legacy authentication is no longer available. Please use Supabase Auth to sign in.",
+          code: "LEGACY_AUTH_DISABLED"
+        });
+      }
+      
       const { username, password } = req.body;
       
       const user = await storage.getUserByUsername(username);
@@ -181,6 +193,59 @@ export async function registerRoutes(
     req.session.destroy(() => {
       res.json({ success: true });
     });
+  });
+  
+  // Migrate legacy user to Supabase Auth
+  // Links a legacy user account to a Supabase Auth account by matching email
+  app.post("/api/auth/migrate", verifySupabaseToken, async (req, res) => {
+    try {
+      const supabaseUser = req.supabaseUser;
+      if (!supabaseUser || !supabaseUser.email) {
+        return res.status(401).json({ error: "Supabase authentication required" });
+      }
+      
+      // Check if this Supabase user is already linked to an account
+      const existingLinkedUser = await storage.getUserBySupabaseId(supabaseUser.id);
+      if (existingLinkedUser) {
+        const { password, ...userWithoutPassword } = existingLinkedUser;
+        return res.json({ 
+          message: "Already linked",
+          user: userWithoutPassword 
+        });
+      }
+      
+      // Find legacy user by email
+      const legacyUser = await storage.getUserByEmail(supabaseUser.email);
+      if (!legacyUser) {
+        return res.status(404).json({ 
+          error: "No legacy account found with this email",
+          code: "NO_LEGACY_ACCOUNT"
+        });
+      }
+      
+      // Check if legacy user is already linked to a different Supabase account
+      if (legacyUser.supabaseUserId && legacyUser.supabaseUserId !== supabaseUser.id) {
+        return res.status(409).json({ 
+          error: "This account is already linked to a different Supabase user",
+          code: "ALREADY_LINKED"
+        });
+      }
+      
+      // Link the legacy user to the Supabase account
+      const updatedUser = await storage.updateUserSupabaseId(legacyUser.id, supabaseUser.id);
+      if (!updatedUser) {
+        return res.status(500).json({ error: "Failed to link accounts" });
+      }
+      
+      const { password, ...userWithoutPassword } = updatedUser;
+      res.json({ 
+        message: "Account successfully linked",
+        user: userWithoutPassword 
+      });
+    } catch (error: any) {
+      console.error("Migration error:", error);
+      res.status(500).json({ error: error.message || "Migration failed" });
+    }
   });
   
   app.get("/api/auth/me", async (req, res) => {
