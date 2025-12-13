@@ -22,14 +22,14 @@ declare module "http" {
 
 app.use(
   express.json({
-    limit: '100mb',
+    limit: '10mb',
     verify: (req, _res, buf) => {
       req.rawBody = buf;
     },
   }),
 );
 
-app.use(express.urlencoded({ extended: false, limit: '100mb' }));
+app.use(express.urlencoded({ extended: false, limit: '10mb' }));
 
 // Session setup
 const SessionStore = MemoryStore(session);
