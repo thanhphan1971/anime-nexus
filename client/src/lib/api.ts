@@ -1,11 +1,27 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { getSupabase } from "./supabaseClient";
 
-// Helper function for API calls
+// Helper function for API calls with automatic auth token
 async function apiCall(url: string, options?: RequestInit) {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  
+  // Get Supabase session and add Authorization header if available
+  try {
+    const supabase = await getSupabase();
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) {
+      headers["Authorization"] = `Bearer ${session.access_token}`;
+    }
+  } catch (e) {
+    // Continue without auth if Supabase is unavailable
+  }
+  
   const response = await fetch(url, {
     ...options,
     headers: {
-      "Content-Type": "application/json",
+      ...headers,
       ...options?.headers,
     },
   });

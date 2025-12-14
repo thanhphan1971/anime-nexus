@@ -12,6 +12,7 @@ import { useLocation } from "wouter";
 import { useCreatePost } from "@/lib/api";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { getSupabase } from "@/lib/supabaseClient";
 
 export default function CreatePostPage() {
   const { user } = useAuth();
@@ -40,10 +41,15 @@ export default function CreatePostPage() {
   // Create story mutation
   const createStory = useMutation({
     mutationFn: async (data: { mediaUrl: string; mediaType: string; caption?: string; mimeType: string; fileSize: number; videoDuration?: number }) => {
+      const supabase = await getSupabase();
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (session?.access_token) {
+        headers["Authorization"] = `Bearer ${session.access_token}`;
+      }
       const res = await fetch("/api/stories", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
+        headers,
         body: JSON.stringify(data),
       });
       if (!res.ok) {
