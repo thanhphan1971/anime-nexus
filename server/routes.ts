@@ -665,14 +665,9 @@ export async function registerRoutes(
   });
   
   // Admin routes
-  app.post("/api/admin/users/:id/ban", async (req, res) => {
+  app.post("/api/admin/users/:id/ban", verifySupabaseToken, async (req, res) => {
     try {
-      if (!req.session.userId) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
-      
-      const admin = await storage.getUser(req.session.userId);
-      if (!admin || !admin.isAdmin) {
+      if (!req.dbUser || !req.dbUser.isAdmin) {
         return res.status(403).json({ error: "Not authorized" });
       }
       
@@ -683,14 +678,9 @@ export async function registerRoutes(
     }
   });
   
-  app.post("/api/admin/users/:id/unban", async (req, res) => {
+  app.post("/api/admin/users/:id/unban", verifySupabaseToken, async (req, res) => {
     try {
-      if (!req.session.userId) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
-      
-      const admin = await storage.getUser(req.session.userId);
-      if (!admin || !admin.isAdmin) {
+      if (!req.dbUser || !req.dbUser.isAdmin) {
         return res.status(403).json({ error: "Not authorized" });
       }
       
@@ -701,14 +691,9 @@ export async function registerRoutes(
     }
   });
   
-  app.post("/api/admin/users/:id/premium", async (req, res) => {
+  app.post("/api/admin/users/:id/premium", verifySupabaseToken, async (req, res) => {
     try {
-      if (!req.session.userId) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
-      
-      const admin = await storage.getUser(req.session.userId);
-      if (!admin || !admin.isAdmin) {
+      if (!req.dbUser || !req.dbUser.isAdmin) {
         return res.status(403).json({ error: "Not authorized" });
       }
       
