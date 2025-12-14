@@ -18,6 +18,8 @@ export const users = pgTable("users", {
   following: integer("following").notNull().default(0),
   tokens: integer("tokens").notNull().default(1000),
   isPremium: boolean("is_premium").notNull().default(false),
+  premiumStartDate: timestamp("premium_start_date"),
+  premiumEndDate: timestamp("premium_end_date"),
   isBanned: boolean("is_banned").notNull().default(false),
   isAdmin: boolean("is_admin").notNull().default(false),
   animeInterests: text("anime_interests").array().default(sql`ARRAY[]::text[]`),

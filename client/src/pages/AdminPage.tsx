@@ -23,7 +23,7 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useUsers, useBanUser, useUnbanUser, useGrantPremium, useCommunities, useAdminCards, useCreateCard, useDeleteCard, useArchiveCard, useUnarchiveCard, useSiteSettings, useUpdateSiteSetting } from "@/lib/api";
+import { useUsers, useBanUser, useUnbanUser, useGrantPremium, useRevokePremium, useCommunities, useAdminCards, useCreateCard, useDeleteCard, useArchiveCard, useUnarchiveCard, useSiteSettings, useUpdateSiteSetting } from "@/lib/api";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertTriangle, Archive, ArchiveRestore } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -59,7 +59,22 @@ export default function AdminPage() {
   });
   const unbanUser = useUnbanUser();
   const grantPremium = useGrantPremium();
+  const revokePremium = useRevokePremium();
   const { data: siteSettings } = useSiteSettings();
+  
+  const [premiumDialog, setPremiumDialog] = useState<{
+    isOpen: boolean;
+    user: any | null;
+    startDate: string;
+    endDate: string;
+    isTemporary: boolean;
+  }>({
+    isOpen: false,
+    user: null,
+    startDate: new Date().toISOString().split('T')[0],
+    endDate: "",
+    isTemporary: false,
+  });
   const updateSiteSetting = useUpdateSiteSetting();
   const [dropRate, setDropRate] = useState([2]); // 2% UR rate
   const [promoActive, setPromoActive] = useState(false);
@@ -175,17 +190,49 @@ export default function AdminPage() {
     card.anime.toLowerCase().includes(cardSearch.toLowerCase())
   ) || [];
 
-  const handleUpgradeUser = async (userId: string, currentPremium: boolean) => {
-    if (currentPremium) {
-      sonnerToast.info("User is already S-Class");
-      return;
-    }
+  const openPremiumDialog = (user: any) => {
+    setPremiumDialog({
+      isOpen: true,
+      user,
+      startDate: new Date().toISOString().split('T')[0],
+      endDate: "",
+      isTemporary: false,
+    });
+  };
+  
+  const handleGrantPremium = async () => {
+    if (!premiumDialog.user) return;
     
     try {
-      await grantPremium.mutateAsync(userId);
-      sonnerToast.success("User upgraded to S-Class!");
+      const params: { userId: string; startDate?: string; endDate?: string } = {
+        userId: premiumDialog.user.id,
+      };
+      
+      if (premiumDialog.isTemporary && premiumDialog.endDate) {
+        params.startDate = premiumDialog.startDate;
+        params.endDate = premiumDialog.endDate;
+      }
+      
+      await grantPremium.mutateAsync(params);
+      
+      if (premiumDialog.isTemporary && premiumDialog.endDate) {
+        sonnerToast.success(`${premiumDialog.user.name} granted temporary S-Class until ${premiumDialog.endDate}!`);
+      } else {
+        sonnerToast.success(`${premiumDialog.user.name} upgraded to permanent S-Class!`);
+      }
+      
+      setPremiumDialog({ ...premiumDialog, isOpen: false, user: null });
     } catch (error: any) {
-      sonnerToast.error(error.message || "Failed to upgrade user");
+      sonnerToast.error(error.message || "Failed to grant premium");
+    }
+  };
+  
+  const handleRevokePremium = async (userId: string, username: string) => {
+    try {
+      await revokePremium.mutateAsync(userId);
+      sonnerToast.success(`${username}'s S-Class status has been revoked`);
+    } catch (error: any) {
+      sonnerToast.error(error.message || "Failed to revoke premium");
     }
   };
 
@@ -400,16 +447,29 @@ export default function AdminPage() {
                           <TableCell className="text-muted-foreground text-sm">{formatDistanceToNow(new Date(user.createdAt), { addSuffix: true })}</TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-2">
-                              <Button 
-                                variant={user.isPremium ? "secondary" : "outline"}
-                                size="sm" 
-                                className={`h-8 text-xs ${user.isPremium ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/50 hover:bg-yellow-500/20' : 'border-dashed border-white/20 hover:border-yellow-500/50 hover:text-yellow-500'}`}
-                                onClick={() => handleUpgradeUser(user.id, user.isPremium)}
-                                data-testid={`button-upgrade-${user.id}`}
-                              >
-                                <Crown className="h-3 w-3 mr-1" fill={user.isPremium ? "currentColor" : "none"} />
-                                Grant S-Class
-                              </Button>
+                              {user.isPremium ? (
+                                <Button 
+                                  variant="secondary"
+                                  size="sm" 
+                                  className="h-8 text-xs bg-red-500/10 text-red-400 border-red-500/50 hover:bg-red-500/20"
+                                  onClick={() => handleRevokePremium(user.id, user.name)}
+                                  data-testid={`button-revoke-${user.id}`}
+                                >
+                                  <X className="h-3 w-3 mr-1" />
+                                  Revoke S-Class
+                                </Button>
+                              ) : (
+                                <Button 
+                                  variant="outline"
+                                  size="sm" 
+                                  className="h-8 text-xs border-dashed border-white/20 hover:border-yellow-500/50 hover:text-yellow-500"
+                                  onClick={() => openPremiumDialog(user)}
+                                  data-testid={`button-upgrade-${user.id}`}
+                                >
+                                  <Crown className="h-3 w-3 mr-1" />
+                                  Grant S-Class
+                                </Button>
+                              )}
                               <Button 
                                 variant={user.isBanned ? "destructive" : "ghost"} 
                                 size="sm" 
@@ -1232,6 +1292,83 @@ export default function AdminPage() {
               </DialogFooter>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+      
+      {/* Premium Grant Dialog */}
+      <Dialog open={premiumDialog.isOpen} onOpenChange={(open) => setPremiumDialog({ ...premiumDialog, isOpen: open })}>
+        <DialogContent className="bg-card border-yellow-500/20">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-yellow-500">
+              <Crown className="h-5 w-5" />
+              Grant S-Class Status
+            </DialogTitle>
+            <DialogDescription className="pt-4 space-y-4">
+              {premiumDialog.user && (
+                <div className="flex items-center gap-3 p-3 bg-black/20 rounded-lg">
+                  <Avatar className="h-12 w-12">
+                    <AvatarImage src={premiumDialog.user.avatar} />
+                    <AvatarFallback>{premiumDialog.user.name?.[0]}</AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="font-bold text-white">{premiumDialog.user.name}</p>
+                    <p className="text-sm text-muted-foreground">{premiumDialog.user.handle}</p>
+                  </div>
+                </div>
+              )}
+              
+              <div className="flex items-center justify-between p-3 bg-black/20 rounded-lg">
+                <div>
+                  <Label className="text-white font-medium">Temporary Access</Label>
+                  <p className="text-xs text-muted-foreground">Set an expiration date for S-Class access</p>
+                </div>
+                <Switch
+                  checked={premiumDialog.isTemporary}
+                  onCheckedChange={(checked) => setPremiumDialog({ ...premiumDialog, isTemporary: checked })}
+                />
+              </div>
+              
+              {premiumDialog.isTemporary && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-muted-foreground">Start Date</Label>
+                    <Input 
+                      type="date"
+                      value={premiumDialog.startDate}
+                      onChange={(e) => setPremiumDialog({ ...premiumDialog, startDate: e.target.value })}
+                      className="border-yellow-500/30"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-muted-foreground">End Date</Label>
+                    <Input 
+                      type="date"
+                      value={premiumDialog.endDate}
+                      onChange={(e) => setPremiumDialog({ ...premiumDialog, endDate: e.target.value })}
+                      className="border-yellow-500/30"
+                      min={premiumDialog.startDate}
+                    />
+                  </div>
+                </div>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setPremiumDialog({ ...premiumDialog, isOpen: false })}
+            >
+              Cancel
+            </Button>
+            <Button 
+              className="bg-yellow-500 text-black hover:bg-yellow-400"
+              disabled={premiumDialog.isTemporary && !premiumDialog.endDate}
+              onClick={handleGrantPremium}
+            >
+              <Crown className="h-4 w-4 mr-2" />
+              {premiumDialog.isTemporary ? 'Grant Temporary S-Class' : 'Grant Permanent S-Class'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

@@ -697,7 +697,35 @@ export async function registerRoutes(
         return res.status(403).json({ error: "Not authorized" });
       }
       
-      const user = await storage.updateUser(req.params.id, { isPremium: true });
+      const { startDate, endDate } = req.body;
+      
+      const updates: any = { isPremium: true };
+      if (startDate) {
+        updates.premiumStartDate = new Date(startDate);
+      }
+      if (endDate) {
+        updates.premiumEndDate = new Date(endDate);
+      }
+      
+      const user = await storage.updateUser(req.params.id, updates);
+      res.json(user);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Revoke premium access
+  app.post("/api/admin/users/:id/revoke-premium", verifySupabaseToken, async (req, res) => {
+    try {
+      if (!req.dbUser || !req.dbUser.isAdmin) {
+        return res.status(403).json({ error: "Not authorized" });
+      }
+      
+      const user = await storage.updateUser(req.params.id, { 
+        isPremium: false,
+        premiumStartDate: null,
+        premiumEndDate: null
+      });
       res.json(user);
     } catch (error: any) {
       res.status(500).json({ error: error.message });

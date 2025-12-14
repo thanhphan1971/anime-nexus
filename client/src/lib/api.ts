@@ -313,8 +313,22 @@ export function useUnbanUser() {
 export function useGrantPremium() {
   const queryClient = useQueryClient();
   return useMutation({
+    mutationFn: ({ userId, startDate, endDate }: { userId: string; startDate?: string; endDate?: string }) =>
+      apiCall(`/api/admin/users/${userId}/premium`, { 
+        method: "POST",
+        body: JSON.stringify({ startDate, endDate }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+    },
+  });
+}
+
+export function useRevokePremium() {
+  const queryClient = useQueryClient();
+  return useMutation({
     mutationFn: (userId: string) =>
-      apiCall(`/api/admin/users/${userId}/premium`, { method: "POST" }),
+      apiCall(`/api/admin/users/${userId}/revoke-premium`, { method: "POST" }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
     },
