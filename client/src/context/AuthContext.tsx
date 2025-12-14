@@ -198,7 +198,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(profile);
       }
     } catch (error: any) {
-      console.error("Login failed:", error);
+      console.error("Login failed:", error?.message || error);
       throw error;
     } finally {
       setIsLoading(false);
