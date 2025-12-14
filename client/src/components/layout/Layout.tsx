@@ -28,7 +28,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { icon: Crown, label: "S-Class", path: "/sclass" },
     { icon: HelpCircle, label: "Help", path: "/help" },
     { icon: Shield, label: "Parent Controls", path: "/parent" },
-    { icon: Settings, label: "Admin", path: "/admin" },
+    ...(user.isAdmin ? [{ icon: Settings, label: "Admin", path: "/admin" }] : []),
   ];
 
   const navItems = baseNavItems;
