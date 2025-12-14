@@ -38,7 +38,11 @@ export async function registerRoutes(
   // Profile routes for Supabase Auth
   app.get("/api/profiles/:id", verifySupabaseToken, async (req, res) => {
     try {
-      const user = await storage.getUser(req.params.id);
+      // First try to find by Supabase user ID, then fall back to database ID
+      let user = await storage.getUserBySupabaseId(req.params.id);
+      if (!user) {
+        user = await storage.getUser(req.params.id);
+      }
       if (!user) {
         return res.status(404).json({ error: "Profile not found" });
       }
