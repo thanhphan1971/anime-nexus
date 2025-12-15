@@ -279,27 +279,27 @@ export default function GachaPage() {
         </AnimatePresence>
       </div>
 
-      {/* Summon Button - Shows when idle and can pull */}
-      {phase === "idle" && canPull() && (
+      {/* Summon Button - Always shows when idle and user is logged in */}
+      {phase === "idle" && user && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-4 z-10"
+          className="mb-4 z-10 flex flex-col items-center gap-2"
         >
           <Button
             size="lg"
             onClick={handlePull}
-            disabled={phase !== "idle"}
+            disabled={!canPull()}
             className={banner === "free" 
-              ? "bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 border-0 text-white font-bold px-8"
-              : "bg-gradient-to-r from-yellow-600 to-amber-600 hover:from-yellow-500 hover:to-amber-500 border-0 text-white font-bold px-8"
+              ? "bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed border-0 text-white font-bold px-8"
+              : "bg-gradient-to-r from-yellow-600 to-amber-600 hover:from-yellow-500 hover:to-amber-500 disabled:opacity-50 disabled:cursor-not-allowed border-0 text-white font-bold px-8"
             }
             data-testid="button-summon"
           >
             {banner === "free" ? (
               <>
                 <Gift className="h-5 w-5 mr-2" />
-                Use Free Pull
+                Use Free Pull ({freeStatus?.remainingToday || 0} left)
               </>
             ) : (
               <>
@@ -308,6 +308,12 @@ export default function GachaPage() {
               </>
             )}
           </Button>
+          {banner === "paid" && !canPull() && (
+            <p className="text-xs text-red-400">Not enough tokens (need 100)</p>
+          )}
+          {banner === "free" && !canPull() && (
+            <p className="text-xs text-muted-foreground">No free pulls remaining - resets at {getResetTimeString()}</p>
+          )}
         </motion.div>
       )}
 
