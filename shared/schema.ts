@@ -77,6 +77,7 @@ export const cards = pgTable("cards", {
   isReleased: boolean("is_released").notNull().default(true), // Only released cards appear in catalog
   isLimited: boolean("is_limited").notNull().default(false), // Limited/event cards get special tag
   obtainableFrom: text("obtainable_from").array().default(sql`ARRAY['daily']::text[]`), // daily, weekly, monthly, event
+  poolDates: jsonb("pool_dates").default(sql`'{}'::jsonb`), // { "daily": { "start": "2024-01-01", "end": "2024-12-31" }, ... }
   season: text("season"), // Season/event name (e.g., "Summer 2024", "Halloween Event")
   lore: text("lore"), // Card backstory/description for details modal
   status: text("status").notNull().default('active'), // draft, scheduled, active, retired

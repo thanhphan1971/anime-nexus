@@ -89,6 +89,7 @@ export default function AdminPage() {
     status: 'draft' | 'scheduled' | 'active';
     scheduledReleaseDate: string;
     obtainableFrom: string[];
+    poolDates: { [key: string]: { start: string; end: string } };
     isLimited: boolean;
     season: string;
   }>({
@@ -97,6 +98,7 @@ export default function AdminPage() {
     status: 'active',
     scheduledReleaseDate: '',
     obtainableFrom: ['daily'],
+    poolDates: {},
     isLimited: false,
     season: '',
   });
@@ -110,6 +112,7 @@ export default function AdminPage() {
         ? new Date(card.scheduledReleaseDate).toISOString().slice(0, 16) 
         : '',
       obtainableFrom: card.obtainableFrom || ['daily'],
+      poolDates: card.poolDates || {},
       isLimited: card.isLimited || false,
       season: card.season || '',
     });
@@ -127,6 +130,7 @@ export default function AdminPage() {
       const updates: any = {
         status: scheduleDialog.status,
         obtainableFrom: scheduleDialog.obtainableFrom,
+        poolDates: scheduleDialog.poolDates,
         isLimited: scheduleDialog.isLimited,
         season: scheduleDialog.season || null,
         isReleased: scheduleDialog.status === 'active',
@@ -2024,30 +2028,76 @@ export default function AdminPage() {
               </div>
             )}
             
-            <div className="space-y-2">
-              <Label>Gacha Pools</Label>
-              <div className="flex flex-wrap gap-2">
-                {['daily', 'weekly', 'monthly', 'event'].map((pool) => (
-                  <button
-                    key={pool}
-                    type="button"
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                      scheduleDialog.obtainableFrom.includes(pool)
-                        ? 'bg-cyan-500/30 border-cyan-400 text-cyan-300'
-                        : 'bg-transparent border-white/20 text-muted-foreground hover:border-white/40'
-                    }`}
-                    onClick={() => {
-                      const pools = scheduleDialog.obtainableFrom.includes(pool)
-                        ? scheduleDialog.obtainableFrom.filter(p => p !== pool)
-                        : [...scheduleDialog.obtainableFrom, pool];
-                      setScheduleDialog({...scheduleDialog, obtainableFrom: pools});
-                    }}
-                  >
-                    {pool.charAt(0).toUpperCase() + pool.slice(1)}
-                  </button>
-                ))}
+            <div className="space-y-3">
+              <Label>Gacha Pools & Availability Dates</Label>
+              <div className="space-y-3">
+                {['daily', 'weekly', 'monthly', 'event'].map((pool) => {
+                  const isEnabled = scheduleDialog.obtainableFrom.includes(pool);
+                  const poolDate = scheduleDialog.poolDates[pool] || { start: '', end: '' };
+                  return (
+                    <div key={pool} className={`p-3 rounded-lg border transition-colors ${
+                      isEnabled ? 'bg-cyan-500/10 border-cyan-400/30' : 'bg-transparent border-white/10'
+                    }`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            checked={isEnabled}
+                            onCheckedChange={(checked) => {
+                              const pools = checked
+                                ? [...scheduleDialog.obtainableFrom, pool]
+                                : scheduleDialog.obtainableFrom.filter(p => p !== pool);
+                              const newPoolDates = { ...scheduleDialog.poolDates };
+                              if (!checked) {
+                                delete newPoolDates[pool];
+                              }
+                              setScheduleDialog({...scheduleDialog, obtainableFrom: pools, poolDates: newPoolDates});
+                            }}
+                          />
+                          <span className={`text-sm font-medium ${isEnabled ? 'text-cyan-300' : 'text-muted-foreground'}`}>
+                            {pool.charAt(0).toUpperCase() + pool.slice(1)} Pool
+                          </span>
+                        </div>
+                      </div>
+                      {isEnabled && (
+                        <div className="grid grid-cols-2 gap-2 mt-2">
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">Start Date</Label>
+                            <Input
+                              type="date"
+                              className="h-8 text-xs"
+                              value={poolDate.start}
+                              onChange={(e) => {
+                                const newPoolDates = {
+                                  ...scheduleDialog.poolDates,
+                                  [pool]: { ...poolDate, start: e.target.value }
+                                };
+                                setScheduleDialog({...scheduleDialog, poolDates: newPoolDates});
+                              }}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">End Date</Label>
+                            <Input
+                              type="date"
+                              className="h-8 text-xs"
+                              value={poolDate.end}
+                              min={poolDate.start}
+                              onChange={(e) => {
+                                const newPoolDates = {
+                                  ...scheduleDialog.poolDates,
+                                  [pool]: { ...poolDate, end: e.target.value }
+                                };
+                                setScheduleDialog({...scheduleDialog, poolDates: newPoolDates});
+                              }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-              <p className="text-xs text-muted-foreground">Card appears in selected gacha banners</p>
+              <p className="text-xs text-muted-foreground">Set date ranges for each pool. Leave empty for always available.</p>
             </div>
             
             <div className="flex items-center justify-between p-3 bg-black/20 rounded-lg">
