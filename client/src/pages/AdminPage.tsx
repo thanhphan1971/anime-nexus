@@ -2017,8 +2017,11 @@ export default function AdminPage() {
             </div>
             
             {scheduleDialog.status === 'scheduled' && (
-              <div className="space-y-2">
-                <Label>Release Date & Time *</Label>
+              <div className="space-y-2 p-3 bg-purple-500/10 rounded-lg border border-purple-400/30">
+                <Label className="text-purple-300">Card Release Date & Time *</Label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  The card will stay hidden until this date. On this date, it automatically becomes "Active" and can appear in gacha pulls.
+                </p>
                 <Input 
                   type="datetime-local"
                   value={scheduleDialog.scheduledReleaseDate}
@@ -2029,7 +2032,12 @@ export default function AdminPage() {
             )}
             
             <div className="space-y-3">
-              <Label>Gacha Pools & Availability Dates</Label>
+              <div>
+                <Label>Gacha Pools & Availability Dates</Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Choose which gacha banners this card appears in, and set when it's available in each pool. Leave dates empty = always available in that pool.
+                </p>
+              </div>
               <div className="space-y-3">
                 {['daily', 'weekly', 'monthly', 'event'].map((pool) => {
                   const isEnabled = scheduleDialog.obtainableFrom.includes(pool);
