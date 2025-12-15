@@ -438,14 +438,9 @@ export async function registerRoutes(
   });
   
   // Admin: Create new card
-  app.post("/api/cards", async (req, res) => {
+  app.post("/api/cards", verifySupabaseToken, async (req, res) => {
     try {
-      if (!req.session.userId) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
-      
-      const user = await storage.getUser(req.session.userId);
-      if (!user?.isAdmin) {
+      if (!req.dbUser || !req.dbUser.isAdmin) {
         return res.status(403).json({ error: "Admin access required" });
       }
       
@@ -457,14 +452,9 @@ export async function registerRoutes(
   });
   
   // Admin: Delete card (only if no owners)
-  app.delete("/api/cards/:id", async (req, res) => {
+  app.delete("/api/cards/:id", verifySupabaseToken, async (req, res) => {
     try {
-      if (!req.session.userId) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
-      
-      const user = await storage.getUser(req.session.userId);
-      if (!user?.isAdmin) {
+      if (!req.dbUser || !req.dbUser.isAdmin) {
         return res.status(403).json({ error: "Admin access required" });
       }
       
@@ -486,14 +476,9 @@ export async function registerRoutes(
   });
   
   // Admin: Archive card (removes from gacha, keeps in user collections)
-  app.post("/api/cards/:id/archive", async (req, res) => {
+  app.post("/api/cards/:id/archive", verifySupabaseToken, async (req, res) => {
     try {
-      if (!req.session.userId) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
-      
-      const user = await storage.getUser(req.session.userId);
-      if (!user?.isAdmin) {
+      if (!req.dbUser || !req.dbUser.isAdmin) {
         return res.status(403).json({ error: "Admin access required" });
       }
       
@@ -505,14 +490,9 @@ export async function registerRoutes(
   });
   
   // Admin: Unarchive card
-  app.post("/api/cards/:id/unarchive", async (req, res) => {
+  app.post("/api/cards/:id/unarchive", verifySupabaseToken, async (req, res) => {
     try {
-      if (!req.session.userId) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
-      
-      const user = await storage.getUser(req.session.userId);
-      if (!user?.isAdmin) {
+      if (!req.dbUser || !req.dbUser.isAdmin) {
         return res.status(403).json({ error: "Admin access required" });
       }
       
