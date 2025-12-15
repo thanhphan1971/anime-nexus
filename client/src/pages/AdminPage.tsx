@@ -55,9 +55,15 @@ export default function AdminPage() {
   const { data: scheduledCards, isLoading: scheduledLoading } = useScheduledCards();
   const updateCardStatus = useUpdateCardStatus();
   const activateScheduledCards = useActivateScheduledCards();
-  const [cardStatusFilter, setCardStatusFilter] = useState<'all' | 'active' | 'scheduled' | 'draft'>('all');
   
+  // Card Library Filters
+  const [cardStatusFilter, setCardStatusFilter] = useState<'all' | 'active' | 'scheduled' | 'draft'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [poolFilter, setPoolFilter] = useState<'all' | 'daily' | 'weekly' | 'monthly' | 'event'>('all');
+  const [rarityFilter, setRarityFilter] = useState<'all' | 'Common' | 'Rare' | 'Epic' | 'Legendary' | 'Mythic'>('all');
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest' | 'power-high' | 'power-low' | 'name-az' | 'name-za'>('newest');
+  const [showArchived, setShowArchived] = useState<'all' | 'active' | 'archived'>('all');
+  const [limitedFilter, setLimitedFilter] = useState<'all' | 'limited' | 'standard'>('all');
   const [uploadingImage, setUploadingImage] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -301,7 +307,7 @@ export default function AdminPage() {
     }
   };
   
-  const filteredCards = allCards?.filter((card: any) => {
+  const filteredCards = (allCards?.filter((card: any) => {
     const matchesSearch = card.name.toLowerCase().includes(cardSearch.toLowerCase()) || 
       card.character.toLowerCase().includes(cardSearch.toLowerCase()) ||
       card.anime.toLowerCase().includes(cardSearch.toLowerCase());
@@ -309,8 +315,26 @@ export default function AdminPage() {
       (categoryFilter === "uncategorized" && !card.categoryId) ||
       card.categoryId === categoryFilter;
     const matchesStatus = cardStatusFilter === "all" || card.status === cardStatusFilter;
-    return matchesSearch && matchesCategory && matchesStatus;
-  }) || [];
+    const matchesPool = poolFilter === "all" || card.obtainableFrom?.includes(poolFilter);
+    const matchesRarity = rarityFilter === "all" || card.rarity === rarityFilter;
+    const matchesArchived = showArchived === "all" || 
+      (showArchived === "active" && !card.isArchived) ||
+      (showArchived === "archived" && card.isArchived);
+    const matchesLimited = limitedFilter === "all" ||
+      (limitedFilter === "limited" && card.isLimited) ||
+      (limitedFilter === "standard" && !card.isLimited);
+    return matchesSearch && matchesCategory && matchesStatus && matchesPool && matchesRarity && matchesArchived && matchesLimited;
+  }) || []).sort((a: any, b: any) => {
+    switch (sortOrder) {
+      case 'newest': return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      case 'oldest': return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      case 'power-high': return b.power - a.power;
+      case 'power-low': return a.power - b.power;
+      case 'name-az': return a.name.localeCompare(b.name);
+      case 'name-za': return b.name.localeCompare(a.name);
+      default: return 0;
+    }
+  });
 
   const openPremiumDialog = (user: any) => {
     const hasExistingDates = user.premiumStartDate || user.premiumEndDate;
@@ -1158,19 +1182,23 @@ export default function AdminPage() {
                   Card Library ({filteredCards.length} / {allCards?.length || 0})
                 </CardTitle>
                 <CardDescription>Manage existing cards in the gacha pool</CardDescription>
-                <div className="flex gap-2 mt-2 flex-wrap">
-                  <div className="relative flex-1 min-w-[200px]">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input 
-                      placeholder="Search cards..." 
-                      className="pl-9"
-                      value={cardSearch}
-                      onChange={(e) => setCardSearch(e.target.value)}
-                      data-testid="input-search-cards"
-                    />
-                  </div>
+                
+                {/* Search Bar */}
+                <div className="relative mt-2">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input 
+                    placeholder="Search by name, character, or anime..." 
+                    className="pl-9"
+                    value={cardSearch}
+                    onChange={(e) => setCardSearch(e.target.value)}
+                    data-testid="input-search-cards"
+                  />
+                </div>
+                
+                {/* Filter Row 1 */}
+                <div className="flex gap-2 mt-3 flex-wrap">
                   <select
-                    className="h-10 rounded-md border border-input bg-background px-3 text-sm min-w-[120px]"
+                    className="h-9 rounded-md border border-input bg-background px-3 text-xs min-w-[100px]"
                     value={cardStatusFilter}
                     onChange={(e) => setCardStatusFilter(e.target.value as any)}
                     data-testid="select-status-filter"
@@ -1181,7 +1209,7 @@ export default function AdminPage() {
                     <option value="draft">Draft</option>
                   </select>
                   <select
-                    className="h-10 rounded-md border border-input bg-background px-3 text-sm min-w-[140px]"
+                    className="h-9 rounded-md border border-input bg-background px-3 text-xs min-w-[120px]"
                     value={categoryFilter}
                     onChange={(e) => setCategoryFilter(e.target.value)}
                     data-testid="select-category-filter"
@@ -1192,10 +1220,92 @@ export default function AdminPage() {
                       <option key={cat.id} value={cat.id}>{cat.name}</option>
                     ))}
                   </select>
+                  <select
+                    className="h-9 rounded-md border border-input bg-background px-3 text-xs min-w-[110px]"
+                    value={poolFilter}
+                    onChange={(e) => setPoolFilter(e.target.value as any)}
+                    data-testid="select-pool-filter"
+                  >
+                    <option value="all">All Pools</option>
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                    <option value="event">Event</option>
+                  </select>
+                  <select
+                    className="h-9 rounded-md border border-input bg-background px-3 text-xs min-w-[100px]"
+                    value={rarityFilter}
+                    onChange={(e) => setRarityFilter(e.target.value as any)}
+                    data-testid="select-rarity-filter"
+                  >
+                    <option value="all">All Rarities</option>
+                    <option value="Common">Common</option>
+                    <option value="Rare">Rare</option>
+                    <option value="Epic">Epic</option>
+                    <option value="Legendary">Legendary</option>
+                    <option value="Mythic">Mythic</option>
+                  </select>
+                </div>
+                
+                {/* Filter Row 2 */}
+                <div className="flex gap-2 mt-2 flex-wrap items-center">
+                  <select
+                    className="h-9 rounded-md border border-input bg-background px-3 text-xs min-w-[100px]"
+                    value={showArchived}
+                    onChange={(e) => setShowArchived(e.target.value as any)}
+                    data-testid="select-archived-filter"
+                  >
+                    <option value="all">Show All</option>
+                    <option value="active">Active Only</option>
+                    <option value="archived">Archived Only</option>
+                  </select>
+                  <select
+                    className="h-9 rounded-md border border-input bg-background px-3 text-xs min-w-[110px]"
+                    value={limitedFilter}
+                    onChange={(e) => setLimitedFilter(e.target.value as any)}
+                    data-testid="select-limited-filter"
+                  >
+                    <option value="all">All Cards</option>
+                    <option value="limited">Limited/Event</option>
+                    <option value="standard">Standard</option>
+                  </select>
+                  <select
+                    className="h-9 rounded-md border border-input bg-background px-3 text-xs min-w-[120px]"
+                    value={sortOrder}
+                    onChange={(e) => setSortOrder(e.target.value as any)}
+                    data-testid="select-sort-order"
+                  >
+                    <option value="newest">Newest First</option>
+                    <option value="oldest">Oldest First</option>
+                    <option value="power-high">Power: High→Low</option>
+                    <option value="power-low">Power: Low→High</option>
+                    <option value="name-az">Name: A→Z</option>
+                    <option value="name-za">Name: Z→A</option>
+                  </select>
+                  <div className="flex-1" />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-9 text-xs text-muted-foreground"
+                    onClick={() => {
+                      setCardStatusFilter('all');
+                      setCategoryFilter('all');
+                      setPoolFilter('all');
+                      setRarityFilter('all');
+                      setShowArchived('all');
+                      setLimitedFilter('all');
+                      setSortOrder('newest');
+                      setCardSearch('');
+                    }}
+                    data-testid="button-reset-filters"
+                  >
+                    <X className="h-3 w-3 mr-1" />
+                    Reset
+                  </Button>
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-10"
+                    className="h-9"
                     onClick={() => {
                       activateScheduledCards.mutate(undefined, {
                         onSuccess: (data: any) => {
