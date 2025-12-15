@@ -90,6 +90,7 @@ export interface IStorage {
   // Card operations
   getAllCards(): Promise<Card[]>;
   getActiveCards(): Promise<Card[]>;
+  getStandardBannerCards(): Promise<Card[]>;
   getCard(id: string): Promise<Card | undefined>;
   createCard(card: InsertCard): Promise<Card>;
   updateCard(id: string, updates: Partial<Card>): Promise<Card | undefined>;
@@ -358,6 +359,18 @@ export class DbStorage implements IStorage {
 
   async getActiveCards(): Promise<Card[]> {
     return await db.select().from(cards).where(eq(cards.isArchived, false));
+  }
+
+  async getStandardBannerCards(): Promise<Card[]> {
+    return await db.select().from(cards).where(
+      and(
+        eq(cards.isArchived, false),
+        eq(cards.isStandard, true),
+        eq(cards.isEventLimited, false),
+        eq(cards.isPremiumOnly, false),
+        eq(cards.status, 'active')
+      )
+    );
   }
 
   async getCard(id: string): Promise<Card | undefined> {
