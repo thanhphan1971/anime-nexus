@@ -1,20 +1,20 @@
 import { useState, useEffect } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
-import { useEnterDraw, useUserDrawEntries, useActiveDraws, useAllDraws, useRecentWinners } from "@/lib/api";
+import { useEnterDraw, useUserDrawEntries, useActiveDraws, useRecentWinners } from "@/lib/api";
 import { 
-  Trophy, Gift, Clock, Users, Sparkles, Crown, Star, 
-  Ticket, Timer, ChevronRight, Award, Zap, Calendar
+  Trophy, Gift, Clock, Sparkles, Crown, Star, 
+  Ticket, Award, Zap, Calendar, ChevronRight
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
-import { formatDistanceToNow, format, differenceInSeconds } from "date-fns";
+import { motion } from "framer-motion";
+import { formatDistanceToNow } from "date-fns";
+import { Link } from "wouter";
 
 interface Draw {
   id: string;
@@ -29,16 +29,6 @@ interface Draw {
   entryRules: any;
   bannerImage?: string;
   isFeatured: boolean;
-}
-
-interface Prize {
-  id: string;
-  name: string;
-  description: string;
-  type: string;
-  rarity: string;
-  value: number;
-  iconUrl?: string;
 }
 
 interface Winner {
@@ -88,7 +78,7 @@ function CountdownTimer({ targetDate }: { targetDate: string }) {
   }, [targetDate]);
 
   return (
-    <div className="flex gap-2 sm:gap-4">
+    <div className="flex gap-2">
       {[
         { value: timeLeft.days, label: 'Days' },
         { value: timeLeft.hours, label: 'Hrs' },
@@ -96,249 +86,182 @@ function CountdownTimer({ targetDate }: { targetDate: string }) {
         { value: timeLeft.seconds, label: 'Sec' },
       ].map((item, index) => (
         <div key={index} className="text-center">
-          <div className="bg-black/60 border border-cyan-500/50 rounded-lg p-2 sm:p-3 min-w-[50px] sm:min-w-[60px]">
-            <span className="text-xl sm:text-2xl font-bold text-cyan-400 font-mono">
+          <div className="bg-black/60 border border-cyan-500/50 rounded-lg px-3 py-2 min-w-[52px]">
+            <span className="text-xl font-bold text-cyan-400 font-mono">
               {item.value.toString().padStart(2, '0')}
             </span>
           </div>
-          <span className="text-xs text-gray-400 mt-1">{item.label}</span>
+          <span className="text-[10px] text-gray-400 mt-1 block">{item.label}</span>
         </div>
       ))}
     </div>
   );
 }
 
-function PrizeCard({ prize }: { prize: any }) {
-  const rarityColors: Record<string, string> = {
-    common: 'from-gray-500 to-gray-600',
-    rare: 'from-blue-500 to-blue-600',
-    epic: 'from-purple-500 to-purple-600',
-    legendary: 'from-yellow-500 to-orange-500',
-    mythic: 'from-pink-500 to-red-500',
-  };
+function DrawSection({ 
+  draw, 
+  type, 
+  onEnter, 
+  isEntering,
+  isPremium 
+}: { 
+  draw: Draw | null; 
+  type: 'weekly' | 'monthly';
+  onEnter: () => void;
+  isEntering: boolean;
+  isPremium: boolean;
+}) {
+  const isWeekly = type === 'weekly';
+  const gradientClass = isWeekly 
+    ? 'from-cyan-500/10 via-blue-500/10 to-cyan-500/10 border-cyan-500/30' 
+    : 'from-purple-500/10 via-pink-500/10 to-yellow-500/10 border-purple-500/30';
+  const accentColor = isWeekly ? 'cyan' : 'purple';
+  const Icon = isWeekly ? Calendar : Star;
 
-  const typeIcons: Record<string, any> = {
-    card: <Sparkles className="h-6 w-6" />,
-    tokens: <Zap className="h-6 w-6" />,
-    premium_days: <Crown className="h-6 w-6" />,
-    badge: <Award className="h-6 w-6" />,
-    avatar_frame: <Star className="h-6 w-6" />,
-  };
+  const weeklyPrizes = [
+    { name: '5,000 Tokens', type: 'tokens', icon: <Zap className="h-4 w-4" />, qty: '1 Winner' },
+    { name: '2,000 Tokens', type: 'tokens', icon: <Zap className="h-4 w-4" />, qty: '3 Winners' },
+    { name: '500 Tokens', type: 'tokens', icon: <Zap className="h-4 w-4" />, qty: '10 Winners' },
+  ];
+
+  const monthlyPrizes = [
+    { name: 'Mythic Card Pack', type: 'card', icon: <Sparkles className="h-4 w-4" />, qty: '1 Winner', rarity: 'mythic' },
+    { name: 'Legendary Card Pack', type: 'card', icon: <Sparkles className="h-4 w-4" />, qty: '3 Winners', rarity: 'legendary' },
+    { name: '30 Days S-Class', type: 'premium', icon: <Crown className="h-4 w-4" />, qty: '2 Winners' },
+  ];
+
+  const prizes = isWeekly ? weeklyPrizes : monthlyPrizes;
+  const canEnter = draw?.status === 'open' && (isWeekly || isPremium);
+  const entryNote = isWeekly 
+    ? `Free: 1 entry • S-Class: 3 entries`
+    : isPremium 
+      ? `S-Class: 2 entries` 
+      : `S-Class members only`;
 
   return (
-    <motion.div
-      whileHover={{ scale: 1.05, rotateY: 5 }}
-      className={`relative overflow-hidden rounded-xl bg-gradient-to-br ${rarityColors[prize.rarity] || rarityColors.common} p-[2px]`}
-    >
-      <div className="bg-black/80 rounded-xl p-4 h-full">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="p-2 bg-white/10 rounded-lg">
-            {typeIcons[prize.type] || <Gift className="h-6 w-6" />}
-          </div>
+    <Card className={`bg-gradient-to-r ${gradientClass} overflow-hidden`}>
+      <CardHeader className="pb-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h4 className="font-bold text-white">{prize.name}</h4>
-            <Badge variant="outline" className="text-xs capitalize">
-              {prize.rarity}
-            </Badge>
-          </div>
-        </div>
-        <p className="text-sm text-gray-400">{prize.description}</p>
-        {prize.value > 0 && (
-          <div className="mt-2 text-cyan-400 font-bold">
-            {prize.type === 'tokens' ? `${prize.value} Tokens` : 
-             prize.type === 'premium_days' ? `${prize.value} Days` : ''}
-          </div>
-        )}
-      </div>
-    </motion.div>
-  );
-}
-
-function WinnerCard({ winner }: { winner: Winner }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="flex items-center gap-3 p-3 bg-white/5 rounded-xl border border-white/10 hover:border-yellow-500/50 transition-all"
-    >
-      <div className="relative">
-        <Avatar className="h-12 w-12 border-2 border-yellow-500">
-          <AvatarImage src={winner.user.avatar} />
-          <AvatarFallback>{winner.user.name[0]}</AvatarFallback>
-        </Avatar>
-        <Trophy className="absolute -bottom-1 -right-1 h-5 w-5 text-yellow-500 bg-black rounded-full p-0.5" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="font-bold text-white truncate">{winner.user.name}</div>
-        <div className="text-sm text-gray-400 truncate">{winner.user.handle}</div>
-      </div>
-      <div className="text-right">
-        <Badge variant="outline" className="text-yellow-400 border-yellow-400/50 mb-1">
-          {winner.prize.name}
-        </Badge>
-        <div className="text-xs text-gray-500">
-          {formatDistanceToNow(new Date(winner.awardedAt), { addSuffix: true })}
-        </div>
-      </div>
-    </motion.div>
-  );
-}
-
-function FeaturedDrawBanner({ draw }: { draw: Draw }) {
-  const { user } = useAuth();
-  const { toast } = useToast();
-  const enterDraw = useEnterDraw();
-
-  const handleEnter = () => {
-    enterDraw.mutate(draw.id, {
-      onSuccess: () => {
-        toast({ title: "Entry Confirmed!", description: "Good luck in the draw!" });
-      },
-      onError: (error: any) => {
-        toast({ title: "Entry Failed", description: error.message, variant: "destructive" });
-      },
-    });
-  };
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-purple-900/50 via-cyan-900/50 to-pink-900/50 border border-cyan-500/30"
-    >
-      <div className="absolute inset-0 bg-[url('data:image/svg+xml,...')] opacity-10" />
-      <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-500/20 rounded-full blur-3xl" />
-      <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500/20 rounded-full blur-3xl" />
-      
-      <div className="relative p-6 sm:p-8">
-        <div className="flex flex-col lg:flex-row gap-6 items-center">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-3">
-              <Badge className="bg-gradient-to-r from-yellow-500 to-orange-500 text-black font-bold">
-                <Sparkles className="h-3 w-3 mr-1" />
-                FEATURED DRAW
-              </Badge>
-              <Badge variant="outline" className="capitalize">
-                {draw.cadence}
-              </Badge>
-            </div>
-            
-            <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2 font-display">
-              {draw.name}
-            </h2>
-            <p className="text-gray-300 mb-4">{draw.description}</p>
-            
-            <div className="flex items-center gap-4 text-sm text-gray-400 mb-4">
-              <div className="flex items-center gap-1">
-                <Calendar className="h-4 w-4" />
-                <span>Draw: {format(new Date(draw.drawAt), 'MMM d, yyyy h:mm a')}</span>
-              </div>
-            </div>
-
-            {draw.status === 'open' && user && (
-              <Button 
-                size="lg"
-                onClick={handleEnter}
-                disabled={enterDraw.isPending}
-                className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white font-bold"
-                data-testid="button-enter-draw"
-              >
-                <Ticket className="h-5 w-5 mr-2" />
-                {enterDraw.isPending ? 'Entering...' : 'Enter Draw'}
-              </Button>
-            )}
-            
-            {draw.status === 'scheduled' && (
-              <Badge variant="outline" className="text-yellow-400 border-yellow-400/50">
-                <Clock className="h-3 w-3 mr-1" />
-                Opens {formatDistanceToNow(new Date(draw.startAt), { addSuffix: true })}
-              </Badge>
-            )}
+            <CardTitle className={`flex items-center gap-2 text-xl text-${accentColor}-400`}>
+              <Icon className="h-6 w-6" />
+              {isWeekly ? 'Weekly Token Jackpot' : 'Monthly Card Giveaway'}
+              {draw?.status === 'open' && (
+                <Badge className="ml-2 bg-green-500/20 text-green-400 text-xs">OPEN</Badge>
+              )}
+            </CardTitle>
+            <p className="text-sm text-muted-foreground mt-1">
+              {isWeekly 
+                ? 'Win tokens every week! All members can enter.' 
+                : 'S-Class exclusive! Win legendary and mythic cards.'}
+            </p>
           </div>
           
-          <div className="text-center">
-            <div className="text-sm text-gray-400 mb-2">Draw In</div>
-            <CountdownTimer targetDate={draw.drawAt} />
+          {draw && (
+            <div className="flex flex-col items-center sm:items-end gap-2">
+              <span className="text-xs text-gray-400 flex items-center gap-1">
+                <Clock className="h-3 w-3" /> Time until draw:
+              </span>
+              <CountdownTimer targetDate={draw.drawAt} />
+            </div>
+          )}
+        </div>
+      </CardHeader>
+      
+      <CardContent className="space-y-4">
+        <div>
+          <p className="text-xs text-gray-400 mb-2 font-semibold uppercase tracking-wide">Prizes</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            {prizes.map((prize, idx) => (
+              <div 
+                key={idx} 
+                className={`flex items-center gap-2 p-2 rounded-lg bg-black/30 border ${
+                  (prize as any).rarity === 'mythic' ? 'border-pink-500/50' :
+                  (prize as any).rarity === 'legendary' ? 'border-yellow-500/50' :
+                  `border-${accentColor}-500/30`
+                }`}
+              >
+                <div className={`p-1.5 rounded bg-${accentColor}-500/20 text-${accentColor}-400`}>
+                  {prize.icon}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-white truncate">{prize.name}</p>
+                  <p className="text-[10px] text-gray-400">{prize.qty}</p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
-      </div>
-    </motion.div>
+
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-white/10">
+          <div className="text-sm text-muted-foreground">
+            <span className="text-white font-medium">Entry: </span>
+            {entryNote}
+          </div>
+          
+          {canEnter ? (
+            <Button 
+              onClick={onEnter}
+              disabled={isEntering}
+              className={`${isWeekly 
+                ? 'bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600' 
+                : 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600'
+              } text-white font-bold px-6`}
+              data-testid={`button-enter-${type}-draw`}
+            >
+              <Ticket className="h-4 w-4 mr-2" />
+              {isEntering ? 'Entering...' : 'Enter Draw'}
+            </Button>
+          ) : !isPremium && !isWeekly ? (
+            <Link href="/sclass">
+              <Button 
+                variant="outline"
+                className="border-yellow-500/50 text-yellow-400 hover:bg-yellow-500/10"
+              >
+                <Crown className="h-4 w-4 mr-2" />
+                Upgrade to S-Class
+              </Button>
+            </Link>
+          ) : null}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
 export default function DrawsPage() {
-  const { toast } = useToast();
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState("live");
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const enterDraw = useEnterDraw();
 
-  const { data: activeDraws = [], isLoading: drawsLoading } = useQuery({
-    queryKey: ['/api/draws/active'],
-    queryFn: async () => {
-      const res = await fetch('/api/draws/active');
-      if (!res.ok) throw new Error('Failed to fetch draws');
-      return res.json();
-    },
-  });
+  const { data: activeDraws = [], isLoading: drawsLoading } = useActiveDraws();
+  const { data: myEntries = [] } = useUserDrawEntries();
+  const { data: recentWinners = [] } = useRecentWinners();
 
-  const { data: allDraws = [] } = useQuery({
-    queryKey: ['/api/draws'],
-    queryFn: async () => {
-      const res = await fetch('/api/draws');
-      if (!res.ok) throw new Error('Failed to fetch draws');
-      return res.json();
-    },
-  });
+  const weeklyDraw = activeDraws.find((d: Draw) => d.cadence === 'weekly') || null;
+  const monthlyDraw = activeDraws.find((d: Draw) => d.cadence === 'monthly') || null;
 
-  const { data: recentWinners = [] } = useQuery({
-    queryKey: ['/api/draws/winners/recent'],
-    queryFn: async () => {
-      const res = await fetch('/api/draws/winners/recent?limit=20');
-      if (!res.ok) throw new Error('Failed to fetch winners');
-      return res.json();
-    },
-  });
-
-  const { data: myEntries = [] } = useQuery({
-    queryKey: ['/api/users/me/draw-entries'],
-    queryFn: async () => {
-      const res = await fetch('/api/users/me/draw-entries', { credentials: 'include' });
-      if (!res.ok) return [];
-      return res.json();
-    },
-    enabled: !!user,
-  });
-
-  const featuredDraw = activeDraws.find((d: Draw) => d.isFeatured) || activeDraws[0];
-  const completedDraws = allDraws.filter((d: Draw) => d.status === 'completed');
-
-  const MOCK_PRIZES: Prize[] = [
-    { id: '1', name: 'Legendary Card Pack', description: 'Contains 1 guaranteed legendary card', type: 'card', rarity: 'legendary', value: 0 },
-    { id: '2', name: '5000 Tokens', description: 'Premium in-game currency', type: 'tokens', rarity: 'epic', value: 5000 },
-    { id: '3', name: '30 Days Premium', description: 'Full S-Class membership access', type: 'premium_days', rarity: 'legendary', value: 30 },
-    { id: '4', name: 'Exclusive Badge', description: 'Show off your winner status', type: 'badge', rarity: 'rare', value: 0 },
-    { id: '5', name: 'Golden Avatar Frame', description: 'Limited edition frame', type: 'avatar_frame', rarity: 'mythic', value: 0 },
-  ];
-
-  const MOCK_WINNERS: Winner[] = recentWinners.length > 0 ? recentWinners : [
+  const MOCK_WINNERS: Winner[] = [
     {
       id: '1',
       userId: '1',
       prizeId: '1',
       drawId: '1',
       awardedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-      claimStatus: 'claimed',
+      claimStatus: 'pending',
       user: { name: 'NeoKai', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=neokai', handle: '@neokai' },
-      prize: { name: 'Legendary Pack', type: 'card', rarity: 'legendary' },
+      prize: { name: '5000 Tokens', type: 'tokens', rarity: 'epic' },
     },
     {
       id: '2',
       userId: '2',
       prizeId: '2',
       drawId: '1',
-      awardedAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
-      claimStatus: 'pending',
-      user: { name: 'Sakura', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=sakura', handle: '@sakurablossom' },
-      prize: { name: '5000 Tokens', type: 'tokens', rarity: 'epic' },
+      awardedAt: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
+      claimStatus: 'claimed',
+      user: { name: 'SakuraBlossom', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=sakura', handle: '@sakurablossom' },
+      prize: { name: 'Mythic Card Pack', type: 'card', rarity: 'mythic' },
     },
     {
       id: '3',
@@ -347,86 +270,24 @@ export default function DrawsPage() {
       drawId: '2',
       awardedAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
       claimStatus: 'claimed',
-      user: { name: 'Shadow', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=shadow', handle: '@shadowhunter' },
-      prize: { name: '30 Days Premium', type: 'premium_days', rarity: 'legendary' },
-    },
-    {
-      id: '4',
-      userId: '4',
-      prizeId: '4',
-      drawId: '2',
-      awardedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-      claimStatus: 'claimed',
-      user: { name: 'Ryu', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=ryu', handle: '@ryumaster' },
-      prize: { name: 'Epic Badge', type: 'badge', rarity: 'epic' },
-    },
-    {
-      id: '5',
-      userId: '5',
-      prizeId: '5',
-      drawId: '3',
-      awardedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-      claimStatus: 'claimed',
-      user: { name: 'Miko', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=miko', handle: '@mikochan' },
-      prize: { name: 'Golden Frame', type: 'avatar_frame', rarity: 'mythic' },
-    },
-    {
-      id: '6',
-      userId: '6',
-      prizeId: '1',
-      drawId: '3',
-      awardedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-      claimStatus: 'claimed',
-      user: { name: 'Akira', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=akira', handle: '@akirax' },
-      prize: { name: 'Legendary Pack', type: 'card', rarity: 'legendary' },
-    },
-    {
-      id: '7',
-      userId: '7',
-      prizeId: '2',
-      drawId: '4',
-      awardedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-      claimStatus: 'claimed',
-      user: { name: 'Luna', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=luna', handle: '@lunamoon' },
-      prize: { name: '5000 Tokens', type: 'tokens', rarity: 'epic' },
+      user: { name: 'ShadowHunter', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=shadow', handle: '@shadowhunter' },
+      prize: { name: '30 Days S-Class', type: 'premium_days', rarity: 'legendary' },
     },
   ];
 
-  const MOCK_DRAWS: Draw[] = activeDraws.length > 0 ? activeDraws : [
-    {
-      id: '1',
-      name: 'Weekly Legendary Draw',
-      description: 'Win legendary cards and exclusive rewards! Every Sunday at 8 PM.',
-      cadence: 'weekly',
-      status: 'open',
-      startAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-      endAt: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
-      drawAt: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
-      prizePool: [],
-      entryRules: {},
-      isFeatured: true,
-    },
-    {
-      id: '2',
-      name: 'Monthly Mega Draw',
-      description: 'The biggest prizes of the month! Premium membership, mega token bundles, and more.',
-      cadence: 'monthly',
-      status: 'scheduled',
-      startAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-      endAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-      drawAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-      prizePool: [],
-      entryRules: {},
-      isFeatured: false,
-    },
-  ];
+  const displayWinners = (recentWinners.length > 0 ? recentWinners : MOCK_WINNERS)
+    .sort((a: Winner, b: Winner) => new Date(b.awardedAt).getTime() - new Date(a.awardedAt).getTime());
 
-  const displayDraws = activeDraws.length > 0 ? activeDraws : MOCK_DRAWS;
-  const displayFeatured = featuredDraw || MOCK_DRAWS[0];
-  const rawWinners = recentWinners.length > 0 ? recentWinners : MOCK_WINNERS;
-  const displayWinners = [...rawWinners].sort((a: Winner, b: Winner) => 
-    new Date(b.awardedAt).getTime() - new Date(a.awardedAt).getTime()
-  );
+  const handleEnterDraw = (drawId: string, type: string) => {
+    enterDraw.mutate(drawId, {
+      onSuccess: () => {
+        toast({ title: "Entry Confirmed!", description: `You've entered the ${type} draw. Good luck!` });
+      },
+      onError: (error: any) => {
+        toast({ title: "Entry Failed", description: error.message, variant: "destructive" });
+      },
+    });
+  };
 
   if (drawsLoading) {
     return (
@@ -441,7 +302,7 @@ export default function DrawsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-black via-purple-950/20 to-black p-4">
-      <div className="max-w-6xl mx-auto space-y-6">
+      <div className="max-w-4xl mx-auto space-y-6">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-3xl font-bold font-display text-white flex items-center gap-3" data-testid="text-page-title">
@@ -458,90 +319,26 @@ export default function DrawsPage() {
           )}
         </div>
 
-        {/* Weekly Draw Rules */}
-        <Card className="bg-gradient-to-r from-cyan-500/10 via-blue-500/10 to-cyan-500/10 border-cyan-500/30">
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-lg text-cyan-400">
-              <Calendar className="h-5 w-5" />
-              Weekly Draw
-              <Badge className="ml-2 bg-green-500/20 text-green-400 text-xs">FREE ENTRY</Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm space-y-3">
-            <p className="text-muted-foreground">
-              Enter for free every week! Resets <strong className="text-white">Monday at 00:00 UTC</strong>. 
-              Winners increase as the community grows.
-            </p>
-            
-            <div className="grid md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <p className="font-bold text-white">How to Enter:</p>
-                <p className="text-muted-foreground">Click "Enter Weekly Draw" (manual entry)</p>
-                <p className="text-muted-foreground"><strong className="text-white">Free Users:</strong> 1 entry</p>
-                <p className="text-muted-foreground"><strong className="text-yellow-400">S-Class:</strong> 3 entries</p>
-              </div>
-              <div className="space-y-2">
-                <p className="font-bold text-white">Weekly Prizes:</p>
-                <div className="flex flex-wrap gap-1.5">
-                  <Badge variant="outline" className="text-xs border-yellow-500 text-yellow-400">50-100 Tokens</Badge>
-                  <Badge variant="outline" className="text-xs border-cyan-500 text-cyan-400">Cosmetic Badges</Badge>
-                  <Badge variant="outline" className="text-xs border-purple-500 text-purple-400">Avatar Effects</Badge>
-                  <Badge variant="outline" className="text-xs border-gray-500 text-gray-400">Common Cards</Badge>
-                </div>
-              </div>
-            </div>
-            
-            <div className="pt-2 border-t border-white/10 text-xs text-muted-foreground">
-              <strong className="text-cyan-400">Dynamic Winners:</strong> 30-200 winners based on active users. More players = more winners!
-            </div>
-          </CardContent>
-        </Card>
+        <DrawSection 
+          draw={weeklyDraw}
+          type="weekly"
+          onEnter={() => weeklyDraw && handleEnterDraw(weeklyDraw.id, 'weekly')}
+          isEntering={enterDraw.isPending}
+          isPremium={user?.isPremium || false}
+        />
 
-        {/* Monthly Draw Rules */}
-        <Card className="bg-gradient-to-r from-purple-500/10 via-pink-500/10 to-yellow-500/10 border-purple-500/30">
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-lg text-purple-400">
-              <Star className="h-5 w-5" />
-              Monthly Grand Draw
-              <Badge className="ml-2 bg-yellow-500/20 text-yellow-400 text-xs">BIG PRIZES</Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm space-y-3">
-            <p className="text-muted-foreground">
-              The biggest prizes of the month! Resets on the <strong className="text-white">1st of each month at 00:00 UTC</strong>.
-            </p>
-            
-            <div className="grid md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <p className="font-bold text-white">How to Enter:</p>
-                <p className="text-muted-foreground"><strong className="text-yellow-400">S-Class:</strong> 1 free entry</p>
-                <p className="text-muted-foreground"><strong className="text-white">Free Users:</strong> Enter via tokens or events</p>
-              </div>
-              <div className="space-y-2">
-                <p className="font-bold text-white flex items-center gap-2">
-                  <Crown className="h-4 w-4 text-yellow-400" /> Winner Tiers:
-                </p>
-                <p className="text-muted-foreground"><strong className="text-yellow-400">🥇 1 Grand Winner:</strong> Epic Card, 1000 Tokens, or 30-Day Premium</p>
-                <p className="text-muted-foreground"><strong className="text-purple-400">🥈 10 Secondary Winners:</strong> 100-300 Tokens, Cosmetics, or 7-Day Premium</p>
-              </div>
-            </div>
-            
-            <div className="pt-2 border-t border-white/10 text-xs text-muted-foreground">
-              <strong className="text-purple-400">11 Total Winners</strong> each month. Entry is optional and does not affect game progression.
-            </div>
-          </CardContent>
-        </Card>
+        <DrawSection 
+          draw={monthlyDraw}
+          type="monthly"
+          onEnter={() => monthlyDraw && handleEnterDraw(monthlyDraw.id, 'monthly')}
+          isEntering={enterDraw.isPending}
+          isPremium={user?.isPremium || false}
+        />
 
-        {/* Eligibility Notice */}
         <div className="bg-white/5 border border-white/10 rounded-lg p-3 text-xs text-muted-foreground">
-          <strong className="text-white">Eligibility:</strong> To win, your account must be at least 24 hours old with a verified email. One win per account per draw period.
+          <strong className="text-white">Eligibility:</strong> To win, your account must be at least 24 hours old. One win per account per draw period.
         </div>
 
-        {displayFeatured && (
-          <FeaturedDrawBanner draw={displayFeatured} />
-        )}
-
-        {/* PERMANENT WINNERS SHOWCASE */}
         <Card className="bg-gradient-to-r from-yellow-950/40 via-amber-950/30 to-orange-950/40 border-yellow-500/30 overflow-hidden" data-testid="winners-showcase">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center justify-between">
@@ -557,7 +354,7 @@ export default function DrawsPage() {
             <p className="text-xs text-muted-foreground">Real winners, real prizes - updated in real-time</p>
           </CardHeader>
           <CardContent className="p-0">
-            <ScrollArea className="h-[200px]">
+            <ScrollArea className="h-[220px]">
               <div className="p-4 space-y-2">
                 {displayWinners.map((winner: Winner, index: number) => (
                   <motion.div
@@ -615,77 +412,6 @@ export default function DrawsPage() {
           </CardContent>
         </Card>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid grid-cols-2 gap-2 bg-white/5 p-1">
-            <TabsTrigger value="live" className="data-[state=active]:bg-cyan-500/20" data-testid="tab-live">
-              <Zap className="h-4 w-4 mr-2" />
-              Live Draws
-            </TabsTrigger>
-            <TabsTrigger value="prizes" className="data-[state=active]:bg-purple-500/20" data-testid="tab-prizes">
-              <Gift className="h-4 w-4 mr-2" />
-              Prize Catalog
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="live" className="mt-6">
-            <div className="grid gap-4">
-              {displayDraws.map((draw: Draw) => (
-                <Card key={draw.id} className="bg-white/5 border-white/10 hover:border-cyan-500/50 transition-all">
-                  <CardContent className="p-4">
-                    <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <h3 className="font-bold text-white text-lg">{draw.name}</h3>
-                          <Badge variant="outline" className="capitalize text-xs">
-                            {draw.cadence}
-                          </Badge>
-                          {draw.status === 'open' ? (
-                            <Badge className="bg-green-500/20 text-green-400">Open</Badge>
-                          ) : (
-                            <Badge variant="outline" className="text-yellow-400">Upcoming</Badge>
-                          )}
-                        </div>
-                        <p className="text-sm text-gray-400">{draw.description}</p>
-                        <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
-                          <span className="flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            Draw: {format(new Date(draw.drawAt), 'MMM d, h:mm a')}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex flex-col items-end gap-2">
-                        <CountdownTimer targetDate={draw.drawAt} />
-                        {draw.status === 'open' && user && (
-                          <Button size="sm" className="bg-cyan-500 hover:bg-cyan-600">
-                            <Ticket className="h-4 w-4 mr-1" />
-                            Enter
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-              
-              {displayDraws.length === 0 && (
-                <div className="text-center py-12 text-gray-400">
-                  <Trophy className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                  <p>No active draws at the moment</p>
-                  <p className="text-sm">Check back soon for exciting prizes!</p>
-                </div>
-              )}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="prizes" className="mt-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {MOCK_PRIZES.map((prize) => (
-                <PrizeCard key={prize.id} prize={prize} />
-              ))}
-            </div>
-          </TabsContent>
-        </Tabs>
-
         <Card className="bg-gradient-to-r from-purple-900/30 to-cyan-900/30 border-purple-500/30">
           <CardContent className="p-6">
             <div className="flex flex-col sm:flex-row items-center gap-4">
@@ -693,16 +419,18 @@ export default function DrawsPage() {
                 <Crown className="h-8 w-8 text-yellow-500" />
               </div>
               <div className="flex-1 text-center sm:text-left">
-                <h3 className="text-lg font-bold text-white">S-Class Members Get 3x Entries!</h3>
-                <p className="text-gray-400 text-sm">Upgrade to premium for better odds in every draw</p>
+                <h3 className="text-lg font-bold text-white">S-Class Members Get More Entries!</h3>
+                <p className="text-gray-400 text-sm">3x weekly entries + exclusive monthly draw access</p>
               </div>
-              <Button 
-                className="bg-gradient-to-r from-yellow-500 to-orange-500 text-black font-bold"
-                data-testid="button-upgrade-premium"
-              >
-                Upgrade Now
-                <ChevronRight className="h-4 w-4 ml-1" />
-              </Button>
+              <Link href="/sclass">
+                <Button 
+                  className="bg-gradient-to-r from-yellow-500 to-orange-500 text-black font-bold"
+                  data-testid="button-upgrade-premium"
+                >
+                  Upgrade Now
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </Link>
             </div>
           </CardContent>
         </Card>
