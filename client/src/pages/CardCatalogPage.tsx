@@ -55,7 +55,7 @@ export default function CardCatalogPage() {
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
   const [selectedRarities, setSelectedRarities] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
-  const [selectedCard, setSelectedCard] = useState<CardData | null>(null);
+  const [selectedCardIndex, setSelectedCardIndex] = useState<number | null>(null);
 
   const raritiesParam = selectedRarities.length > 0 ? selectedRarities.join(',') : '';
 
@@ -73,6 +73,28 @@ export default function CardCatalogPage() {
       return res.json();
     },
   });
+  
+  const selectedCard = selectedCardIndex !== null && data?.cards ? data.cards[selectedCardIndex] : null;
+  
+  const goToPreviousCard = () => {
+    if (selectedCardIndex !== null && selectedCardIndex > 0) {
+      setSelectedCardIndex(selectedCardIndex - 1);
+    }
+  };
+  
+  const goToNextCard = () => {
+    if (selectedCardIndex !== null && data?.cards && selectedCardIndex < data.cards.length - 1) {
+      setSelectedCardIndex(selectedCardIndex + 1);
+    }
+  };
+  
+  const openCardDetail = (index: number) => {
+    setSelectedCardIndex(index);
+  };
+  
+  const closeCardDetail = () => {
+    setSelectedCardIndex(null);
+  };
 
   const toggleRarity = (rarity: string) => {
     setSelectedRarities(prev =>
@@ -182,11 +204,11 @@ export default function CardCatalogPage() {
       ) : (
         <>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {data?.cards.map(card => (
+            {data?.cards.map((card, index) => (
               <Card
                 key={card.id}
                 className={`group cursor-pointer hover:scale-105 transition-all duration-200 bg-card/50 border-white/10 hover:border-white/30 shadow-lg ${rarityGlow[card.rarity]}`}
-                onClick={() => setSelectedCard(card)}
+                onClick={() => openCardDetail(index)}
                 data-testid={`card-catalog-item-${card.id}`}
               >
                 <CardContent className="p-3">
@@ -247,7 +269,7 @@ export default function CardCatalogPage() {
         </>
       )}
 
-      <Dialog open={!!selectedCard} onOpenChange={() => setSelectedCard(null)}>
+      <Dialog open={!!selectedCard} onOpenChange={() => closeCardDetail()}>
         <DialogContent className="max-w-lg bg-card border-white/10">
           {selectedCard && (
             <>
@@ -313,6 +335,31 @@ export default function CardCatalogPage() {
                       Season: {selectedCard.season}
                     </div>
                   )}
+                </div>
+                
+                {/* Navigation buttons */}
+                <div className="flex items-center justify-between pt-2 border-t border-white/10">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={goToPreviousCard}
+                    disabled={selectedCardIndex === 0}
+                    data-testid="button-prev-card"
+                  >
+                    <ChevronLeft className="h-4 w-4 mr-1" /> Previous
+                  </Button>
+                  <span className="text-xs text-muted-foreground">
+                    {selectedCardIndex !== null ? selectedCardIndex + 1 : 0} / {data?.cards.length || 0}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={goToNextCard}
+                    disabled={selectedCardIndex === (data?.cards.length || 1) - 1}
+                    data-testid="button-next-card"
+                  >
+                    Next <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
                 </div>
               </div>
             </>
