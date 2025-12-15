@@ -1,7 +1,9 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertUserSchema, insertPostSchema, insertSwipeActionSchema, insertCommunityMessageSchema, insertDrawSchema, insertPrizeSchema, insertDrawEntrySchema } from "@shared/schema";
+import { insertUserSchema, insertPostSchema, insertSwipeActionSchema, insertCommunityMessageSchema, insertDrawSchema, insertPrizeSchema, insertDrawEntrySchema, insertCardCategorySchema } from "@shared/schema";
+import { supabaseAdmin } from "./lib/supabaseAdmin";
+import { nanoid } from "nanoid";
 import bcrypt from "bcrypt";
 import { verifySupabaseToken } from "./lib/supabaseAuth";
 import { sql } from "drizzle-orm";
@@ -522,19 +524,127 @@ export async function registerRoutes(
   });
   
   // Admin: Get cards with owner counts
-  app.get("/api/cards/admin", async (req, res) => {
+  app.get("/api/cards/admin", verifySupabaseToken, async (req, res) => {
     try {
-      if (!req.session.userId) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
-      
-      const user = await storage.getUser(req.session.userId);
-      if (!user?.isAdmin) {
+      if (!req.dbUser || !req.dbUser.isAdmin) {
         return res.status(403).json({ error: "Admin access required" });
       }
       
       const cardsWithCounts = await storage.getCardsWithOwnerCounts();
       res.json(cardsWithCounts);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Admin: Update card
+  app.patch("/api/cards/:id", verifySupabaseToken, async (req, res) => {
+    try {
+      if (!req.dbUser || !req.dbUser.isAdmin) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+      
+      const card = await storage.updateCard(req.params.id, req.body);
+      if (!card) {
+        return res.status(404).json({ error: "Card not found" });
+      }
+      res.json(card);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Admin: Get signed upload URL for card images
+  app.post("/api/admin/cards/upload-url", verifySupabaseToken, async (req, res) => {
+    try {
+      if (!req.dbUser || !req.dbUser.isAdmin) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+      
+      const { contentType } = req.body;
+      if (!contentType || !contentType.startsWith('image/')) {
+        return res.status(400).json({ error: "Invalid content type. Only images allowed." });
+      }
+      
+      const extension = contentType.split('/')[1] || 'png';
+      const filename = `${nanoid()}.${extension}`;
+      const objectKey = `cards/${filename}`;
+      
+      const { data, error } = await supabaseAdmin.storage
+        .from('media')
+        .createSignedUploadUrl(objectKey, { upsert: false });
+      
+      if (error || !data) {
+        console.error('Supabase upload URL error:', error);
+        return res.status(500).json({ error: error?.message || 'Failed to create upload URL' });
+      }
+      
+      const { data: publicUrlData } = supabaseAdmin.storage
+        .from('media')
+        .getPublicUrl(objectKey);
+      
+      res.json({
+        uploadUrl: data.signedUrl,
+        objectKey,
+        publicUrl: publicUrlData.publicUrl,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Admin: Card Categories CRUD
+  app.get("/api/admin/card-categories", verifySupabaseToken, async (req, res) => {
+    try {
+      if (!req.dbUser || !req.dbUser.isAdmin) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+      
+      const categories = await storage.getAllCardCategories();
+      res.json(categories);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  app.post("/api/admin/card-categories", verifySupabaseToken, async (req, res) => {
+    try {
+      if (!req.dbUser || !req.dbUser.isAdmin) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+      
+      const validatedData = insertCardCategorySchema.parse(req.body);
+      const category = await storage.createCardCategory(validatedData);
+      res.json(category);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+  
+  app.patch("/api/admin/card-categories/:id", verifySupabaseToken, async (req, res) => {
+    try {
+      if (!req.dbUser || !req.dbUser.isAdmin) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+      
+      const category = await storage.updateCardCategory(req.params.id, req.body);
+      if (!category) {
+        return res.status(404).json({ error: "Category not found" });
+      }
+      res.json(category);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  app.delete("/api/admin/card-categories/:id", verifySupabaseToken, async (req, res) => {
+    try {
+      if (!req.dbUser || !req.dbUser.isAdmin) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+      
+      await storage.deleteCardCategory(req.params.id);
+      res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

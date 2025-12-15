@@ -5,6 +5,8 @@ import {
   type InsertPost,
   type Card,
   type InsertCard,
+  type CardCategory,
+  type InsertCardCategory,
   type UserCard,
   type InsertUserCard,
   type MarketListing,
@@ -42,6 +44,7 @@ import {
   posts,
   postLikes,
   cards,
+  cardCategories,
   userCards,
   marketListings,
   communities,
@@ -89,6 +92,7 @@ export interface IStorage {
   getActiveCards(): Promise<Card[]>;
   getCard(id: string): Promise<Card | undefined>;
   createCard(card: InsertCard): Promise<Card>;
+  updateCard(id: string, updates: Partial<Card>): Promise<Card | undefined>;
   deleteCard(id: string): Promise<void>;
   archiveCard(id: string): Promise<void>;
   unarchiveCard(id: string): Promise<void>;
@@ -97,6 +101,13 @@ export interface IStorage {
   getUserCards(userId: string): Promise<Array<UserCard & { card: Card }>>;
   addCardToUser(userCard: InsertUserCard): Promise<UserCard>;
   getCatalogCards(options: { page?: number; limit?: number; rarities?: string[]; sortOrder?: 'newest' | 'oldest' }): Promise<{ cards: Card[]; total: number; page: number; totalPages: number }>;
+  
+  // Card category operations
+  getAllCardCategories(): Promise<CardCategory[]>;
+  getCardCategory(id: string): Promise<CardCategory | undefined>;
+  createCardCategory(category: InsertCardCategory): Promise<CardCategory>;
+  updateCardCategory(id: string, updates: Partial<CardCategory>): Promise<CardCategory | undefined>;
+  deleteCardCategory(id: string): Promise<void>;
   
   // Marketplace operations
   getActiveListings(): Promise<Array<MarketListing & { seller: User; card: Card }>>;
@@ -450,6 +461,35 @@ export class DbStorage implements IStorage {
       page,
       totalPages: Math.ceil(total / limit)
     };
+  }
+
+  async updateCard(id: string, updates: Partial<Card>): Promise<Card | undefined> {
+    const result = await db.update(cards).set(updates).where(eq(cards.id, id)).returning();
+    return result[0];
+  }
+
+  // Card category operations
+  async getAllCardCategories(): Promise<CardCategory[]> {
+    return await db.select().from(cardCategories).orderBy(cardCategories.sortOrder);
+  }
+
+  async getCardCategory(id: string): Promise<CardCategory | undefined> {
+    const result = await db.select().from(cardCategories).where(eq(cardCategories.id, id)).limit(1);
+    return result[0];
+  }
+
+  async createCardCategory(category: InsertCardCategory): Promise<CardCategory> {
+    const result = await db.insert(cardCategories).values(category).returning();
+    return result[0];
+  }
+
+  async updateCardCategory(id: string, updates: Partial<CardCategory>): Promise<CardCategory | undefined> {
+    const result = await db.update(cardCategories).set(updates).where(eq(cardCategories.id, id)).returning();
+    return result[0];
+  }
+
+  async deleteCardCategory(id: string): Promise<void> {
+    await db.delete(cardCategories).where(eq(cardCategories.id, id));
   }
 
   // Marketplace operations

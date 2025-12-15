@@ -612,6 +612,9 @@ export type User = typeof users.$inferSelect;
 export type InsertPost = z.infer<typeof insertPostSchema>;
 export type Post = typeof posts.$inferSelect;
 
+export type InsertCardCategory = z.infer<typeof insertCardCategorySchema>;
+export type CardCategory = typeof cardCategories.$inferSelect;
+
 export type InsertCard = z.infer<typeof insertCardSchema>;
 export type Card = typeof cards.$inferSelect;
 

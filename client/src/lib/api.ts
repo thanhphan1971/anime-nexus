@@ -189,6 +189,79 @@ export function useUnarchiveCard() {
   });
 }
 
+export function useUpdateCard() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ cardId, updates }: { cardId: string; updates: Partial<{ name: string; character: string; anime: string; rarity: string; image: string; power: number; element: string; categoryId: string | null }> }) =>
+      apiCall(`/api/cards/${cardId}`, {
+        method: "PATCH",
+        body: JSON.stringify(updates),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["cards"] });
+      queryClient.invalidateQueries({ queryKey: ["adminCards"] });
+    },
+  });
+}
+
+// Card Categories API
+export function useCardCategories() {
+  return useQuery({
+    queryKey: ["cardCategories"],
+    queryFn: () => apiCall("/api/admin/card-categories"),
+  });
+}
+
+export function useCreateCardCategory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { name: string; slug: string; description?: string; color?: string; sortOrder?: number }) =>
+      apiCall("/api/admin/card-categories", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["cardCategories"] });
+    },
+  });
+}
+
+export function useUpdateCardCategory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, updates }: { id: string; updates: Partial<{ name: string; slug: string; description: string; color: string; sortOrder: number }> }) =>
+      apiCall(`/api/admin/card-categories/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(updates),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["cardCategories"] });
+    },
+  });
+}
+
+export function useDeleteCardCategory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiCall(`/api/admin/card-categories/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["cardCategories"] });
+    },
+  });
+}
+
+// Card Upload API
+export function useGetCardUploadUrl() {
+  return useMutation({
+    mutationFn: (contentType: string) =>
+      apiCall("/api/admin/cards/upload-url", {
+        method: "POST",
+        body: JSON.stringify({ contentType }),
+      }),
+  });
+}
+
 // Marketplace API
 export function useMarketListings() {
   return useQuery({

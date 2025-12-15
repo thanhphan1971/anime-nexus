@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -23,9 +23,9 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useUsers, useBanUser, useUnbanUser, useGrantPremium, useRevokePremium, useCommunities, useAdminCards, useCreateCard, useDeleteCard, useArchiveCard, useUnarchiveCard, useSiteSettings, useUpdateSiteSetting } from "@/lib/api";
+import { useUsers, useBanUser, useUnbanUser, useGrantPremium, useRevokePremium, useCommunities, useAdminCards, useCreateCard, useDeleteCard, useArchiveCard, useUnarchiveCard, useSiteSettings, useUpdateSiteSetting, useCardCategories, useCreateCardCategory, useDeleteCardCategory, useGetCardUploadUrl, useUpdateCard } from "@/lib/api";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { AlertTriangle, Archive, ArchiveRestore } from "lucide-react";
+import { AlertTriangle, Archive, ArchiveRestore, ImagePlus, Folder, FolderPlus, Edit2 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatDistanceToNow } from "date-fns";
 import { toast as sonnerToast } from "sonner";
@@ -44,7 +44,21 @@ export default function AdminPage() {
   const deleteCard = useDeleteCard();
   const archiveCard = useArchiveCard();
   const unarchiveCard = useUnarchiveCard();
+  const updateCard = useUpdateCard();
   const banUser = useBanUser();
+  
+  const { data: cardCategories, isLoading: categoriesLoading } = useCardCategories();
+  const createCardCategory = useCreateCardCategory();
+  const deleteCardCategory = useDeleteCardCategory();
+  const getCardUploadUrl = useGetCardUploadUrl();
+  
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const [newCategory, setNewCategory] = useState({ name: "", slug: "", color: "#8B5CF6" });
+  const [showCategoryForm, setShowCategoryForm] = useState(false);
   
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
     isOpen: boolean;
@@ -101,7 +115,70 @@ export default function AdminPage() {
     image: "",
     power: 500,
     element: "Fire",
+    categoryId: "",
   });
+  
+  const handleImageUpload = useCallback(async (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      sonnerToast.error('Please upload an image file');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      sonnerToast.error('Image must be less than 5MB');
+      return;
+    }
+    
+    setUploadingImage(true);
+    try {
+      const { uploadUrl, publicUrl } = await getCardUploadUrl.mutateAsync(file.type);
+      await fetch(uploadUrl, {
+        method: 'PUT',
+        body: file,
+        headers: { 'Content-Type': file.type },
+      });
+      setNewCard(prev => ({ ...prev, image: publicUrl }));
+      sonnerToast.success('Image uploaded successfully!');
+    } catch (error: any) {
+      sonnerToast.error(error.message || 'Failed to upload image');
+    } finally {
+      setUploadingImage(false);
+    }
+  }, [getCardUploadUrl]);
+  
+  const handleDrag = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  }, []);
+  
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleImageUpload(e.dataTransfer.files[0]);
+    }
+  }, [handleImageUpload]);
+  
+  const handleCreateCategory = async () => {
+    if (!newCategory.name) {
+      sonnerToast.error('Category name is required');
+      return;
+    }
+    const slug = newCategory.slug || newCategory.name.toLowerCase().replace(/\s+/g, '-');
+    try {
+      await createCardCategory.mutateAsync({ name: newCategory.name, slug, color: newCategory.color });
+      sonnerToast.success(`Category "${newCategory.name}" created!`);
+      setNewCategory({ name: "", slug: "", color: "#8B5CF6" });
+      setShowCategoryForm(false);
+    } catch (error: any) {
+      sonnerToast.error(error.message || 'Failed to create category');
+    }
+  };
   
   const handleCreateCard = async () => {
     if (!newCard.name || !newCard.character || !newCard.anime) {
@@ -119,6 +196,7 @@ export default function AdminPage() {
         image: imageUrl,
         power: Number(newCard.power),
         element: newCard.element,
+        categoryId: newCard.categoryId || null,
       };
       await createCard.mutateAsync(cardData);
       sonnerToast.success(`Card "${newCard.name}" created successfully!`);
@@ -130,6 +208,7 @@ export default function AdminPage() {
         image: "",
         power: 500,
         element: "Fire",
+        categoryId: "",
       });
     } catch (error: any) {
       sonnerToast.error(error.message || "Failed to create card");
@@ -184,11 +263,15 @@ export default function AdminPage() {
     }
   };
   
-  const filteredCards = allCards?.filter((card: any) => 
-    card.name.toLowerCase().includes(cardSearch.toLowerCase()) || 
-    card.character.toLowerCase().includes(cardSearch.toLowerCase()) ||
-    card.anime.toLowerCase().includes(cardSearch.toLowerCase())
-  ) || [];
+  const filteredCards = allCards?.filter((card: any) => {
+    const matchesSearch = card.name.toLowerCase().includes(cardSearch.toLowerCase()) || 
+      card.character.toLowerCase().includes(cardSearch.toLowerCase()) ||
+      card.anime.toLowerCase().includes(cardSearch.toLowerCase());
+    const matchesCategory = categoryFilter === "all" || 
+      (categoryFilter === "uncategorized" && !card.categoryId) ||
+      card.categoryId === categoryFilter;
+    return matchesSearch && matchesCategory;
+  }) || [];
 
   const openPremiumDialog = (user: any) => {
     const hasExistingDates = user.premiumStartDate || user.premiumEndDate;
@@ -744,12 +827,78 @@ export default function AdminPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Image URL (optional)</Label>
+                  <Label>Category</Label>
+                  <select 
+                    className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                    value={newCard.categoryId}
+                    onChange={(e) => setNewCard({...newCard, categoryId: e.target.value})}
+                    data-testid="select-card-category"
+                  >
+                    <option value="">No Category</option>
+                    {cardCategories?.map((cat: any) => (
+                      <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Card Image</Label>
+                  <div
+                    className={`relative border-2 border-dashed rounded-lg p-4 transition-colors ${
+                      dragActive ? 'border-purple-500 bg-purple-500/10' : 'border-white/20 hover:border-white/40'
+                    } ${newCard.image ? 'bg-white/5' : ''}`}
+                    onDragEnter={handleDrag}
+                    onDragLeave={handleDrag}
+                    onDragOver={handleDrag}
+                    onDrop={handleDrop}
+                    data-testid="dropzone-card-image"
+                  >
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => e.target.files?.[0] && handleImageUpload(e.target.files[0])}
+                      data-testid="input-file-card-image"
+                    />
+                    {newCard.image ? (
+                      <div className="flex items-center gap-3">
+                        <img src={newCard.image} alt="Preview" className="h-16 w-16 object-cover rounded-lg" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-green-400 font-medium">Image uploaded</p>
+                          <p className="text-xs text-muted-foreground truncate">{newCard.image}</p>
+                        </div>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => setNewCard({...newCard, image: ""})}
+                          className="text-red-400 hover:bg-red-500/10"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div 
+                        className="flex flex-col items-center justify-center py-4 cursor-pointer"
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        {uploadingImage ? (
+                          <Loader2 className="h-8 w-8 animate-spin text-purple-400 mb-2" />
+                        ) : (
+                          <ImagePlus className="h-8 w-8 text-muted-foreground mb-2" />
+                        )}
+                        <p className="text-sm text-muted-foreground">
+                          {uploadingImage ? 'Uploading...' : 'Drop image here or click to upload'}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">PNG, JPG up to 5MB</p>
+                      </div>
+                    )}
+                  </div>
                   <Input 
-                    placeholder="Leave empty for auto-generated image" 
+                    placeholder="Or paste image URL" 
                     value={newCard.image}
                     onChange={(e) => setNewCard({...newCard, image: e.target.value})}
-                    data-testid="input-card-image" 
+                    data-testid="input-card-image-url" 
+                    className="mt-2"
                   />
                 </div>
                 <Button 
@@ -763,23 +912,137 @@ export default function AdminPage() {
                 </Button>
               </CardContent>
             </Card>
+            
+            {/* Category Management Card */}
+            <Card className="bg-card/40 border-white/10 lg:col-span-2">
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <Folder className="h-5 w-5 text-orange-400" />
+                    Categories ({cardCategories?.length || 0})
+                  </span>
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => setShowCategoryForm(!showCategoryForm)}
+                    data-testid="button-toggle-category-form"
+                  >
+                    {showCategoryForm ? <X className="h-4 w-4 mr-1" /> : <FolderPlus className="h-4 w-4 mr-1" />}
+                    {showCategoryForm ? 'Cancel' : 'New Category'}
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {showCategoryForm && (
+                  <div className="mb-4 p-4 bg-white/5 rounded-lg border border-white/10">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <div className="space-y-2">
+                        <Label>Name *</Label>
+                        <Input 
+                          placeholder="e.g. Shonen" 
+                          value={newCategory.name}
+                          onChange={(e) => setNewCategory({...newCategory, name: e.target.value})}
+                          data-testid="input-category-name"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Slug</Label>
+                        <Input 
+                          placeholder="auto-generated" 
+                          value={newCategory.slug}
+                          onChange={(e) => setNewCategory({...newCategory, slug: e.target.value})}
+                          data-testid="input-category-slug"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Color</Label>
+                        <div className="flex gap-2">
+                          <input
+                            type="color"
+                            value={newCategory.color}
+                            onChange={(e) => setNewCategory({...newCategory, color: e.target.value})}
+                            className="h-10 w-14 rounded border border-input bg-background cursor-pointer"
+                            data-testid="input-category-color"
+                          />
+                          <Input 
+                            value={newCategory.color}
+                            onChange={(e) => setNewCategory({...newCategory, color: e.target.value})}
+                            className="flex-1"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex items-end">
+                        <Button 
+                          className="w-full" 
+                          onClick={handleCreateCategory}
+                          disabled={createCardCategory.isPending}
+                          data-testid="button-create-category"
+                        >
+                          {createCardCategory.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Create'}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-2">
+                  {categoriesLoading ? (
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  ) : cardCategories?.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No categories yet. Create one to organize your cards.</p>
+                  ) : (
+                    cardCategories?.map((cat: any) => (
+                      <Badge 
+                        key={cat.id} 
+                        variant="outline" 
+                        className="px-3 py-1.5 text-sm"
+                        style={{ borderColor: cat.color, color: cat.color }}
+                        data-testid={`badge-category-${cat.id}`}
+                      >
+                        {cat.name}
+                        <button 
+                          className="ml-2 hover:text-red-400 transition-colors"
+                          onClick={() => deleteCardCategory.mutate(cat.id)}
+                          data-testid={`button-delete-category-${cat.id}`}
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))
+                  )}
+                </div>
+              </CardContent>
+            </Card>
 
-            <Card className="bg-card/40 border-white/10">
+            <Card className="bg-card/40 border-white/10 lg:col-span-2">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Database className="h-5 w-5 text-cyan-400" />
-                  Card Library ({allCards?.length || 0})
+                  Card Library ({filteredCards.length} / {allCards?.length || 0})
                 </CardTitle>
                 <CardDescription>Manage existing cards in the gacha pool</CardDescription>
-                <div className="relative mt-2">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input 
-                    placeholder="Search cards..." 
-                    className="pl-9"
-                    value={cardSearch}
-                    onChange={(e) => setCardSearch(e.target.value)}
-                    data-testid="input-search-cards"
-                  />
+                <div className="flex gap-2 mt-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input 
+                      placeholder="Search cards..." 
+                      className="pl-9"
+                      value={cardSearch}
+                      onChange={(e) => setCardSearch(e.target.value)}
+                      data-testid="input-search-cards"
+                    />
+                  </div>
+                  <select
+                    className="h-10 rounded-md border border-input bg-background px-3 text-sm min-w-[140px]"
+                    value={categoryFilter}
+                    onChange={(e) => setCategoryFilter(e.target.value)}
+                    data-testid="select-category-filter"
+                  >
+                    <option value="all">All Categories</option>
+                    <option value="uncategorized">Uncategorized</option>
+                    {cardCategories?.map((cat: any) => (
+                      <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    ))}
+                  </select>
                 </div>
               </CardHeader>
               <CardContent>
@@ -826,6 +1089,18 @@ export default function AdminPage() {
                               {card.ownerCount > 0 && (
                                 <Badge variant="outline" className="text-[10px] text-green-400 border-green-400/50">
                                   {card.ownerCount} owner{card.ownerCount > 1 ? 's' : ''}
+                                </Badge>
+                              )}
+                              {card.categoryId && cardCategories?.find((c: any) => c.id === card.categoryId) && (
+                                <Badge 
+                                  variant="outline" 
+                                  className="text-[10px]"
+                                  style={{ 
+                                    color: cardCategories.find((c: any) => c.id === card.categoryId)?.color,
+                                    borderColor: cardCategories.find((c: any) => c.id === card.categoryId)?.color + '80'
+                                  }}
+                                >
+                                  {cardCategories.find((c: any) => c.id === card.categoryId)?.name}
                                 </Badge>
                               )}
                             </div>
