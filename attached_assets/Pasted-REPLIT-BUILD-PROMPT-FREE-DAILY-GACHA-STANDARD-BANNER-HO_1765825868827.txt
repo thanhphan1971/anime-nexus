@@ -1,0 +1,243 @@
+REPLIT BUILD PROMPT — FREE DAILY GACHA + STANDARD BANNER + HOME UI (AniRealm)
+Goal
+
+Implement a Free Daily Gacha Pull system that increases retention but protects monetization.
+
+1) Banner Definitions (MUST BE CLEAR)
+1.1 Standard Banner (Free Pull Banner)
+
+Standard Banner = the permanent, always-available card pool.
+Rules:
+
+Only cards marked as standard-eligible can appear here
+
+NO event-limited cards
+
+NO premium-only cards
+
+Standard banner can be updated over time (new cards can be added after an exclusive period)
+
+1.2 Paid Summon Banner (Premium Odds)
+
+Paid summons remain as they are:
+
+Cost: 100 tokens
+
+Better odds than free summons
+
+Free users: 1 card per paid summon
+
+S-Class members: 2 cards per paid summon + higher rare odds (as currently defined)
+
+2) Free Daily Summon Rules (CORE FEATURE)
+2.1 Daily Free Pull Count
+
+All users: 1 free summon per day
+
+S-Class (Premium): 2 free summons per day
+
+2.2 Free Pull Restrictions
+
+Free pulls can ONLY be used on Standard Banner
+
+Free pulls use Free Odds Table (worse than paid odds)
+
+Free pulls do not stack (expire at reset if unused)
+
+2.3 Reset Schedule
+
+Reset time: 00:00 user local time (store as UTC internally, convert on UI)
+
+When reset happens:
+
+free_summons_used_today resets to 0
+
+user becomes eligible again
+
+3) Data Model Changes (DB)
+3.1 Cards table flags
+
+Add fields to cards table (or equivalent):
+
+is_standard boolean default true/false (standard-eligible)
+
+is_event_limited boolean default false
+
+is_premium_only boolean default false
+
+Standard banner selection must only pull cards where:
+
+is_standard = true
+
+is_event_limited = false
+
+is_premium_only = false
+
+3.2 User daily counters
+
+Add to user profile table (or create user_daily_limits table):
+
+free_summons_used_today integer default 0
+
+free_summons_reset_at timestamp (next reset time) OR store last_free_summon_date
+
+Also track:
+
+tier or is_premium / membership_level (S-Class)
+
+4) API / Server Logic
+4.1 Endpoint: Get Free Summon Status
+
+Create an endpoint like:
+
+GET /api/gacha/free-status
+Returns:
+
+daily_free_limit (1 or 2 based on membership)
+
+used_today
+
+remaining_today
+
+next_reset_at
+
+4.2 Endpoint: Perform Free Summon
+
+Create:
+
+POST /api/gacha/free-summon
+
+Validation:
+
+Ensure user is authenticated
+
+Compute daily limit:
+
+Free = 1
+
+S-Class = 2
+
+Reset counter if day changed (using stored date or reset timestamp)
+
+If used_today >= daily_free_limit → return error:
+
+"No free summons remaining today. Next reset: <time>"
+
+Randomly select a card ONLY from Standard Banner filters
+
+Use Free Odds Table (separate from paid odds)
+
+Grant the card to user collection
+
+Increment free_summons_used_today
+
+Return card result + updated remaining count
+
+4.3 Paid Summon remains unchanged
+
+Paid summon uses:
+
+cost = 100 tokens
+
+paid odds table
+
+premium gets 2 cards + boosted odds
+
+5) Odds Tables (IMPORTANT)
+
+Implement two separate drop-rate configs:
+
+5.1 Free Odds Table (Standard-only)
+
+Worse than paid
+
+Example guidance (adjustable):
+
+Common: high
+
+Rare: medium
+
+Epic: low
+
+Legendary: very low or none (your choice)
+
+5.2 Paid Odds Table (Your existing)
+
+Better than free
+
+Premium may have boosted rare odds as you already do
+
+Make odds configurable in one file (e.g., config/gachaOdds.ts) so we can tune later.
+
+6) Home Page UI — New “Free Daily Gacha” Section (MUST ADD)
+
+Add a new section near the top of Home page:
+
+Section Title
+
+“Free Daily Summon”
+
+Display elements
+
+Remaining counter: “Free Summons: X / Y available today”
+
+Next reset time: “Resets at: 12:00 AM (local)”
+
+Banner label: “Standard Banner (Permanent Cards)”
+
+CTA Button:
+
+If remaining > 0: “Claim Free Summon”
+
+If 0: disabled, show “Come back after reset”
+
+On click
+
+Call POST /api/gacha/free-summon
+
+Show summon animation + reveal
+
+Show result card + rarity + “Added to your collection”
+
+Update remaining count instantly
+
+7) Rules & Transparency (User-facing text)
+
+In the Home section, include a “Rules” expandable panel (accordion) with this exact clear wording:
+
+Free Daily Summon Rules
+
+Every account receives 1 free summon per day
+
+S-Class members receive 2 free summons per day
+
+Free summons can ONLY be used on the Standard Banner
+
+Standard Banner contains permanent, non-limited cards
+
+Event-limited and premium-only cards are excluded
+
+Free summons have lower rare drop rates than paid summons
+
+Free summons do not carry over if unused
+
+Daily reset occurs at 12:00 AM local time
+
+Also show a small line:
+“Want better odds? Paid Summon costs 100 tokens.” (link to Summon page)
+
+8) QA Checklist (Do not skip)
+
+ Free users: can claim exactly 1 free summon/day
+
+ S-Class: can claim exactly 2 free summons/day
+
+ Free summons do not stack across days
+
+ Free summon never returns event-limited or premium-only cards
+
+ Home UI accurately shows remaining + reset time
+
+ Summon result is saved in user collection
+
+ Errors are clean and user-friendly when limit reached

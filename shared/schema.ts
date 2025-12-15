@@ -28,6 +28,8 @@ export const users = pgTable("users", {
   isMinor: boolean("is_minor").notNull().default(false),
   parentEmail: text("parent_email"),
   parentalConsentGiven: boolean("parental_consent_given").notNull().default(false),
+  freeSummonsUsedToday: integer("free_summons_used_today").notNull().default(0),
+  freeSummonsResetAt: timestamp("free_summons_reset_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   supabaseUserId: varchar("supabase_user_id").unique(),
 });
@@ -76,6 +78,9 @@ export const cards = pgTable("cards", {
   isArchived: boolean("is_archived").notNull().default(false), // Archived cards are removed from gacha but stay in user collections
   isReleased: boolean("is_released").notNull().default(true), // Only released cards appear in catalog
   isLimited: boolean("is_limited").notNull().default(false), // Limited/event cards get special tag
+  isStandard: boolean("is_standard").notNull().default(true), // Standard banner eligible (permanent cards)
+  isEventLimited: boolean("is_event_limited").notNull().default(false), // Event-limited cards (excluded from standard)
+  isPremiumOnly: boolean("is_premium_only").notNull().default(false), // Premium-only cards (S-Class exclusive)
   obtainableFrom: text("obtainable_from").array().default(sql`ARRAY['daily']::text[]`), // daily, weekly, monthly, event
   poolDates: jsonb("pool_dates").default(sql`'{}'::jsonb`), // { "daily": { "start": "2024-01-01", "end": "2024-12-31" }, ... }
   season: text("season"), // Season/event name (e.g., "Summer 2024", "Halloween Event")
