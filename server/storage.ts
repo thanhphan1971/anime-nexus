@@ -64,7 +64,7 @@ import {
   media,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, sql, desc, ne, inArray } from "drizzle-orm";
+import { eq, and, sql, desc, ne, inArray, lte, asc } from "drizzle-orm";
 
 export interface IStorage {
   // User operations
@@ -101,6 +101,13 @@ export interface IStorage {
   getUserCards(userId: string): Promise<Array<UserCard & { card: Card }>>;
   addCardToUser(userCard: InsertUserCard): Promise<UserCard>;
   getCatalogCards(options: { page?: number; limit?: number; rarities?: string[]; sortOrder?: 'newest' | 'oldest' }): Promise<{ cards: Card[]; total: number; page: number; totalPages: number }>;
+  
+  // Card scheduling operations
+  getScheduledCards(): Promise<Card[]>;
+  getCardsForPool(pool: string): Promise<Card[]>;
+  activateScheduledCards(): Promise<number>;
+  getCardsByStatus(status: string): Promise<Card[]>;
+  updateCardStatus(id: string, status: string, scheduledReleaseDate?: Date | null): Promise<Card | undefined>;
   
   // Card category operations
   getAllCardCategories(): Promise<CardCategory[]>;
@@ -464,6 +471,54 @@ export class DbStorage implements IStorage {
   }
 
   async updateCard(id: string, updates: Partial<Card>): Promise<Card | undefined> {
+    const result = await db.update(cards).set(updates).where(eq(cards.id, id)).returning();
+    return result[0];
+  }
+
+  // Card scheduling operations
+  async getScheduledCards(): Promise<Card[]> {
+    return await db.select().from(cards)
+      .where(eq(cards.status, 'scheduled'))
+      .orderBy(asc(cards.scheduledReleaseDate));
+  }
+
+  async getCardsForPool(pool: string): Promise<Card[]> {
+    return await db.select().from(cards)
+      .where(and(
+        eq(cards.status, 'active'),
+        eq(cards.isArchived, false),
+        sql`${pool} = ANY(${cards.obtainableFrom})`
+      ));
+  }
+
+  async activateScheduledCards(): Promise<number> {
+    const now = new Date();
+    const result = await db.update(cards)
+      .set({ status: 'active', isReleased: true })
+      .where(and(
+        eq(cards.status, 'scheduled'),
+        lte(cards.scheduledReleaseDate, now)
+      ))
+      .returning();
+    return result.length;
+  }
+
+  async getCardsByStatus(status: string): Promise<Card[]> {
+    return await db.select().from(cards)
+      .where(eq(cards.status, status))
+      .orderBy(desc(cards.createdAt));
+  }
+
+  async updateCardStatus(id: string, status: string, scheduledReleaseDate?: Date | null): Promise<Card | undefined> {
+    const updates: Partial<Card> = { status };
+    if (scheduledReleaseDate !== undefined) {
+      updates.scheduledReleaseDate = scheduledReleaseDate;
+    }
+    if (status === 'active') {
+      updates.isReleased = true;
+    } else if (status === 'draft' || status === 'scheduled') {
+      updates.isReleased = false;
+    }
     const result = await db.update(cards).set(updates).where(eq(cards.id, id)).returning();
     return result[0];
   }
