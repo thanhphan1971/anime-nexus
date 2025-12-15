@@ -11,6 +11,8 @@ import { useUserCards, useSummonCards, useMarketListings, usePurchaseListing } f
 import { toast } from "sonner";
 import { useLocation } from "wouter";
 
+const RARITY_FILTERS = ["All", "Common", "Rare", "Epic", "Legendary", "Mythic"] as const;
+
 export default function CardsPage() {
   const { user, refreshUser } = useAuth();
   const { data: userCards, isLoading: cardsLoading } = useUserCards(user?.id);
@@ -19,6 +21,12 @@ export default function CardsPage() {
   const purchaseListing = usePurchaseListing();
   const [, setLocation] = useLocation();
   const [reward, setReward] = useState<any>(null);
+  const [rarityFilter, setRarityFilter] = useState<string>("All");
+
+  const filteredCards = userCards?.filter((userCard: any) => {
+    if (rarityFilter === "All") return true;
+    return userCard.card.rarity === rarityFilter;
+  });
 
   const handleSummon = async () => {
     if (!user || user.tokens < 100) {
@@ -191,8 +199,18 @@ export default function CardsPage() {
             <p className="text-sm text-muted-foreground">View all the anime cards you've collected through summoning and trading</p>
           </div>
           <div className="flex gap-2 overflow-x-auto pb-2">
-            {["All", "UR", "SSR", "SR", "R", "N"].map(filter => (
-              <Badge key={filter} variant="outline" className="cursor-pointer hover:bg-primary hover:text-white">
+            {RARITY_FILTERS.map(filter => (
+              <Badge 
+                key={filter} 
+                variant="outline" 
+                className={`cursor-pointer transition-all ${
+                  rarityFilter === filter 
+                    ? "bg-primary text-white border-primary" 
+                    : "hover:bg-primary/20 hover:border-primary/50"
+                }`}
+                onClick={() => setRarityFilter(filter)}
+                data-testid={`filter-${filter.toLowerCase()}`}
+              >
                 {filter}
               </Badge>
             ))}
@@ -202,8 +220,8 @@ export default function CardsPage() {
               <div className="col-span-full flex justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
-            ) : userCards && userCards.length > 0 ? (
-              userCards.map((userCard: any) => (
+            ) : filteredCards && filteredCards.length > 0 ? (
+              filteredCards.map((userCard: any) => (
                 <Card key={userCard.id} className="bg-card/40 border-white/10 overflow-hidden hover:border-primary/50 transition-all group cursor-pointer">
                   <div className="relative aspect-[3/4]">
                     <img src={userCard.card.image} className="w-full h-full object-cover" />
