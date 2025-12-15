@@ -79,6 +79,8 @@ export const cards = pgTable("cards", {
   obtainableFrom: text("obtainable_from").array().default(sql`ARRAY['daily']::text[]`), // daily, weekly, monthly, event
   season: text("season"), // Season/event name (e.g., "Summer 2024", "Halloween Event")
   lore: text("lore"), // Card backstory/description for details modal
+  status: text("status").notNull().default('active'), // draft, scheduled, active, retired
+  scheduledReleaseDate: timestamp("scheduled_release_date"), // When the card becomes available (null = immediately)
   releaseDate: timestamp("release_date").defaultNow(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
