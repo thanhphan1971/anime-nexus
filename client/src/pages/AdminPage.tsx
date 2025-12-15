@@ -116,6 +116,12 @@ export default function AdminPage() {
     power: 500,
     element: "Fire",
     categoryId: "",
+    status: "active" as "draft" | "scheduled" | "active",
+    scheduledReleaseDate: "",
+    obtainableFrom: ["daily"] as string[],
+    isLimited: false,
+    season: "",
+    lore: "",
   });
   
   const handleImageUpload = useCallback(async (file: File) => {
@@ -186,9 +192,19 @@ export default function AdminPage() {
       return;
     }
     
+    if (newCard.status === 'scheduled' && !newCard.scheduledReleaseDate) {
+      sonnerToast.error("Scheduled cards require a release date");
+      return;
+    }
+    
+    if (newCard.obtainableFrom.length === 0) {
+      sonnerToast.error("Please select at least one gacha pool");
+      return;
+    }
+    
     try {
       const imageUrl = newCard.image || `https://api.dicebear.com/7.x/shapes/svg?seed=${newCard.name.toLowerCase().replace(/\s/g, '')}`;
-      const cardData = {
+      const cardData: any = {
         name: newCard.name.trim(),
         character: newCard.character.trim(),
         anime: newCard.anime.trim(),
@@ -197,7 +213,18 @@ export default function AdminPage() {
         power: Number(newCard.power),
         element: newCard.element,
         categoryId: newCard.categoryId || null,
+        status: newCard.status,
+        obtainableFrom: newCard.obtainableFrom,
+        isLimited: newCard.isLimited,
+        season: newCard.season || null,
+        lore: newCard.lore || null,
+        isReleased: newCard.status === 'active',
       };
+      
+      if (newCard.status === 'scheduled' && newCard.scheduledReleaseDate) {
+        cardData.scheduledReleaseDate = new Date(newCard.scheduledReleaseDate).toISOString();
+      }
+      
       await createCard.mutateAsync(cardData);
       sonnerToast.success(`Card "${newCard.name}" created successfully!`);
       setNewCard({
@@ -209,6 +236,12 @@ export default function AdminPage() {
         power: 500,
         element: "Fire",
         categoryId: "",
+        status: "active",
+        scheduledReleaseDate: "",
+        obtainableFrom: ["daily"],
+        isLimited: false,
+        season: "",
+        lore: "",
       });
     } catch (error: any) {
       sonnerToast.error(error.message || "Failed to create card");
@@ -840,6 +873,105 @@ export default function AdminPage() {
                     ))}
                   </select>
                 </div>
+                
+                {/* Scheduling Section */}
+                <div className="p-4 rounded-lg bg-white/5 border border-white/10 space-y-4">
+                  <div className="flex items-center gap-2 text-sm font-medium text-purple-400">
+                    <Calendar className="h-4 w-4" />
+                    Scheduling & Pool Assignment
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Status</Label>
+                      <select 
+                        className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                        value={newCard.status}
+                        onChange={(e) => setNewCard({...newCard, status: e.target.value as any})}
+                        data-testid="select-card-status"
+                      >
+                        <option value="active">Active (Available Now)</option>
+                        <option value="scheduled">Scheduled (Future Release)</option>
+                        <option value="draft">Draft (Not Visible)</option>
+                      </select>
+                    </div>
+                    {newCard.status === 'scheduled' && (
+                      <div className="space-y-2">
+                        <Label>Release Date *</Label>
+                        <Input 
+                          type="datetime-local"
+                          value={newCard.scheduledReleaseDate}
+                          onChange={(e) => setNewCard({...newCard, scheduledReleaseDate: e.target.value})}
+                          min={new Date().toISOString().slice(0, 16)}
+                          data-testid="input-scheduled-date"
+                        />
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label>Gacha Pools</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {['daily', 'weekly', 'monthly', 'event'].map((pool) => (
+                        <button
+                          key={pool}
+                          type="button"
+                          className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                            newCard.obtainableFrom.includes(pool)
+                              ? 'bg-purple-500/30 border-purple-400 text-purple-300'
+                              : 'bg-transparent border-white/20 text-muted-foreground hover:border-white/40'
+                          }`}
+                          onClick={() => {
+                            const pools = newCard.obtainableFrom.includes(pool)
+                              ? newCard.obtainableFrom.filter(p => p !== pool)
+                              : [...newCard.obtainableFrom, pool];
+                            setNewCard({...newCard, obtainableFrom: pools});
+                          }}
+                          data-testid={`toggle-pool-${pool}`}
+                        >
+                          {pool.charAt(0).toUpperCase() + pool.slice(1)}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">Select which gacha banners this card appears in</p>
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label>Limited/Event Card</Label>
+                      <p className="text-xs text-muted-foreground">Show special badge on card</p>
+                    </div>
+                    <Switch
+                      checked={newCard.isLimited}
+                      onCheckedChange={(checked) => setNewCard({...newCard, isLimited: checked})}
+                      data-testid="switch-limited"
+                    />
+                  </div>
+                  
+                  {newCard.isLimited && (
+                    <div className="space-y-2">
+                      <Label>Season/Event Name</Label>
+                      <Input 
+                        placeholder="e.g. Summer 2024, Halloween Event" 
+                        value={newCard.season}
+                        onChange={(e) => setNewCard({...newCard, season: e.target.value})}
+                        data-testid="input-card-season"
+                      />
+                    </div>
+                  )}
+                </div>
+                
+                <div className="space-y-2">
+                  <Label>Lore/Description</Label>
+                  <textarea 
+                    className="w-full min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm resize-none"
+                    placeholder="Optional backstory or description for the card details page..."
+                    value={newCard.lore}
+                    onChange={(e) => setNewCard({...newCard, lore: e.target.value})}
+                    data-testid="textarea-card-lore"
+                  />
+                </div>
+                
                 <div className="space-y-2">
                   <Label>Card Image</Label>
                   <div
