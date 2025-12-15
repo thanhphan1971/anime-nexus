@@ -125,16 +125,29 @@ export default function CardsPage() {
           <AnimatePresence mode="wait">
             {!reward && !summonCards.isPending && (
               <div className="text-center space-y-6">
-                <div className="relative w-64 h-80 mx-auto bg-card border-2 border-dashed border-white/20 rounded-xl flex items-center justify-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-all group" onClick={handleSummon} data-testid="button-summon">
+                <div className="relative w-64 h-80 mx-auto bg-card border-2 border-dashed border-white/20 rounded-xl flex items-center justify-center">
                   <div className="text-center">
-                    <Sparkles className="h-16 w-16 mx-auto mb-4 text-muted-foreground group-hover:text-primary animate-pulse" />
-                    <p className="font-display font-bold text-xl">SUMMON NOW</p>
+                    <Sparkles className="h-16 w-16 mx-auto mb-4 text-muted-foreground animate-pulse" />
+                    <p className="font-display font-bold text-xl">PAID SUMMON</p>
                     <p className="text-xs text-muted-foreground mt-2">Cost: 100 Tokens</p>
                     <p className="text-xs text-muted-foreground">{user?.isPremium ? "2x S-Class Pull" : "Single Pull"}</p>
                   </div>
                 </div>
+                <Button 
+                  size="lg" 
+                  onClick={handleSummon} 
+                  disabled={(user?.tokens || 0) < 100}
+                  className="bg-gradient-to-r from-yellow-600 to-amber-600 hover:from-yellow-500 hover:to-amber-500 disabled:opacity-50 text-white font-bold px-8"
+                  data-testid="button-summon"
+                >
+                  <Sparkles className="h-5 w-5 mr-2" />
+                  Summon Now (100 Tokens)
+                </Button>
+                {(user?.tokens || 0) < 100 && (
+                  <p className="text-xs text-red-400">Not enough tokens (you have {user?.tokens || 0})</p>
+                )}
                 <p className="text-sm text-muted-foreground max-w-xs mx-auto">
-                  Tap the card to spend tokens and summon a random anime card!
+                  Your balance: <span className="text-yellow-400 font-bold">{user?.tokens || 0}</span> tokens
                 </p>
               </div>
             )}
