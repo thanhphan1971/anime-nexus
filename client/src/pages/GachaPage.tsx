@@ -279,6 +279,38 @@ export default function GachaPage() {
         </AnimatePresence>
       </div>
 
+      {/* Summon Button - Shows when idle and can pull */}
+      {phase === "idle" && canPull() && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-4 z-10"
+        >
+          <Button
+            size="lg"
+            onClick={handlePull}
+            disabled={phase !== "idle"}
+            className={banner === "free" 
+              ? "bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 border-0 text-white font-bold px-8"
+              : "bg-gradient-to-r from-yellow-600 to-amber-600 hover:from-yellow-500 hover:to-amber-500 border-0 text-white font-bold px-8"
+            }
+            data-testid="button-summon"
+          >
+            {banner === "free" ? (
+              <>
+                <Gift className="h-5 w-5 mr-2" />
+                Use Free Pull
+              </>
+            ) : (
+              <>
+                <Coins className="h-5 w-5 mr-2" />
+                Summon (100 Tokens)
+              </>
+            )}
+          </Button>
+        </motion.div>
+      )}
+
       <AnimatePresence>
         {phase === "reveal" && reward && (
           <motion.div
