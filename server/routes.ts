@@ -1127,9 +1127,9 @@ export async function registerRoutes(
   });
 
   // Draw entry - user action
-  app.post("/api/draws/:id/enter", async (req, res) => {
+  app.post("/api/draws/:id/enter", verifySupabaseToken, async (req, res) => {
     try {
-      if (!req.session.userId) {
+      if (!req.dbUser) {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
@@ -1142,7 +1142,7 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Draw is not open for entries" });
       }
       
-      const user = await storage.getUser(req.session.userId);
+      const user = req.dbUser;
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
@@ -1235,13 +1235,13 @@ export async function registerRoutes(
   });
 
   // User's draw entries
-  app.get("/api/users/me/draw-entries", async (req, res) => {
+  app.get("/api/users/me/draw-entries", verifySupabaseToken, async (req, res) => {
     try {
-      if (!req.session.userId) {
+      if (!req.dbUser) {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
-      const entries = await storage.getUserDrawEntries(req.session.userId);
+      const entries = await storage.getUserDrawEntries(req.dbUser.id);
       res.json(entries);
     } catch (error: any) {
       res.status(500).json({ error: error.message });

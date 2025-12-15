@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { cards, communities, users, prizes } from "@shared/schema";
+import { cards, communities, users, prizes, draws } from "@shared/schema";
 import bcrypt from "bcrypt";
 
 export async function seedDatabase() {
@@ -213,11 +213,60 @@ export async function seedDatabase() {
 
   await db.insert(prizes).values(prizeData);
 
+  // Seed sample draws
+  const now = new Date();
+  const oneWeekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const twoWeeksFromNow = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+  const oneMonthFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+  const drawData = [
+    {
+      name: "Weekly Token Jackpot",
+      description: "Win up to 5,000 tokens every week! All members can enter once per day.",
+      cadence: "weekly",
+      status: "open",
+      startAt: now,
+      endAt: oneWeekFromNow,
+      drawAt: oneWeekFromNow,
+      prizePool: [
+        { name: "5,000 Tokens", type: "tokens", value: 5000, quantity: 1 },
+        { name: "2,000 Tokens", type: "tokens", value: 2000, quantity: 3 },
+        { name: "500 Tokens", type: "tokens", value: 500, quantity: 10 }
+      ],
+      entryRules: { minAccountAgeDays: 1 },
+      maxEntriesPerUser: 1,
+      premiumEntriesPerUser: 3,
+      isFeatured: true,
+    },
+    {
+      name: "Monthly Card Giveaway",
+      description: "S-Class exclusive! Win a guaranteed Legendary or Mythic card pack.",
+      cadence: "monthly",
+      status: "open",
+      startAt: now,
+      endAt: oneMonthFromNow,
+      drawAt: oneMonthFromNow,
+      prizePool: [
+        { name: "Mythic Card Pack", type: "card", rarity: "mythic", quantity: 1 },
+        { name: "Legendary Card Pack", type: "card", rarity: "legendary", quantity: 3 },
+        { name: "30 Days S-Class", type: "premium_days", value: 30, quantity: 2 }
+      ],
+      entryRules: { premiumOnly: true, minAccountAgeDays: 7 },
+      maxEntriesPerUser: 1,
+      premiumEntriesPerUser: 2,
+      isFeatured: true,
+    },
+  ];
+
+  await db.insert(draws).values(drawData);
+  console.log("✅ Draws seeded!");
+
   // Seed sample users for matching
   const hashedPassword = await bcrypt.hash("demo123", 10);
   
   const sampleUsers = [
     {
+      email: "neokai@placeholder.local",
       username: "neokai",
       password: hashedPassword,
       name: "NeoKai",
@@ -233,6 +282,7 @@ export async function seedDatabase() {
       theme: "cyberpunk",
     },
     {
+      email: "sakurablossom@placeholder.local",
       username: "sakurablossom",
       password: hashedPassword,
       name: "Sakura Blossom",
@@ -243,11 +293,14 @@ export async function seedDatabase() {
       followers: 890,
       following: 456,
       tokens: 2500,
-      isPremium: false,
+      isPremium: true,
+      premiumStartDate: new Date(),
+      premiumEndDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       animeInterests: ["Fruits Basket", "Your Name", "Toradora"],
       theme: "cyberpunk",
     },
     {
+      email: "shadowhunter@placeholder.local",
       username: "shadowhunter",
       password: hashedPassword,
       name: "Shadow Hunter",
@@ -263,6 +316,7 @@ export async function seedDatabase() {
       theme: "cyberpunk",
     },
     {
+      email: "mechaace@placeholder.local",
       username: "mechaace",
       password: hashedPassword,
       name: "Mecha Ace",
@@ -278,6 +332,7 @@ export async function seedDatabase() {
       theme: "cyberpunk",
     },
     {
+      email: "kawaiiqueen@placeholder.local",
       username: "kawaiiqueen",
       password: hashedPassword,
       name: "Kawaii Queen",
@@ -293,6 +348,7 @@ export async function seedDatabase() {
       theme: "cyberpunk",
     },
     {
+      email: "otakuking@placeholder.local",
       username: "otakuking",
       password: hashedPassword,
       name: "Otaku King",
@@ -308,6 +364,7 @@ export async function seedDatabase() {
       theme: "cyberpunk",
     },
     {
+      email: "animegamer@placeholder.local",
       username: "animegamer",
       password: hashedPassword,
       name: "Anime Gamer",
@@ -323,6 +380,7 @@ export async function seedDatabase() {
       theme: "cyberpunk",
     },
     {
+      email: "cosplaypro@placeholder.local",
       username: "cosplaypro",
       password: hashedPassword,
       name: "Cosplay Pro",
@@ -349,6 +407,7 @@ async function seedSampleUsers() {
   
   const sampleUsers = [
     {
+      email: "neokai@placeholder.local",
       username: "neokai",
       password: hashedPassword,
       name: "NeoKai",
@@ -364,6 +423,7 @@ async function seedSampleUsers() {
       theme: "cyberpunk",
     },
     {
+      email: "sakurablossom@placeholder.local",
       username: "sakurablossom",
       password: hashedPassword,
       name: "Sakura Blossom",
@@ -374,11 +434,14 @@ async function seedSampleUsers() {
       followers: 890,
       following: 456,
       tokens: 2500,
-      isPremium: false,
+      isPremium: true,
+      premiumStartDate: new Date(),
+      premiumEndDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       animeInterests: ["Fruits Basket", "Your Name", "Toradora"],
       theme: "cyberpunk",
     },
     {
+      email: "shadowhunter@placeholder.local",
       username: "shadowhunter",
       password: hashedPassword,
       name: "Shadow Hunter",
@@ -394,6 +457,7 @@ async function seedSampleUsers() {
       theme: "cyberpunk",
     },
     {
+      email: "mechaace@placeholder.local",
       username: "mechaace",
       password: hashedPassword,
       name: "Mecha Ace",
@@ -409,6 +473,7 @@ async function seedSampleUsers() {
       theme: "cyberpunk",
     },
     {
+      email: "kawaiiqueen@placeholder.local",
       username: "kawaiiqueen",
       password: hashedPassword,
       name: "Kawaii Queen",
@@ -424,6 +489,7 @@ async function seedSampleUsers() {
       theme: "cyberpunk",
     },
     {
+      email: "otakuking@placeholder.local",
       username: "otakuking",
       password: hashedPassword,
       name: "Otaku King",
@@ -439,6 +505,7 @@ async function seedSampleUsers() {
       theme: "cyberpunk",
     },
     {
+      email: "animegamer@placeholder.local",
       username: "animegamer",
       password: hashedPassword,
       name: "Anime Gamer",
@@ -454,6 +521,7 @@ async function seedSampleUsers() {
       theme: "cyberpunk",
     },
     {
+      email: "cosplaypro@placeholder.local",
       username: "cosplaypro",
       password: hashedPassword,
       name: "Cosplay Pro",

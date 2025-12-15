@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getSupabase } from "./supabaseClient";
 
 // Helper function for API calls with automatic auth token
-async function apiCall(url: string, options?: RequestInit) {
+export async function apiCall(url: string, options?: RequestInit) {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
@@ -496,6 +496,48 @@ export function useUpdateSiteSetting() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["siteSettings"] });
+    },
+  });
+}
+
+// Draws API
+export function useActiveDraws() {
+  return useQuery({
+    queryKey: ["activeDraws"],
+    queryFn: () => apiCall("/api/draws/active"),
+  });
+}
+
+export function useAllDraws() {
+  return useQuery({
+    queryKey: ["allDraws"],
+    queryFn: () => apiCall("/api/draws"),
+  });
+}
+
+export function useUserDrawEntries() {
+  return useQuery({
+    queryKey: ["userDrawEntries"],
+    queryFn: () => apiCall("/api/users/me/draw-entries"),
+  });
+}
+
+export function useRecentWinners() {
+  return useQuery({
+    queryKey: ["recentWinners"],
+    queryFn: () => apiCall("/api/draws/winners/recent"),
+  });
+}
+
+export function useEnterDraw() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (drawId: string) =>
+      apiCall(`/api/draws/${drawId}/enter`, { method: "POST" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["userDrawEntries"] });
+      queryClient.invalidateQueries({ queryKey: ["activeDraws"] });
+      queryClient.invalidateQueries({ queryKey: ["allDraws"] });
     },
   });
 }

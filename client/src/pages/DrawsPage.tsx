@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
+import { useEnterDraw, useUserDrawEntries, useActiveDraws, useAllDraws, useRecentWinners } from "@/lib/api";
 import { 
   Trophy, Gift, Clock, Users, Sparkles, Crown, Star, 
   Ticket, Timer, ChevronRight, Award, Zap, Calendar
@@ -186,25 +187,18 @@ function WinnerCard({ winner }: { winner: Winner }) {
 function FeaturedDrawBanner({ draw }: { draw: Draw }) {
   const { user } = useAuth();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
+  const enterDraw = useEnterDraw();
 
-  const enterMutation = useMutation({
-    mutationFn: async () => {
-      const res = await fetch(`/api/draws/${draw.id}/enter`, { 
-        method: 'POST',
-        credentials: 'include' 
-      });
-      if (!res.ok) throw new Error((await res.json()).error);
-      return res.json();
-    },
-    onSuccess: () => {
-      toast({ title: "Entry Confirmed!", description: "Good luck in the draw!" });
-      queryClient.invalidateQueries({ queryKey: ['/api/users/me/draw-entries'] });
-    },
-    onError: (error: any) => {
-      toast({ title: "Entry Failed", description: error.message, variant: "destructive" });
-    },
-  });
+  const handleEnter = () => {
+    enterDraw.mutate(draw.id, {
+      onSuccess: () => {
+        toast({ title: "Entry Confirmed!", description: "Good luck in the draw!" });
+      },
+      onError: (error: any) => {
+        toast({ title: "Entry Failed", description: error.message, variant: "destructive" });
+      },
+    });
+  };
 
   return (
     <motion.div
@@ -244,13 +238,13 @@ function FeaturedDrawBanner({ draw }: { draw: Draw }) {
             {draw.status === 'open' && user && (
               <Button 
                 size="lg"
-                onClick={() => enterMutation.mutate()}
-                disabled={enterMutation.isPending}
+                onClick={handleEnter}
+                disabled={enterDraw.isPending}
                 className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white font-bold"
                 data-testid="button-enter-draw"
               >
                 <Ticket className="h-5 w-5 mr-2" />
-                {enterMutation.isPending ? 'Entering...' : 'Enter Draw'}
+                {enterDraw.isPending ? 'Entering...' : 'Enter Draw'}
               </Button>
             )}
             
