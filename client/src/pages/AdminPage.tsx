@@ -82,6 +82,69 @@ export default function AdminPage() {
     card: null,
     confirmText: "",
   });
+  
+  const [scheduleDialog, setScheduleDialog] = useState<{
+    isOpen: boolean;
+    card: any | null;
+    status: 'draft' | 'scheduled' | 'active';
+    scheduledReleaseDate: string;
+    obtainableFrom: string[];
+    isLimited: boolean;
+    season: string;
+  }>({
+    isOpen: false,
+    card: null,
+    status: 'active',
+    scheduledReleaseDate: '',
+    obtainableFrom: ['daily'],
+    isLimited: false,
+    season: '',
+  });
+  
+  const openScheduleDialog = (card: any) => {
+    setScheduleDialog({
+      isOpen: true,
+      card,
+      status: card.status || 'active',
+      scheduledReleaseDate: card.scheduledReleaseDate 
+        ? new Date(card.scheduledReleaseDate).toISOString().slice(0, 16) 
+        : '',
+      obtainableFrom: card.obtainableFrom || ['daily'],
+      isLimited: card.isLimited || false,
+      season: card.season || '',
+    });
+  };
+  
+  const handleSaveSchedule = async () => {
+    if (!scheduleDialog.card) return;
+    
+    if (scheduleDialog.status === 'scheduled' && !scheduleDialog.scheduledReleaseDate) {
+      sonnerToast.error('Scheduled cards require a release date');
+      return;
+    }
+    
+    try {
+      const updates: any = {
+        status: scheduleDialog.status,
+        obtainableFrom: scheduleDialog.obtainableFrom,
+        isLimited: scheduleDialog.isLimited,
+        season: scheduleDialog.season || null,
+        isReleased: scheduleDialog.status === 'active',
+      };
+      
+      if (scheduleDialog.status === 'scheduled' && scheduleDialog.scheduledReleaseDate) {
+        updates.scheduledReleaseDate = new Date(scheduleDialog.scheduledReleaseDate).toISOString();
+      } else {
+        updates.scheduledReleaseDate = null;
+      }
+      
+      await updateCard.mutateAsync({ cardId: scheduleDialog.card.id, updates });
+      sonnerToast.success(`Schedule updated for "${scheduleDialog.card.name}"`);
+      setScheduleDialog({ ...scheduleDialog, isOpen: false, card: null });
+    } catch (error: any) {
+      sonnerToast.error(error.message || 'Failed to update schedule');
+    }
+  };
   const unbanUser = useUnbanUser();
   const grantPremium = useGrantPremium();
   const revokePremium = useRevokePremium();
@@ -1398,6 +1461,28 @@ export default function AdminPage() {
                                   {cardCategories.find((c: any) => c.id === card.categoryId)?.name}
                                 </Badge>
                               )}
+                              {card.isLimited && (
+                                <Badge variant="outline" className="text-[10px] text-pink-400 border-pink-400/50">
+                                  Limited
+                                </Badge>
+                              )}
+                              {card.obtainableFrom?.length > 0 && (
+                                <div className="flex gap-0.5">
+                                  {card.obtainableFrom.map((pool: string) => (
+                                    <span 
+                                      key={pool} 
+                                      className={`text-[8px] px-1 py-0.5 rounded ${
+                                        pool === 'daily' ? 'bg-green-500/20 text-green-400' :
+                                        pool === 'weekly' ? 'bg-blue-500/20 text-blue-400' :
+                                        pool === 'monthly' ? 'bg-purple-500/20 text-purple-400' :
+                                        'bg-orange-500/20 text-orange-400'
+                                      }`}
+                                    >
+                                      {pool.charAt(0).toUpperCase()}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                             <p className="text-xs text-muted-foreground truncate">
                               {card.character} • {card.anime}
@@ -1408,6 +1493,16 @@ export default function AdminPage() {
                             <p className="text-[10px] text-muted-foreground">{card.element}</p>
                           </div>
                           <div className="flex gap-1">
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8 text-cyan-400 hover:bg-cyan-500/10"
+                              onClick={() => openScheduleDialog(card)}
+                              title="Schedule & Pool Settings"
+                              data-testid={`button-schedule-card-${card.id}`}
+                            >
+                              <Calendar className="h-4 w-4" />
+                            </Button>
                             {card.isArchived ? (
                               <Button 
                                 variant="ghost" 
@@ -1879,6 +1974,118 @@ export default function AdminPage() {
               </DialogFooter>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+      
+      {/* Card Schedule Dialog */}
+      <Dialog open={scheduleDialog.isOpen} onOpenChange={(open) => setScheduleDialog({ ...scheduleDialog, isOpen: open })}>
+        <DialogContent className="bg-card border-cyan-500/30 max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-cyan-400">
+              <Calendar className="h-5 w-5" />
+              Schedule & Pool Settings
+            </DialogTitle>
+            <DialogDescription className="pt-2">
+              {scheduleDialog.card && (
+                <div className="flex items-center gap-3 p-3 bg-black/20 rounded-lg mb-4">
+                  <img src={scheduleDialog.card.image} alt={scheduleDialog.card.name} className="h-12 w-12 rounded-lg object-cover" />
+                  <div>
+                    <p className="font-bold text-white">{scheduleDialog.card.name}</p>
+                    <p className="text-xs text-muted-foreground">{scheduleDialog.card.character} • {scheduleDialog.card.anime}</p>
+                  </div>
+                </div>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <select 
+                className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                value={scheduleDialog.status}
+                onChange={(e) => setScheduleDialog({...scheduleDialog, status: e.target.value as any})}
+              >
+                <option value="active">Active (Available Now)</option>
+                <option value="scheduled">Scheduled (Future Release)</option>
+                <option value="draft">Draft (Not Visible)</option>
+              </select>
+            </div>
+            
+            {scheduleDialog.status === 'scheduled' && (
+              <div className="space-y-2">
+                <Label>Release Date & Time *</Label>
+                <Input 
+                  type="datetime-local"
+                  value={scheduleDialog.scheduledReleaseDate}
+                  onChange={(e) => setScheduleDialog({...scheduleDialog, scheduledReleaseDate: e.target.value})}
+                  min={new Date().toISOString().slice(0, 16)}
+                />
+              </div>
+            )}
+            
+            <div className="space-y-2">
+              <Label>Gacha Pools</Label>
+              <div className="flex flex-wrap gap-2">
+                {['daily', 'weekly', 'monthly', 'event'].map((pool) => (
+                  <button
+                    key={pool}
+                    type="button"
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                      scheduleDialog.obtainableFrom.includes(pool)
+                        ? 'bg-cyan-500/30 border-cyan-400 text-cyan-300'
+                        : 'bg-transparent border-white/20 text-muted-foreground hover:border-white/40'
+                    }`}
+                    onClick={() => {
+                      const pools = scheduleDialog.obtainableFrom.includes(pool)
+                        ? scheduleDialog.obtainableFrom.filter(p => p !== pool)
+                        : [...scheduleDialog.obtainableFrom, pool];
+                      setScheduleDialog({...scheduleDialog, obtainableFrom: pools});
+                    }}
+                  >
+                    {pool.charAt(0).toUpperCase() + pool.slice(1)}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">Card appears in selected gacha banners</p>
+            </div>
+            
+            <div className="flex items-center justify-between p-3 bg-black/20 rounded-lg">
+              <div>
+                <Label>Limited/Event Card</Label>
+                <p className="text-xs text-muted-foreground">Show special badge</p>
+              </div>
+              <Switch
+                checked={scheduleDialog.isLimited}
+                onCheckedChange={(checked) => setScheduleDialog({...scheduleDialog, isLimited: checked})}
+              />
+            </div>
+            
+            {scheduleDialog.isLimited && (
+              <div className="space-y-2">
+                <Label>Event/Season Name</Label>
+                <Input 
+                  placeholder="e.g. Summer 2024, Halloween Event" 
+                  value={scheduleDialog.season}
+                  onChange={(e) => setScheduleDialog({...scheduleDialog, season: e.target.value})}
+                />
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setScheduleDialog({...scheduleDialog, isOpen: false})}>
+              Cancel
+            </Button>
+            <Button 
+              className="bg-cyan-600 hover:bg-cyan-700"
+              onClick={handleSaveSchedule}
+              disabled={updateCard.isPending || (scheduleDialog.status === 'scheduled' && !scheduleDialog.scheduledReleaseDate)}
+            >
+              {updateCard.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+              Save Schedule
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
       
