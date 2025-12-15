@@ -573,6 +573,98 @@ export async function registerRoutes(
     }
   });
   
+  // Admin: Get scheduled cards
+  app.get("/api/admin/cards/scheduled", verifySupabaseToken, async (req, res) => {
+    try {
+      if (!req.dbUser || !req.dbUser.isAdmin) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+      
+      const cards = await storage.getScheduledCards();
+      res.json(cards);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Admin: Get cards by status
+  app.get("/api/admin/cards/by-status/:status", verifySupabaseToken, async (req, res) => {
+    try {
+      if (!req.dbUser || !req.dbUser.isAdmin) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+      
+      const validStatuses = ['draft', 'scheduled', 'active', 'retired'];
+      if (!validStatuses.includes(req.params.status)) {
+        return res.status(400).json({ error: "Invalid status" });
+      }
+      
+      const cards = await storage.getCardsByStatus(req.params.status);
+      res.json(cards);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Admin: Update card status (scheduling)
+  app.patch("/api/admin/cards/:id/status", verifySupabaseToken, async (req, res) => {
+    try {
+      if (!req.dbUser || !req.dbUser.isAdmin) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+      
+      const { status, scheduledReleaseDate } = req.body;
+      const validStatuses = ['draft', 'scheduled', 'active', 'retired'];
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({ error: "Invalid status" });
+      }
+      
+      if (status === 'scheduled' && !scheduledReleaseDate) {
+        return res.status(400).json({ error: "Scheduled status requires a release date" });
+      }
+      
+      const releaseDate = scheduledReleaseDate ? new Date(scheduledReleaseDate) : null;
+      const card = await storage.updateCardStatus(req.params.id, status, releaseDate);
+      
+      if (!card) {
+        return res.status(404).json({ error: "Card not found" });
+      }
+      
+      res.json(card);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Admin: Activate all scheduled cards that are past their release date
+  app.post("/api/admin/cards/activate-scheduled", verifySupabaseToken, async (req, res) => {
+    try {
+      if (!req.dbUser || !req.dbUser.isAdmin) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+      
+      const activated = await storage.activateScheduledCards();
+      res.json({ activated, message: `${activated} card(s) activated` });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get cards for a specific pool (daily, weekly, monthly, event)
+  app.get("/api/cards/pool/:pool", async (req, res) => {
+    try {
+      const validPools = ['daily', 'weekly', 'monthly', 'event'];
+      if (!validPools.includes(req.params.pool)) {
+        return res.status(400).json({ error: "Invalid pool" });
+      }
+      
+      const cards = await storage.getCardsForPool(req.params.pool);
+      res.json(cards);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
   // Admin: Card Categories CRUD
   app.get("/api/admin/card-categories", verifySupabaseToken, async (req, res) => {
     try {
