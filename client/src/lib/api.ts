@@ -465,6 +465,27 @@ export function useSiteSettings() {
   });
 }
 
+// Free Gacha API
+export function useFreeGachaStatus() {
+  return useQuery({
+    queryKey: ["freeGachaStatus"],
+    queryFn: () => apiCall("/api/gacha/free-status"),
+    staleTime: 30000, // Cache for 30 seconds
+  });
+}
+
+export function useFreeSummon() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => apiCall("/api/gacha/free-summon", { method: "POST" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["freeGachaStatus"] });
+      queryClient.invalidateQueries({ queryKey: ["userCards"] });
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+    },
+  });
+}
+
 export function useUpdateSiteSetting() {
   const queryClient = useQueryClient();
   return useMutation({

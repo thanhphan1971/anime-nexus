@@ -4,14 +4,13 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Heart, MessageCircle, Share2, MoreHorizontal, Sparkles, Loader2, Trophy, Clock, Gift, ChevronRight, X, Play, ChevronDown, Info, Star, Coins } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { usePosts, useLikePost } from "@/lib/api";
+import { usePosts, useLikePost, useFreeGachaStatus, useFreeSummon } from "@/lib/api";
 import { useLocation } from "wouter";
 import { formatDistanceToNow, differenceInSeconds, format } from "date-fns";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useAuth } from "@/context/AuthContext";
-import { apiRequest } from "@/lib/queryClient";
 import { toast } from "sonner";
 import { PortalCharge } from "@/components/PortalRing";
 import { RarityFrame } from "@/components/RarityFrame";
@@ -36,33 +35,9 @@ export default function FeedPage() {
     queryKey: ["/api/stories"],
   });
 
-  const { data: freeStatus, refetch: refetchFreeStatus } = useQuery<{
-    dailyFreeLimit: number;
-    usedToday: number;
-    remainingToday: number;
-    nextResetAt: string;
-    isPremium: boolean;
-  }>({
-    queryKey: ["/api/gacha/free-status"],
-    enabled: !!user,
-  });
+  const { data: freeStatus, refetch: refetchFreeStatus } = useFreeGachaStatus();
 
-  const freeSummonMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/gacha/free-summon");
-      return response.json();
-    },
-    onSuccess: (data) => {
-      setSummonedCard(data.card);
-      refetchFreeStatus();
-      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
-    },
-    onError: (error: any) => {
-      toast.error(error.message || "Failed to summon");
-      setIsSummoning(false);
-      setShowPortal(false);
-    },
-  });
+  const freeSummonMutation = useFreeSummon();
 
   const handleFreeSummon = () => {
     if (!user) {
@@ -78,7 +53,17 @@ export default function FeedPage() {
     setSummonedCard(null);
     
     setTimeout(() => {
-      freeSummonMutation.mutate();
+      freeSummonMutation.mutate(undefined, {
+        onSuccess: (data) => {
+          setSummonedCard(data.card);
+          refetchFreeStatus();
+        },
+        onError: (error: any) => {
+          toast.error(error.message || "Failed to summon");
+          setIsSummoning(false);
+          setShowPortal(false);
+        },
+      });
     }, 800);
   };
 
