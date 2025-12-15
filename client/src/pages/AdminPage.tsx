@@ -191,12 +191,17 @@ export default function AdminPage() {
   ) || [];
 
   const openPremiumDialog = (user: any) => {
+    const hasExistingDates = user.premiumStartDate || user.premiumEndDate;
     setPremiumDialog({
       isOpen: true,
       user,
-      startDate: new Date().toISOString().split('T')[0],
-      endDate: "",
-      isTemporary: false,
+      startDate: user.premiumStartDate 
+        ? new Date(user.premiumStartDate).toISOString().split('T')[0] 
+        : new Date().toISOString().split('T')[0],
+      endDate: user.premiumEndDate 
+        ? new Date(user.premiumEndDate).toISOString().split('T')[0] 
+        : "",
+      isTemporary: hasExistingDates || false,
     });
   };
   
@@ -448,16 +453,28 @@ export default function AdminPage() {
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-2">
                               {user.isPremium ? (
-                                <Button 
-                                  variant="secondary"
-                                  size="sm" 
-                                  className="h-8 text-xs bg-red-500/10 text-red-400 border-red-500/50 hover:bg-red-500/20"
-                                  onClick={() => handleRevokePremium(user.id, user.name)}
-                                  data-testid={`button-revoke-${user.id}`}
-                                >
-                                  <X className="h-3 w-3 mr-1" />
-                                  Revoke S-Class
-                                </Button>
+                                <>
+                                  <Button 
+                                    variant="secondary"
+                                    size="sm" 
+                                    className="h-8 text-xs bg-yellow-500/10 text-yellow-500 border-yellow-500/50 hover:bg-yellow-500/20"
+                                    onClick={() => openPremiumDialog(user)}
+                                    data-testid={`button-edit-premium-${user.id}`}
+                                  >
+                                    <Calendar className="h-3 w-3 mr-1" />
+                                    Edit Dates
+                                  </Button>
+                                  <Button 
+                                    variant="secondary"
+                                    size="sm" 
+                                    className="h-8 text-xs bg-red-500/10 text-red-400 border-red-500/50 hover:bg-red-500/20"
+                                    onClick={() => handleRevokePremium(user.id, user.name)}
+                                    data-testid={`button-revoke-${user.id}`}
+                                  >
+                                    <X className="h-3 w-3 mr-1" />
+                                    Revoke
+                                  </Button>
+                                </>
                               ) : (
                                 <Button 
                                   variant="outline"
@@ -1301,7 +1318,7 @@ export default function AdminPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-yellow-500">
               <Crown className="h-5 w-5" />
-              Grant S-Class Status
+              {premiumDialog.user?.isPremium ? 'Edit S-Class Access' : 'Grant S-Class Status'}
             </DialogTitle>
             <DialogDescription className="pt-4 space-y-4">
               {premiumDialog.user && (
@@ -1366,7 +1383,9 @@ export default function AdminPage() {
               onClick={handleGrantPremium}
             >
               <Crown className="h-4 w-4 mr-2" />
-              {premiumDialog.isTemporary ? 'Grant Temporary S-Class' : 'Grant Permanent S-Class'}
+              {premiumDialog.user?.isPremium 
+                ? (premiumDialog.isTemporary ? 'Update Dates' : 'Make Permanent') 
+                : (premiumDialog.isTemporary ? 'Grant Temporary S-Class' : 'Grant Permanent S-Class')}
             </Button>
           </DialogFooter>
         </DialogContent>
