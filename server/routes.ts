@@ -399,14 +399,14 @@ export async function registerRoutes(
     }
   });
   
-  app.post("/api/cards/summon", async (req, res) => {
+  app.post("/api/cards/summon", verifySupabaseToken, async (req, res) => {
     try {
-      if (!req.session.userId) {
+      if (!req.dbUser) {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
-      const user = await storage.getUser(req.session.userId);
-      if (!user || user.tokens < 100) {
+      const user = req.dbUser;
+      if (user.tokens < 100) {
         return res.status(400).json({ error: "Insufficient tokens" });
       }
       
@@ -415,20 +415,20 @@ export async function registerRoutes(
       if (allCards.length === 0) {
         return res.status(400).json({ error: "No cards available in the gacha pool" });
       }
-      const numPulls = user.isPremium ? 5 : 1;
+      const numPulls = user.isPremium ? 2 : 1;
       const pulledCards = [];
       
       for (let i = 0; i < numPulls; i++) {
         const randomCard = allCards[Math.floor(Math.random() * allCards.length)];
         pulledCards.push(randomCard);
         await storage.addCardToUser({
-          userId: req.session.userId,
+          userId: user.id,
           cardId: randomCard.id,
         });
       }
       
       // Deduct tokens
-      await storage.updateUser(req.session.userId, {
+      await storage.updateUser(user.id, {
         tokens: user.tokens - 100,
       });
       
