@@ -264,11 +264,57 @@ export default function FeedPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Summon Banner */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+      >
+        <Card 
+          className="relative overflow-hidden border-purple-500/50 bg-gradient-to-r from-purple-950/50 via-cyan-950/30 to-pink-950/30 cursor-pointer hover:border-purple-400 hover:shadow-[0_0_20px_rgba(168,85,247,0.3)] transition-all group"
+          onClick={() => setLocation("/gacha")}
+          data-testid="banner-summon"
+        >
+          <div className="absolute inset-0 opacity-20">
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 border-2 border-purple-400/30 rounded-full animate-pulse" />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 border border-cyan-400/30 rounded-full animate-spin" style={{ animationDuration: '8s' }} />
+          </div>
+          <div className="absolute top-0 right-0 w-40 h-40 bg-purple-500/10 blur-3xl rounded-full" />
+          <div className="absolute bottom-0 left-0 w-32 h-32 bg-cyan-500/10 blur-2xl rounded-full" />
+          
+          <CardContent className="p-4 relative z-10">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-purple-500 via-cyan-500 to-pink-500 flex items-center justify-center shadow-lg shadow-purple-500/30 group-hover:scale-110 transition-transform">
+                  <Sparkles className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-display font-bold text-transparent bg-gradient-to-r from-purple-400 via-cyan-400 to-pink-400 bg-clip-text">
+                    DAILY SUMMON
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    Step through the Fracture Portal • Collect rare cards
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <div className="hidden sm:flex items-center gap-1 px-2 py-1 bg-green-500/20 rounded-full">
+                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                  <span className="text-[10px] text-green-400 font-bold uppercase">Free Pull Ready</span>
+                </div>
+                <ChevronRight className="h-5 w-5 text-purple-400 group-hover:translate-x-1 transition-transform" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
       {/* Featured Draw Banner */}
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.5 }}
+        transition={{ duration: 0.5, delay: 0.1 }}
       >
         <Card 
           className="relative overflow-hidden border-yellow-500/50 bg-gradient-to-r from-yellow-950/40 via-purple-950/40 to-cyan-950/40 cursor-pointer hover:border-yellow-400 transition-all"
