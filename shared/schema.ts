@@ -51,6 +51,17 @@ export const postLikes = pgTable("post_likes", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Card Categories - for organizing cards into folders
+export const cardCategories = pgTable("card_categories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull().unique(),
+  slug: text("slug").notNull().unique(),
+  description: text("description"),
+  color: text("color").default('#6366f1'), // Hex color for UI display
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 // Cards table
 export const cards = pgTable("cards", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -61,6 +72,7 @@ export const cards = pgTable("cards", {
   image: text("image").notNull(),
   power: integer("power").notNull(),
   element: text("element").notNull(),
+  categoryId: varchar("category_id").references(() => cardCategories.id, { onDelete: 'set null' }), // Card category/folder
   isArchived: boolean("is_archived").notNull().default(false), // Archived cards are removed from gacha but stay in user collections
   isReleased: boolean("is_released").notNull().default(true), // Only released cards appear in catalog
   isLimited: boolean("is_limited").notNull().default(false), // Limited/event cards get special tag
@@ -445,6 +457,11 @@ export const insertPostSchema = createInsertSchema(posts).omit({
   createdAt: true,
   likes: true,
   comments: true,
+});
+
+export const insertCardCategorySchema = createInsertSchema(cardCategories).omit({
+  id: true,
+  createdAt: true,
 });
 
 export const insertCardSchema = createInsertSchema(cards).omit({
