@@ -52,7 +52,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <Button
                 variant="ghost"
                 className={`w-full justify-start gap-3 text-lg h-12 rounded-xl transition-all duration-300 ${
-                  location === item.path 
+                  (location === item.path || (item.path !== "/" && location.startsWith(item.path)))
                     ? item.path === "/sclass" 
                       ? "bg-yellow-500/20 text-yellow-400 neon-border border-yellow-500/50" 
                       : "bg-primary/20 text-primary neon-border"

@@ -402,7 +402,7 @@ export default function FeedPage() {
               
               <Button
                 variant="outline"
-                onClick={() => setLocation("/gacha")}
+                onClick={() => setLocation("/cards")}
                 className="h-12 border-purple-500/50 hover:bg-purple-500/10 text-purple-300"
                 data-testid="button-paid-summon"
               >
