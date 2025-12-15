@@ -23,7 +23,7 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useUsers, useBanUser, useUnbanUser, useGrantPremium, useRevokePremium, useCommunities, useAdminCards, useCreateCard, useDeleteCard, useArchiveCard, useUnarchiveCard, useSiteSettings, useUpdateSiteSetting, useCardCategories, useCreateCardCategory, useDeleteCardCategory, useGetCardUploadUrl, useUpdateCard } from "@/lib/api";
+import { useUsers, useBanUser, useUnbanUser, useGrantPremium, useRevokePremium, useCommunities, useAdminCards, useCreateCard, useDeleteCard, useArchiveCard, useUnarchiveCard, useSiteSettings, useUpdateSiteSetting, useCardCategories, useCreateCardCategory, useDeleteCardCategory, useGetCardUploadUrl, useUpdateCard, useScheduledCards, useUpdateCardStatus, useActivateScheduledCards } from "@/lib/api";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertTriangle, Archive, ArchiveRestore, ImagePlus, Folder, FolderPlus, Edit2 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -51,6 +51,11 @@ export default function AdminPage() {
   const createCardCategory = useCreateCardCategory();
   const deleteCardCategory = useDeleteCardCategory();
   const getCardUploadUrl = useGetCardUploadUrl();
+  
+  const { data: scheduledCards, isLoading: scheduledLoading } = useScheduledCards();
+  const updateCardStatus = useUpdateCardStatus();
+  const activateScheduledCards = useActivateScheduledCards();
+  const [cardStatusFilter, setCardStatusFilter] = useState<'all' | 'active' | 'scheduled' | 'draft'>('all');
   
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -303,7 +308,8 @@ export default function AdminPage() {
     const matchesCategory = categoryFilter === "all" || 
       (categoryFilter === "uncategorized" && !card.categoryId) ||
       card.categoryId === categoryFilter;
-    return matchesSearch && matchesCategory;
+    const matchesStatus = cardStatusFilter === "all" || card.status === cardStatusFilter;
+    return matchesSearch && matchesCategory && matchesStatus;
   }) || [];
 
   const openPremiumDialog = (user: any) => {
@@ -1152,8 +1158,8 @@ export default function AdminPage() {
                   Card Library ({filteredCards.length} / {allCards?.length || 0})
                 </CardTitle>
                 <CardDescription>Manage existing cards in the gacha pool</CardDescription>
-                <div className="flex gap-2 mt-2">
-                  <div className="relative flex-1">
+                <div className="flex gap-2 mt-2 flex-wrap">
+                  <div className="relative flex-1 min-w-[200px]">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input 
                       placeholder="Search cards..." 
@@ -1163,6 +1169,17 @@ export default function AdminPage() {
                       data-testid="input-search-cards"
                     />
                   </div>
+                  <select
+                    className="h-10 rounded-md border border-input bg-background px-3 text-sm min-w-[120px]"
+                    value={cardStatusFilter}
+                    onChange={(e) => setCardStatusFilter(e.target.value as any)}
+                    data-testid="select-status-filter"
+                  >
+                    <option value="all">All Status</option>
+                    <option value="active">Active</option>
+                    <option value="scheduled">Scheduled</option>
+                    <option value="draft">Draft</option>
+                  </select>
                   <select
                     className="h-10 rounded-md border border-input bg-background px-3 text-sm min-w-[140px]"
                     value={categoryFilter}
@@ -1175,6 +1192,31 @@ export default function AdminPage() {
                       <option key={cat.id} value={cat.id}>{cat.name}</option>
                     ))}
                   </select>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-10"
+                    onClick={() => {
+                      activateScheduledCards.mutate(undefined, {
+                        onSuccess: (data: any) => {
+                          if (data?.activated > 0) {
+                            sonnerToast.success(`${data.activated} card(s) activated!`);
+                          } else {
+                            sonnerToast.info('No scheduled cards are due for activation yet.');
+                          }
+                        },
+                        onError: (error: any) => {
+                          sonnerToast.error(error.message || 'Failed to activate scheduled cards');
+                        }
+                      });
+                    }}
+                    disabled={activateScheduledCards.isPending}
+                    title="Activate scheduled cards that are past their release date"
+                    data-testid="button-activate-scheduled"
+                  >
+                    {activateScheduledCards.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Play className="h-4 w-4 mr-1" />}
+                    Activate Due
+                  </Button>
                 </div>
               </CardHeader>
               <CardContent>
@@ -1216,6 +1258,17 @@ export default function AdminPage() {
                               {card.isArchived && (
                                 <Badge variant="outline" className="text-[10px] text-yellow-400 border-yellow-400/50">
                                   Archived
+                                </Badge>
+                              )}
+                              {card.status === 'scheduled' && (
+                                <Badge variant="outline" className="text-[10px] text-cyan-400 border-cyan-400/50">
+                                  <Clock className="h-2.5 w-2.5 mr-1" />
+                                  Scheduled
+                                </Badge>
+                              )}
+                              {card.status === 'draft' && (
+                                <Badge variant="outline" className="text-[10px] text-gray-400 border-gray-400/50">
+                                  Draft
                                 </Badge>
                               )}
                               {card.ownerCount > 0 && (

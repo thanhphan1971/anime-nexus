@@ -262,6 +262,54 @@ export function useGetCardUploadUrl() {
   });
 }
 
+// Card Scheduling API
+export function useScheduledCards() {
+  return useQuery({
+    queryKey: ["scheduledCards"],
+    queryFn: () => apiCall("/api/admin/cards/scheduled"),
+  });
+}
+
+export function useCardsByStatus(status: string) {
+  return useQuery({
+    queryKey: ["cardsByStatus", status],
+    queryFn: () => apiCall(`/api/admin/cards/by-status/${status}`),
+    enabled: !!status,
+  });
+}
+
+export function useUpdateCardStatus() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ cardId, status, scheduledReleaseDate }: { cardId: string; status: string; scheduledReleaseDate?: string }) =>
+      apiCall(`/api/admin/cards/${cardId}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status, scheduledReleaseDate }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["cards"] });
+      queryClient.invalidateQueries({ queryKey: ["adminCards"] });
+      queryClient.invalidateQueries({ queryKey: ["scheduledCards"] });
+      queryClient.invalidateQueries({ queryKey: ["cardsByStatus"], exact: false });
+    },
+  });
+}
+
+export function useActivateScheduledCards() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      apiCall("/api/admin/cards/activate-scheduled", { method: "POST" }),
+    onSuccess: (data: { activated: number; message: string }) => {
+      queryClient.invalidateQueries({ queryKey: ["cards"] });
+      queryClient.invalidateQueries({ queryKey: ["adminCards"] });
+      queryClient.invalidateQueries({ queryKey: ["scheduledCards"] });
+      queryClient.invalidateQueries({ queryKey: ["cardsByStatus"], exact: false });
+      return data;
+    },
+  });
+}
+
 // Marketplace API
 export function useMarketListings() {
   return useQuery({
