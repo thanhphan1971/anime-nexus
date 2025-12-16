@@ -40,6 +40,14 @@ import {
   type InsertStory,
   type Media,
   type InsertMedia,
+  type GameSession,
+  type InsertGameSession,
+  type UserDailyGameStats,
+  type InsertUserDailyGameStats,
+  type GameEvent,
+  type InsertGameEvent,
+  type GameActivityLog,
+  type InsertGameActivityLog,
   users,
   posts,
   postLikes,
@@ -62,6 +70,10 @@ import {
   animeCache,
   stories,
   media,
+  gameSessions,
+  userDailyGameStats,
+  gameEvents,
+  gameActivityLog,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql, desc, ne, inArray, lte, asc } from "drizzle-orm";
@@ -217,6 +229,30 @@ export interface IStorage {
   getMediaByObjectKey(objectKey: string): Promise<Media | undefined>;
   deleteMedia(id: string): Promise<void>;
   getExpiredMedia(): Promise<Media[]>;
+  
+  // Game Session operations
+  createGameSession(session: InsertGameSession): Promise<GameSession>;
+  getGameSession(id: string): Promise<GameSession | undefined>;
+  getActiveSessionForUser(userId: string): Promise<GameSession | undefined>;
+  updateGameSession(id: string, updates: Partial<GameSession>): Promise<GameSession | undefined>;
+  getUserGameSessions(userId: string, limit?: number): Promise<GameSession[]>;
+  claimGameReward(sessionId: string, userId: string, tokensToGrant: number): Promise<{ success: boolean; newBalance: number }>;
+  
+  // User Daily Game Stats operations
+  getUserDailyGameStats(userId: string, date: string): Promise<UserDailyGameStats | undefined>;
+  createOrUpdateUserDailyGameStats(userId: string, date: string, updates: Partial<UserDailyGameStats>): Promise<UserDailyGameStats>;
+  
+  // Game Event operations (scaffold)
+  getUpcomingGameEvents(limit?: number): Promise<GameEvent[]>;
+  getLiveGameEvents(): Promise<GameEvent[]>;
+  getGameEvent(id: string): Promise<GameEvent | undefined>;
+  createGameEvent(event: InsertGameEvent): Promise<GameEvent>;
+  updateGameEvent(id: string, updates: Partial<GameEvent>): Promise<GameEvent | undefined>;
+  
+  // Game Activity Log operations
+  logGameActivity(log: InsertGameActivityLog): Promise<GameActivityLog>;
+  getUserGameActivityLogs(userId: string, limit?: number): Promise<GameActivityLog[]>;
+  getGameActivityLogsForDate(userId: string, date: string): Promise<GameActivityLog[]>;
 }
 
 export class DbStorage implements IStorage {
@@ -1322,6 +1358,179 @@ export class DbStorage implements IStorage {
       .select()
       .from(media)
       .where(sql`${media.expiresAt} IS NOT NULL AND ${media.expiresAt} < ${now}`);
+  }
+
+  // Game Session operations
+  async createGameSession(session: InsertGameSession): Promise<GameSession> {
+    const result = await db.insert(gameSessions).values(session).returning();
+    return result[0];
+  }
+
+  async getGameSession(id: string): Promise<GameSession | undefined> {
+    const result = await db.select().from(gameSessions).where(eq(gameSessions.id, id)).limit(1);
+    return result[0];
+  }
+
+  async getActiveSessionForUser(userId: string): Promise<GameSession | undefined> {
+    const result = await db
+      .select()
+      .from(gameSessions)
+      .where(and(
+        eq(gameSessions.userId, userId),
+        eq(gameSessions.status, 'active')
+      ))
+      .orderBy(desc(gameSessions.startedAt))
+      .limit(1);
+    return result[0];
+  }
+
+  async updateGameSession(id: string, updates: Partial<GameSession>): Promise<GameSession | undefined> {
+    const result = await db.update(gameSessions).set(updates).where(eq(gameSessions.id, id)).returning();
+    return result[0];
+  }
+
+  async getUserGameSessions(userId: string, limit: number = 20): Promise<GameSession[]> {
+    return await db
+      .select()
+      .from(gameSessions)
+      .where(eq(gameSessions.userId, userId))
+      .orderBy(desc(gameSessions.startedAt))
+      .limit(limit);
+  }
+
+  // Atomic claim with optimistic locking to prevent race conditions
+  async claimGameReward(sessionId: string, userId: string, tokensToGrant: number): Promise<{ success: boolean; newBalance: number }> {
+    // Use a conditional update to atomically mark as claimed
+    // Only succeeds if rewardClaimed is still false
+    const updateResult = await db
+      .update(gameSessions)
+      .set({ 
+        rewardClaimed: true, 
+        rewardClaimedAt: new Date() 
+      })
+      .where(and(
+        eq(gameSessions.id, sessionId),
+        eq(gameSessions.rewardClaimed, false)
+      ))
+      .returning();
+    
+    // If no rows updated, claim was already made (race condition handled)
+    if (updateResult.length === 0) {
+      const user = await this.getUser(userId);
+      return { success: false, newBalance: user?.tokens || 0 };
+    }
+    
+    // Grant tokens atomically using SQL increment
+    const userResult = await db
+      .update(users)
+      .set({ 
+        tokens: sql`${users.tokens} + ${tokensToGrant}` 
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    
+    return { 
+      success: true, 
+      newBalance: userResult[0]?.tokens || 0 
+    };
+  }
+
+  // User Daily Game Stats operations
+  async getUserDailyGameStats(userId: string, date: string): Promise<UserDailyGameStats | undefined> {
+    const result = await db
+      .select()
+      .from(userDailyGameStats)
+      .where(and(
+        eq(userDailyGameStats.userId, userId),
+        eq(userDailyGameStats.date, date)
+      ))
+      .limit(1);
+    return result[0];
+  }
+
+  async createOrUpdateUserDailyGameStats(userId: string, date: string, updates: Partial<UserDailyGameStats>): Promise<UserDailyGameStats> {
+    const existing = await this.getUserDailyGameStats(userId, date);
+    if (existing) {
+      const result = await db
+        .update(userDailyGameStats)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(eq(userDailyGameStats.id, existing.id))
+        .returning();
+      return result[0];
+    } else {
+      const result = await db
+        .insert(userDailyGameStats)
+        .values({ userId, date, ...updates })
+        .returning();
+      return result[0];
+    }
+  }
+
+  // Game Event operations (scaffold)
+  async getUpcomingGameEvents(limit: number = 10): Promise<GameEvent[]> {
+    const now = new Date();
+    return await db
+      .select()
+      .from(gameEvents)
+      .where(and(
+        eq(gameEvents.status, 'scheduled'),
+        sql`${gameEvents.scheduledAt} > ${now}`
+      ))
+      .orderBy(asc(gameEvents.scheduledAt))
+      .limit(limit);
+  }
+
+  async getLiveGameEvents(): Promise<GameEvent[]> {
+    return await db
+      .select()
+      .from(gameEvents)
+      .where(eq(gameEvents.status, 'live'));
+  }
+
+  async getGameEvent(id: string): Promise<GameEvent | undefined> {
+    const result = await db.select().from(gameEvents).where(eq(gameEvents.id, id)).limit(1);
+    return result[0];
+  }
+
+  async createGameEvent(event: InsertGameEvent): Promise<GameEvent> {
+    const result = await db.insert(gameEvents).values(event).returning();
+    return result[0];
+  }
+
+  async updateGameEvent(id: string, updates: Partial<GameEvent>): Promise<GameEvent | undefined> {
+    const result = await db.update(gameEvents).set(updates).where(eq(gameEvents.id, id)).returning();
+    return result[0];
+  }
+
+  // Game Activity Log operations
+  async logGameActivity(log: InsertGameActivityLog): Promise<GameActivityLog> {
+    const result = await db.insert(gameActivityLog).values(log).returning();
+    return result[0];
+  }
+
+  async getUserGameActivityLogs(userId: string, limit: number = 50): Promise<GameActivityLog[]> {
+    return await db
+      .select()
+      .from(gameActivityLog)
+      .where(eq(gameActivityLog.userId, userId))
+      .orderBy(desc(gameActivityLog.createdAt))
+      .limit(limit);
+  }
+
+  async getGameActivityLogsForDate(userId: string, date: string): Promise<GameActivityLog[]> {
+    const startOfDay = new Date(date);
+    const endOfDay = new Date(date);
+    endOfDay.setDate(endOfDay.getDate() + 1);
+    
+    return await db
+      .select()
+      .from(gameActivityLog)
+      .where(and(
+        eq(gameActivityLog.userId, userId),
+        sql`${gameActivityLog.createdAt} >= ${startOfDay}`,
+        sql`${gameActivityLog.createdAt} < ${endOfDay}`
+      ))
+      .orderBy(desc(gameActivityLog.createdAt));
   }
 }
 

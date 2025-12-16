@@ -446,6 +446,74 @@ export const stories = pgTable("stories", {
   expiresAt: timestamp("expires_at").notNull(),
 });
 
+// ========================
+// FRACTURE TRIAL GAME SYSTEM
+// ========================
+
+// Game Sessions - individual game runs (server-authoritative)
+export const gameSessions = pgTable("game_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  trialType: text("trial_type").notNull(), // safe, unstable, overcharged
+  gameMode: text("game_mode").notNull().default('instant'), // instant, event
+  isRewarded: boolean("is_rewarded").notNull().default(true), // true = counts for rewards, false = practice
+  status: text("status").notNull().default('active'), // active, completed, abandoned
+  outcome: text("outcome"), // success, critical_success, failure
+  score: integer("score").notNull().default(0),
+  fracturesStabilized: integer("fractures_stabilized").notNull().default(0),
+  fracturesTotal: integer("fractures_total").notNull().default(5),
+  tokensSpent: integer("tokens_spent").notNull().default(0), // for overcharged trials
+  tokensRewarded: integer("tokens_rewarded").notNull().default(0),
+  rewardClaimed: boolean("reward_claimed").notNull().default(false),
+  rewardClaimedAt: timestamp("reward_claimed_at"),
+  chroniclePostId: varchar("chronicle_post_id").references(() => posts.id, { onDelete: 'set null' }),
+  boosterUsed: text("booster_used"), // optional booster type
+  startedAt: timestamp("started_at").notNull().defaultNow(),
+  completedAt: timestamp("completed_at"),
+  expiresAt: timestamp("expires_at"), // session timeout
+});
+
+// User Daily Game Stats - tracks daily limits per user
+export const userDailyGameStats = pgTable("user_daily_game_stats", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  date: text("date").notNull(), // YYYY-MM-DD format for easy querying
+  rewardedRunsUsed: integer("rewarded_runs_used").notNull().default(0),
+  practiceRunsUsed: integer("practice_runs_used").notNull().default(0),
+  tokensEarnedToday: integer("tokens_earned_today").notNull().default(0),
+  socialBonusClaimed: boolean("social_bonus_claimed").notNull().default(false),
+  eventEntriesUsed: integer("event_entries_used").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Game Events - scheduled world events (scaffold)
+export const gameEvents = pgTable("game_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description").notNull(),
+  eventType: text("event_type").notNull().default('fracture_storm'), // fracture_storm, boss_raid, etc.
+  status: text("status").notNull().default('scheduled'), // scheduled, live, completed, cancelled
+  scheduledAt: timestamp("scheduled_at").notNull(),
+  durationMinutes: integer("duration_minutes").notNull().default(15),
+  freeEntriesAllowed: integer("free_entries_allowed").notNull().default(1),
+  maxEntriesPerUser: integer("max_entries_per_user").notNull().default(3),
+  extraEntryCost: integer("extra_entry_cost").notNull().default(50), // tokens
+  rewardPool: jsonb("reward_pool"), // { tokens: { min, max }, items: [...] }
+  participants: integer("participants").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Game Activity Log - for tracking/auditing (runs started, rewarded, tokens granted)
+export const gameActivityLog = pgTable("game_activity_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  sessionId: varchar("session_id").references(() => gameSessions.id, { onDelete: 'set null' }),
+  action: text("action").notNull(), // run_started, run_completed, reward_claimed, tokens_granted, event_joined
+  details: jsonb("details"), // { trialType, outcome, tokensGranted, etc. }
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -731,3 +799,38 @@ export type Story = typeof stories.$inferSelect;
 
 export type InsertMedia = z.infer<typeof insertMediaSchema>;
 export type Media = typeof media.$inferSelect;
+
+// Game System Insert Schemas
+export const insertGameSessionSchema = createInsertSchema(gameSessions).omit({
+  id: true,
+  startedAt: true,
+});
+
+export const insertUserDailyGameStatsSchema = createInsertSchema(userDailyGameStats).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertGameEventSchema = createInsertSchema(gameEvents).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertGameActivityLogSchema = createInsertSchema(gameActivityLog).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Game System Types
+export type InsertGameSession = z.infer<typeof insertGameSessionSchema>;
+export type GameSession = typeof gameSessions.$inferSelect;
+
+export type InsertUserDailyGameStats = z.infer<typeof insertUserDailyGameStatsSchema>;
+export type UserDailyGameStats = typeof userDailyGameStats.$inferSelect;
+
+export type InsertGameEvent = z.infer<typeof insertGameEventSchema>;
+export type GameEvent = typeof gameEvents.$inferSelect;
+
+export type InsertGameActivityLog = z.infer<typeof insertGameActivityLogSchema>;
+export type GameActivityLog = typeof gameActivityLog.$inferSelect;

@@ -505,6 +505,7 @@ export default function AdminPage() {
           <TabsTrigger value="draws" className="flex-1 min-w-[100px]"><Trophy className="h-4 w-4 mr-2" /> Draws</TabsTrigger>
           <TabsTrigger value="economy" className="flex-1 min-w-[100px]"><Database className="h-4 w-4 mr-2" /> Economy</TabsTrigger>
           <TabsTrigger value="system" className="flex-1 min-w-[100px]"><Settings className="h-4 w-4 mr-2" /> System</TabsTrigger>
+          <TabsTrigger value="game" className="flex-1 min-w-[100px]"><Play className="h-4 w-4 mr-2" /> Game</TabsTrigger>
         </TabsList>
 
         {/* OVERVIEW TAB */}
@@ -1860,6 +1861,152 @@ export default function AdminPage() {
                </div>
              </CardContent>
            </Card>
+        </TabsContent>
+
+        {/* GAME SETTINGS TAB */}
+        <TabsContent value="game" className="space-y-6">
+          <Card className="bg-card/40 border-white/10">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Play className="h-5 w-5 text-purple-400" />
+                Fracture Trial Settings
+              </CardTitle>
+              <CardDescription>Configure game mechanics, rewards, and feature flags.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid gap-6">
+                <div className="space-y-4">
+                  <h4 className="font-bold text-white">Feature Flags</h4>
+                  <div className="grid gap-4">
+                    <div className="flex items-center justify-between p-4 bg-white/5 rounded-lg border border-white/10">
+                      <div>
+                        <h5 className="font-medium">Fracture Trial Enabled</h5>
+                        <p className="text-xs text-muted-foreground">Allow users to play the Fracture Trial mini-game</p>
+                      </div>
+                      <Switch defaultChecked data-testid="switch-fracture-trial" />
+                    </div>
+                    <div className="flex items-center justify-between p-4 bg-white/5 rounded-lg border border-white/10">
+                      <div>
+                        <h5 className="font-medium">Rewards Enabled</h5>
+                        <p className="text-xs text-muted-foreground">Grant token rewards for completed trials</p>
+                      </div>
+                      <Switch defaultChecked data-testid="switch-rewards" />
+                    </div>
+                    <div className="flex items-center justify-between p-4 bg-white/5 rounded-lg border border-white/10">
+                      <div>
+                        <h5 className="font-medium">Scheduled Events Enabled</h5>
+                        <p className="text-xs text-muted-foreground">Enable scheduled world events (scaffold)</p>
+                      </div>
+                      <Switch defaultChecked data-testid="switch-events" />
+                    </div>
+                    <div className="flex items-center justify-between p-4 bg-white/5 rounded-lg border border-white/10">
+                      <div>
+                        <h5 className="font-medium">Chronicle Posts Enabled</h5>
+                        <p className="text-xs text-muted-foreground">Allow players to share game results to their feed</p>
+                      </div>
+                      <Switch defaultChecked data-testid="switch-chronicle" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h4 className="font-bold text-white">Daily Limits</h4>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+                      <Label className="text-sm text-muted-foreground">Free User Rewarded Runs/Day</Label>
+                      <Input type="number" defaultValue={3} className="mt-2" data-testid="input-free-runs" />
+                    </div>
+                    <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+                      <Label className="text-sm text-muted-foreground">Free User Max Runs/Day (with bonus)</Label>
+                      <Input type="number" defaultValue={5} className="mt-2" data-testid="input-free-max" />
+                    </div>
+                    <div className="p-4 bg-yellow-500/10 rounded-lg border border-yellow-500/30">
+                      <Label className="text-sm text-yellow-300">S-Class Rewarded Runs/Day</Label>
+                      <Input type="number" defaultValue={6} className="mt-2" data-testid="input-premium-runs" />
+                    </div>
+                    <div className="p-4 bg-yellow-500/10 rounded-lg border border-yellow-500/30">
+                      <Label className="text-sm text-yellow-300">S-Class Max Runs/Day</Label>
+                      <Input type="number" defaultValue={10} className="mt-2" data-testid="input-premium-max" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h4 className="font-bold text-white">Token Economy</h4>
+                  <div className="grid md:grid-cols-3 gap-4">
+                    <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+                      <Label className="text-sm text-muted-foreground">Daily Token Cap</Label>
+                      <Input type="number" defaultValue={500} className="mt-2" data-testid="input-token-cap" />
+                    </div>
+                    <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+                      <Label className="text-sm text-muted-foreground">Consolation Reward (Min)</Label>
+                      <Input type="number" defaultValue={5} className="mt-2" data-testid="input-consolation-min" />
+                    </div>
+                    <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+                      <Label className="text-sm text-muted-foreground">Consolation Reward (Max)</Label>
+                      <Input type="number" defaultValue={15} className="mt-2" data-testid="input-consolation-max" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h4 className="font-bold text-white">Trial Reward Ranges</h4>
+                  <div className="grid md:grid-cols-3 gap-4">
+                    <div className="p-4 bg-green-500/10 rounded-lg border border-green-500/30">
+                      <h5 className="font-medium text-green-300 mb-3">Safe Trial</h5>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Min</Label>
+                          <Input type="number" defaultValue={10} className="mt-1" />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Max</Label>
+                          <Input type="number" defaultValue={25} className="mt-1" />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="p-4 bg-purple-500/10 rounded-lg border border-purple-500/30">
+                      <h5 className="font-medium text-purple-300 mb-3">Unstable Trial</h5>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Min</Label>
+                          <Input type="number" defaultValue={25} className="mt-1" />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Max</Label>
+                          <Input type="number" defaultValue={50} className="mt-1" />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="p-4 bg-orange-500/10 rounded-lg border border-orange-500/30">
+                      <h5 className="font-medium text-orange-300 mb-3">Overcharged Trial</h5>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Min</Label>
+                          <Input type="number" defaultValue={50} className="mt-1" />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Max</Label>
+                          <Input type="number" defaultValue={100} className="mt-1" />
+                        </div>
+                      </div>
+                      <div className="mt-3">
+                        <Label className="text-xs text-muted-foreground">Entry Cost (tokens)</Label>
+                        <Input type="number" defaultValue={25} className="mt-1" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-4">
+                  <Button className="w-full bg-purple-600 hover:bg-purple-700" data-testid="btn-save-game-settings">
+                    <Save className="h-4 w-4 mr-2" />
+                    Save Game Settings
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
       </Tabs>

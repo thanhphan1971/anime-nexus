@@ -541,3 +541,106 @@ export function useEnterDraw() {
     },
   });
 }
+
+// ========================
+// FRACTURE TRIAL GAME API
+// ========================
+
+export function useGameConfig() {
+  return useQuery({
+    queryKey: ["gameConfig"],
+    queryFn: () => apiCall("/api/game/config"),
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+  });
+}
+
+export function useGameStatus() {
+  return useQuery({
+    queryKey: ["gameStatus"],
+    queryFn: () => apiCall("/api/game/status"),
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
+}
+
+export function useStartGameSession() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { trialType: string; isPractice?: boolean }) =>
+      apiCall("/api/game/start", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["gameStatus"] });
+    },
+  });
+}
+
+export function useCompleteGameSession() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (sessionId: string) =>
+      apiCall("/api/game/complete", {
+        method: "POST",
+        body: JSON.stringify({ sessionId }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["gameStatus"] });
+    },
+  });
+}
+
+export function useClaimGameReward() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (sessionId: string) =>
+      apiCall("/api/game/claim", {
+        method: "POST",
+        body: JSON.stringify({ sessionId }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["gameStatus"] });
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+    },
+  });
+}
+
+export function useClaimSocialBonus() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      apiCall("/api/game/social-bonus", { method: "POST" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["gameStatus"] });
+    },
+  });
+}
+
+export function useCreateChroniclePost() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (sessionId: string) =>
+      apiCall("/api/game/chronicle-post", {
+        method: "POST",
+        body: JSON.stringify({ sessionId }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["posts"] });
+    },
+  });
+}
+
+export function useGameHistory() {
+  return useQuery({
+    queryKey: ["gameHistory"],
+    queryFn: () => apiCall("/api/game/history"),
+  });
+}
+
+export function useGameEvents() {
+  return useQuery({
+    queryKey: ["gameEvents"],
+    queryFn: () => apiCall("/api/game/events"),
+    refetchInterval: 60000, // Refresh every minute
+  });
+}

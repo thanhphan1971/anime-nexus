@@ -19,6 +19,7 @@ import AdminPage from "@/pages/AdminPage";
 import DrawsPage from "@/pages/DrawsPage";
 import TokenShopPage from "@/pages/TokenShopPage";
 import ParentDashboardPage from "@/pages/ParentDashboardPage";
+import GamePage from "@/pages/GamePage";
 import Layout from "@/components/layout/Layout";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 
@@ -59,6 +60,7 @@ function Router() {
         <Route path="/admin" component={AdminPage} />
         <Route path="/tokens" component={TokenShopPage} />
         <Route path="/parent" component={ParentDashboardPage} />
+        <Route path="/game" component={GamePage} />
         {/* Legacy routes redirecting or redundant */}
         <Route path="/gacha" component={CardsPage} />
         <Route path="/market" component={CardsPage} />

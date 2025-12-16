@@ -2371,5 +2371,554 @@ export async function registerRoutes(
     }
   });
 
+  // ========================
+  // FRACTURE TRIAL GAME API
+  // ========================
+  
+  const { DEFAULT_GAME_CONFIG, getGameConfig } = await import('./config/gameConfig');
+  
+  // Helper to get current date in YYYY-MM-DD format
+  const getTodayDate = () => new Date().toISOString().split('T')[0];
+  
+  // Get game config with site settings overrides
+  app.get("/api/game/config", async (req, res) => {
+    try {
+      const allSettings = await storage.getAllSiteSettings();
+      const settingsMap = Object.fromEntries(allSettings.map(s => [s.key, s.value]));
+      const config = getGameConfig(settingsMap);
+      res.json(config);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get user's daily game status
+  app.get("/api/game/status", verifySupabaseToken, async (req, res) => {
+    try {
+      const user = await storage.getUserBySupabaseId(req.supabaseUser!.id);
+      if (!user) return res.status(404).json({ error: "User not found" });
+
+      const today = getTodayDate();
+      const stats = await storage.getUserDailyGameStats(user.id, today);
+      const activeSession = await storage.getActiveSessionForUser(user.id);
+      
+      // Get config with site settings
+      const allSettings = await storage.getAllSiteSettings();
+      const settingsMap = Object.fromEntries(allSettings.map(s => [s.key, s.value]));
+      const config = getGameConfig(settingsMap);
+      
+      const maxRewardedRuns = user.isPremium 
+        ? config.premiumUserMaxRuns 
+        : config.freeUserMaxRuns;
+      const baseRewardedRuns = user.isPremium 
+        ? config.premiumUserRewardedRuns 
+        : config.freeUserRewardedRuns;
+
+      res.json({
+        userId: user.id,
+        isPremium: user.isPremium,
+        tokens: user.tokens,
+        date: today,
+        rewardedRunsUsed: stats?.rewardedRunsUsed || 0,
+        rewardedRunsRemaining: Math.max(0, (stats?.socialBonusClaimed ? baseRewardedRuns + 1 : baseRewardedRuns) - (stats?.rewardedRunsUsed || 0)),
+        maxRewardedRuns,
+        baseRewardedRuns,
+        practiceRunsUsed: stats?.practiceRunsUsed || 0,
+        tokensEarnedToday: stats?.tokensEarnedToday || 0,
+        dailyTokenCap: config.dailyTokenCap,
+        socialBonusClaimed: stats?.socialBonusClaimed || false,
+        eventEntriesUsed: stats?.eventEntriesUsed || 0,
+        activeSession: activeSession || null,
+        features: config.features,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Start a new game session
+  app.post("/api/game/start", verifySupabaseToken, async (req, res) => {
+    try {
+      const user = await storage.getUserBySupabaseId(req.supabaseUser!.id);
+      if (!user) return res.status(404).json({ error: "User not found" });
+
+      const { trialType, isPractice } = req.body;
+      if (!['safe', 'unstable', 'overcharged'].includes(trialType)) {
+        return res.status(400).json({ error: "Invalid trial type" });
+      }
+
+      // Check for existing active session
+      const activeSession = await storage.getActiveSessionForUser(user.id);
+      if (activeSession) {
+        return res.status(400).json({ error: "You already have an active session", session: activeSession });
+      }
+
+      // Get config
+      const allSettings = await storage.getAllSiteSettings();
+      const settingsMap = Object.fromEntries(allSettings.map(s => [s.key, s.value]));
+      const config = getGameConfig(settingsMap);
+
+      // Check feature flag
+      if (!config.features.fracture_trial_enabled) {
+        return res.status(403).json({ error: "Fracture Trial is currently disabled" });
+      }
+
+      const trialConfig = config.trials[trialType as keyof typeof config.trials];
+      const today = getTodayDate();
+      const stats = await storage.getUserDailyGameStats(user.id, today);
+
+      // Determine if this is a rewarded run
+      let isRewarded = !isPractice;
+      if (isRewarded) {
+        const baseRuns = user.isPremium ? config.premiumUserRewardedRuns : config.freeUserRewardedRuns;
+        const bonusRuns = stats?.socialBonusClaimed ? 1 : 0;
+        const maxRuns = baseRuns + bonusRuns;
+        if ((stats?.rewardedRunsUsed || 0) >= maxRuns) {
+          isRewarded = false; // Force practice mode if out of rewarded runs
+        }
+      }
+
+      // Check token cost for overcharged
+      let tokensSpent = 0;
+      if (trialType === 'overcharged' && isRewarded) {
+        if (user.tokens < trialConfig.tokenCost) {
+          return res.status(400).json({ error: "Not enough tokens for Overcharged trial", required: trialConfig.tokenCost });
+        }
+        tokensSpent = trialConfig.tokenCost;
+        await storage.updateUser(user.id, { tokens: user.tokens - tokensSpent });
+      }
+
+      // Create session
+      const session = await storage.createGameSession({
+        userId: user.id,
+        trialType,
+        gameMode: 'instant',
+        isRewarded,
+        status: 'active',
+        tokensSpent,
+        fracturesTotal: trialConfig.fractureCount,
+        expiresAt: new Date(Date.now() + (trialConfig.duration + 10) * 1000), // Extra 10s buffer
+      });
+
+      // Update daily stats
+      if (isRewarded) {
+        await storage.createOrUpdateUserDailyGameStats(user.id, today, {
+          rewardedRunsUsed: (stats?.rewardedRunsUsed || 0) + 1,
+        });
+      } else {
+        await storage.createOrUpdateUserDailyGameStats(user.id, today, {
+          practiceRunsUsed: (stats?.practiceRunsUsed || 0) + 1,
+        });
+      }
+
+      // Log activity
+      await storage.logGameActivity({
+        userId: user.id,
+        sessionId: session.id,
+        action: 'run_started',
+        details: { trialType, isRewarded, tokensSpent },
+      });
+
+      res.json({
+        session,
+        trialConfig: {
+          name: trialConfig.name,
+          duration: trialConfig.duration,
+          fractureCount: trialConfig.fractureCount,
+          riskLevel: trialConfig.riskLevel,
+        },
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Complete a game session (server-authoritative outcome)
+  // Security: Outcomes and rewards are determined server-side only
+  // Client only reports session completion, server uses elapsed time and random seed
+  app.post("/api/game/complete", verifySupabaseToken, async (req, res) => {
+    try {
+      const user = await storage.getUserBySupabaseId(req.supabaseUser!.id);
+      if (!user) return res.status(404).json({ error: "User not found" });
+
+      const { sessionId } = req.body;
+      
+      const session = await storage.getGameSession(sessionId);
+      if (!session) return res.status(404).json({ error: "Session not found" });
+      if (session.userId !== user.id) return res.status(403).json({ error: "Not your session" });
+      if (session.status !== 'active') return res.status(400).json({ error: "Session already completed" });
+
+      // Server-authoritative: validate session timing
+      const sessionStartTime = new Date(session.startedAt).getTime();
+      const now = Date.now();
+      const elapsedSeconds = (now - sessionStartTime) / 1000;
+      
+      // Get config
+      const allSettings = await storage.getAllSiteSettings();
+      const settingsMap = Object.fromEntries(allSettings.map(s => [s.key, s.value]));
+      const config = getGameConfig(settingsMap);
+      const trialConfig = config.trials[session.trialType as keyof typeof config.trials];
+
+      // Session must be at least 10 seconds (anti-cheat minimum)
+      // and not more than 60 seconds old (expired sessions can't claim)
+      const MIN_SESSION_TIME = 10;
+      const MAX_SESSION_TIME = 60;
+      
+      if (elapsedSeconds < MIN_SESSION_TIME) {
+        return res.status(400).json({ error: "Session completed too quickly", code: "TOO_FAST" });
+      }
+      
+      if (elapsedSeconds > MAX_SESSION_TIME) {
+        // Session expired - mark as failure, no reward
+        await storage.updateGameSession(sessionId, {
+          status: 'completed',
+          outcome: 'failure',
+          score: 0,
+          fracturesStabilized: 0,
+          tokensRewarded: 0,
+          completedAt: new Date(),
+        });
+        return res.status(400).json({ error: "Session expired", code: "EXPIRED" });
+      }
+
+      // Server-authoritative outcome determination using session seed
+      // The outcome is based on: session seed + trial config + time factor
+      // This prevents client manipulation
+      const seedHash = session.id.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+      const performanceRoll = ((seedHash * 9301 + 49297) % 233280) / 233280; // Seeded random
+      const outcomeRoll = Math.random(); // Fresh random for outcome
+      
+      // Performance based on time engagement (more time = better performance simulation)
+      const timeEngagement = Math.min(1, (elapsedSeconds - MIN_SESSION_TIME) / (trialConfig.duration - MIN_SESSION_TIME));
+      const simulatedPerformance = (performanceRoll * 0.3 + timeEngagement * 0.7); // Weight toward time spent
+      
+      let outcome: 'success' | 'critical_success' | 'failure';
+      
+      if (simulatedPerformance >= 0.5) {
+        // Good performance
+        if (outcomeRoll < trialConfig.criticalRate) {
+          outcome = 'critical_success';
+        } else if (outcomeRoll < trialConfig.successRate) {
+          outcome = 'success';
+        } else {
+          outcome = 'failure';
+        }
+      } else if (simulatedPerformance >= 0.25) {
+        // Moderate performance - reduced success rate
+        if (outcomeRoll < trialConfig.successRate * 0.5) {
+          outcome = 'success';
+        } else {
+          outcome = 'failure';
+        }
+      } else {
+        // Poor performance
+        outcome = 'failure';
+      }
+
+      // Server generates simulated fracture count
+      const fracturesStabilized = Math.floor(simulatedPerformance * session.fracturesTotal);
+
+      // Calculate rewards - only if session is rewarded and BEFORE daily cap check
+      let tokensRewarded = 0;
+      if (session.isRewarded && config.features.rewards_enabled) {
+        // Re-check daily cap atomically before calculating reward
+        const today = getTodayDate();
+        const stats = await storage.getUserDailyGameStats(user.id, today);
+        const tokensEarnedSoFar = stats?.tokensEarnedToday || 0;
+        const tokensLeftToday = Math.max(0, config.dailyTokenCap - tokensEarnedSoFar);
+
+        if (tokensLeftToday > 0) {
+          if (outcome === 'critical_success') {
+            tokensRewarded = Math.floor(trialConfig.rewardRange.max * trialConfig.criticalMultiplier);
+          } else if (outcome === 'success') {
+            tokensRewarded = trialConfig.rewardRange.min + Math.floor(Math.random() * (trialConfig.rewardRange.max - trialConfig.rewardRange.min));
+          } else {
+            // Consolation reward on failure
+            tokensRewarded = config.consolationRewardMin + Math.floor(Math.random() * (config.consolationRewardMax - config.consolationRewardMin));
+          }
+          // Strictly cap to remaining daily allowance
+          tokensRewarded = Math.min(tokensRewarded, tokensLeftToday);
+        }
+      }
+
+      // Update session atomically
+      const updatedSession = await storage.updateGameSession(sessionId, {
+        status: 'completed',
+        outcome,
+        score: Math.floor(simulatedPerformance * 1000),
+        fracturesStabilized,
+        tokensRewarded,
+        completedAt: new Date(),
+      });
+
+      // Log activity
+      await storage.logGameActivity({
+        userId: user.id,
+        sessionId: session.id,
+        action: 'run_completed',
+        details: { outcome, tokensRewarded, fracturesStabilized, isRewarded: session.isRewarded, elapsed: elapsedSeconds },
+      });
+
+      res.json({
+        session: updatedSession,
+        outcome,
+        tokensRewarded,
+        fracturesStabilized,
+        canClaimReward: tokensRewarded > 0 && !updatedSession?.rewardClaimed,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Claim rewards (idempotent with optimistic locking)
+  // Security: Uses claim lock to prevent race conditions
+  app.post("/api/game/claim", verifySupabaseToken, async (req, res) => {
+    try {
+      const user = await storage.getUserBySupabaseId(req.supabaseUser!.id);
+      if (!user) return res.status(404).json({ error: "User not found" });
+
+      const { sessionId } = req.body;
+      
+      // First read to check if already claimed (idempotent check)
+      const session = await storage.getGameSession(sessionId);
+      if (!session) return res.status(404).json({ error: "Session not found" });
+      if (session.userId !== user.id) return res.status(403).json({ error: "Not your session" });
+      if (session.status !== 'completed') return res.status(400).json({ error: "Session not completed" });
+      
+      // Idempotent: if already claimed, return success with current balance
+      if (session.rewardClaimed) {
+        const currentUser = await storage.getUser(user.id);
+        return res.json({ 
+          success: true, 
+          alreadyClaimed: true, 
+          tokensRewarded: session.tokensRewarded,
+          newBalance: currentUser?.tokens || user.tokens,
+        });
+      }
+
+      if (session.tokensRewarded <= 0) {
+        // Mark as claimed even with 0 tokens to prevent future attempts
+        await storage.updateGameSession(sessionId, {
+          rewardClaimed: true,
+          rewardClaimedAt: new Date(),
+        });
+        return res.json({ success: true, tokensRewarded: 0, newBalance: user.tokens });
+      }
+
+      // Atomic claim: Mark session as claimed FIRST, then grant tokens
+      // If this fails due to concurrent request, the second request will see rewardClaimed=true
+      const claimResult = await storage.claimGameReward(sessionId, user.id, session.tokensRewarded);
+      
+      if (!claimResult.success) {
+        // Concurrent claim - return idempotent success
+        const currentUser = await storage.getUser(user.id);
+        return res.json({ 
+          success: true, 
+          alreadyClaimed: true, 
+          tokensRewarded: session.tokensRewarded,
+          newBalance: currentUser?.tokens || user.tokens,
+        });
+      }
+
+      // Update daily stats
+      const today = getTodayDate();
+      const stats = await storage.getUserDailyGameStats(user.id, today);
+      await storage.createOrUpdateUserDailyGameStats(user.id, today, {
+        tokensEarnedToday: (stats?.tokensEarnedToday || 0) + session.tokensRewarded,
+      });
+
+      // Log activity
+      await storage.logGameActivity({
+        userId: user.id,
+        sessionId: session.id,
+        action: 'reward_claimed',
+        details: { tokensGranted: session.tokensRewarded, newBalance: claimResult.newBalance },
+      });
+
+      res.json({ 
+        success: true, 
+        tokensRewarded: session.tokensRewarded, 
+        newBalance: claimResult.newBalance,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Claim social bonus (+1 rewarded run)
+  app.post("/api/game/social-bonus", verifySupabaseToken, async (req, res) => {
+    try {
+      const user = await storage.getUserBySupabaseId(req.supabaseUser!.id);
+      if (!user) return res.status(404).json({ error: "User not found" });
+
+      const today = getTodayDate();
+      const stats = await storage.getUserDailyGameStats(user.id, today);
+
+      if (stats?.socialBonusClaimed) {
+        return res.json({ success: true, alreadyClaimed: true });
+      }
+
+      await storage.createOrUpdateUserDailyGameStats(user.id, today, {
+        socialBonusClaimed: true,
+      });
+
+      res.json({ success: true, bonusRunsGranted: 1 });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Create Chronicle Post from game session
+  app.post("/api/game/chronicle-post", verifySupabaseToken, async (req, res) => {
+    try {
+      const user = await storage.getUserBySupabaseId(req.supabaseUser!.id);
+      if (!user) return res.status(404).json({ error: "User not found" });
+
+      const { sessionId } = req.body;
+      
+      const session = await storage.getGameSession(sessionId);
+      if (!session) return res.status(404).json({ error: "Session not found" });
+      if (session.userId !== user.id) return res.status(403).json({ error: "Not your session" });
+      if (session.chroniclePostId) {
+        return res.json({ success: true, alreadyPosted: true, postId: session.chroniclePostId });
+      }
+
+      // Get config for templates
+      const allSettings = await storage.getAllSiteSettings();
+      const settingsMap = Object.fromEntries(allSettings.map(s => [s.key, s.value]));
+      const config = getGameConfig(settingsMap);
+
+      if (!config.features.chronicle_posts_enabled) {
+        return res.status(403).json({ error: "Chronicle posts are disabled" });
+      }
+
+      // Generate post content
+      const templates = config.chronicleTemplates[session.outcome as keyof typeof config.chronicleTemplates] || config.chronicleTemplates.success;
+      const template = templates[Math.floor(Math.random() * templates.length)];
+      const content = `⚡ ${user.name} ${template}`;
+
+      // Create post
+      const post = await storage.createPost({
+        userId: user.id,
+        content,
+      });
+
+      // Link post to session
+      await storage.updateGameSession(sessionId, { chroniclePostId: post.id });
+
+      res.json({ success: true, post });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get user's game history
+  app.get("/api/game/history", verifySupabaseToken, async (req, res) => {
+    try {
+      const user = await storage.getUserBySupabaseId(req.supabaseUser!.id);
+      if (!user) return res.status(404).json({ error: "User not found" });
+
+      const limit = Math.min(parseInt(req.query.limit as string) || 20, 50);
+      const sessions = await storage.getUserGameSessions(user.id, limit);
+
+      res.json({ sessions });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get upcoming events (scaffold)
+  app.get("/api/game/events", async (req, res) => {
+    try {
+      const upcoming = await storage.getUpcomingGameEvents(10);
+      const live = await storage.getLiveGameEvents();
+      res.json({ upcoming, live });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Admin: Update game settings
+  app.post("/api/admin/game/settings", verifySupabaseToken, async (req, res) => {
+    try {
+      const user = await storage.getUserBySupabaseId(req.supabaseUser!.id);
+      if (!user?.isAdmin) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      const { settings } = req.body;
+      if (!settings || typeof settings !== 'object') {
+        return res.status(400).json({ error: "Invalid settings object" });
+      }
+
+      // Update each setting
+      for (const [key, value] of Object.entries(settings)) {
+        await storage.setSiteSetting(key, String(value), user.id);
+      }
+
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Admin: Create scheduled event
+  app.post("/api/admin/game/events", verifySupabaseToken, async (req, res) => {
+    try {
+      const user = await storage.getUserBySupabaseId(req.supabaseUser!.id);
+      if (!user?.isAdmin) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      const { name, description, eventType, scheduledAt, durationMinutes, freeEntriesAllowed, maxEntriesPerUser, extraEntryCost, rewardPool } = req.body;
+
+      if (!name || !description || !scheduledAt) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      const event = await storage.createGameEvent({
+        name,
+        description,
+        eventType: eventType || 'fracture_storm',
+        scheduledAt: new Date(scheduledAt),
+        durationMinutes: durationMinutes || 15,
+        freeEntriesAllowed: freeEntriesAllowed || 1,
+        maxEntriesPerUser: maxEntriesPerUser || 3,
+        extraEntryCost: extraEntryCost || 50,
+        rewardPool: rewardPool || null,
+      });
+
+      res.json({ success: true, event });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Admin: Get game activity logs
+  app.get("/api/admin/game/logs", verifySupabaseToken, async (req, res) => {
+    try {
+      const user = await storage.getUserBySupabaseId(req.supabaseUser!.id);
+      if (!user?.isAdmin) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      const userId = req.query.userId as string;
+      const date = req.query.date as string;
+
+      if (userId && date) {
+        const logs = await storage.getGameActivityLogsForDate(userId, date);
+        res.json({ logs });
+      } else if (userId) {
+        const logs = await storage.getUserGameActivityLogs(userId, 100);
+        res.json({ logs });
+      } else {
+        res.status(400).json({ error: "userId is required" });
+      }
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   return httpServer;
 }

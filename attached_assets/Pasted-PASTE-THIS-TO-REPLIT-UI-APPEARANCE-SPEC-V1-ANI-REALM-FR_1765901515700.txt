@@ -1,0 +1,143 @@
+PASTE THIS TO REPLIT (UI / APPEARANCE SPEC V1)
+
+ANI REALM — FRACTURE TRIAL UI SPEC (V1)
+
+1) Overall Visual Style
+
+Style: Cyber-Neon Anime
+
+Background: dark gradient space/void + subtle particles
+
+Accent glow: purple/cyan/pink (neon)
+
+UI: clean, modern, minimal (cards + strong typography)
+
+Animations: short, snappy, satisfying (no heavy 3D)
+
+2) Where the Game Lives in the App
+
+Add a Home page section: “🎮 Fracture Trial”
+
+CTA buttons:
+
+Play Now
+
+Practice
+
+Events (Schedule)
+
+3) Main Game Screen Layout
+
+Top bar:
+
+Timer (countdown 20–30s)
+
+Trial type badge (Safe / Unstable / Overcharged)
+
+Rewards status (Rewarded / Practice)
+
+Runs left today (e.g., “2/5 Rewarded Runs Left”)
+
+Center:
+
+A “Fracture Lock” object (circle/lock emblem)
+
+3–5 glowing Fracture Points appear on the lock
+
+Player interaction is tapping/clicking them in the correct window
+
+Bottom:
+
+One large action button (contextual):
+
+“Stabilize”
+
+“Overcharge (Cost: X tokens)”
+
+Optional “Booster” slot (one per run)
+
+4) Core Visual Feedback
+
+When a Fracture Point appears:
+
+small pulse glow + sound
+
+slight screen shake on “critical”
+
+Outcomes:
+
+Success: bright burst + “Stabilized!”
+
+Critical Success: bigger burst + “CRITICAL!”
+
+Failure: dim glitch + “Fracture slipped—partial recovery”
+
+Reward reveal:
+
+slide-up reward card:
+
+Tokens gained
+
++materials/cosmetics (later)
+
+Always show “Consolation reward” on failure (never zero)
+
+5) Trial Type Selection Screen (Before Run)
+
+A simple modal with 3 cards:
+
+Safe Trial (free / low reward)
+
+Unstable Trial (free / medium reward)
+
+Overcharged Trial (token entry / high reward)
+Each card shows:
+
+risk indicator
+
+expected reward range
+
+entry cost (if any)
+
+6) Scheduled Events Screen (Scaffold UI)
+
+A list of upcoming events in UTC:
+
+Event name
+
+countdown timer
+
+duration
+
+entries remaining today
+Buttons:
+
+“Join when live”
+
+“Use extra entry (cost tokens)” (if allowed)
+
+7) Chronicle Post UX
+
+After rewarded runs, show toggle:
+✅ “Share to Chronicle”
+If enabled, generate the post and show a preview.
+
+8) Accessibility + Performance
+
+Must work on mobile first
+
+No heavy effects that cause lag
+
+Animations under 300ms where possible
+
+Deliverable: a clean, attractive V1 UI that feels like a real mini-game, even if mechanics are simple.
+
+How to think about this (ruthless clarity)
+
+Your “system prompt” = laws
+
+This UI prompt = how it looks/feels
+
+Together = Replit can build what you actually imagine
+
+If you want, paste Replit’s current UI plan (or a screenshot of what it built) and I’ll tell you exactly what to change so it looks premium and not like a generic web mini-game.
