@@ -1,0 +1,122 @@
+REPLIT BUILD PROMPT — ANI REALM GAME V1
+
+Build the AniRealm Game System V1 with the following constraints.
+
+1) Game Modes
+
+Implement two game modes:
+
+MODE A — Instant Play (Always Available)
+
+MODE B — Scheduled World Events
+
+2) MODE A — Instant Play (Primary Focus)
+
+Create the first playable game called “The Fracture Trial.”
+
+Session Rules
+
+Each run lasts 20–30 seconds
+
+One challenge, one interaction, one outcome
+
+Trial Types
+
+Safe Trial (low risk, small reward)
+
+Unstable Trial (medium risk, higher reward)
+
+Overcharged Trial (costs tokens, highest risk)
+
+3) Access Rules
+
+Free Users
+
+3 rewarded runs/day
+
++1 rewarded run for a social action
+
+Max 5 rewarded runs/day
+
+Paid Users
+
+6 rewarded runs/day
+
+Max 10 rewarded runs/day
+
+Rewarded runs give tokens/progress.
+Unrewarded runs are practice only.
+
+4) Token & Economy Rules
+
+Overcharged trials require token entry
+
+Failure always gives a small consolation reward
+
+Optional boosters cost tokens
+
+Enforce a hard daily token earning cap
+
+No infinite token farming
+
+5) Social Integration
+
+After a run, optionally generate a Chronicle Post such as:
+
+“User stabilized a Fracture in [Region].”
+
+“Critical success uncovered a Relic Fragment.”
+
+These posts appear in:
+
+User feed
+
+User profile activity
+
+6) MODE B — Scheduled World Events (Scaffold Only)
+
+Create a placeholder system (no deep gameplay yet):
+
+3–4 fixed events/day (UTC)
+
+Duration: 15–30 minutes
+
+1 free entry/day
+
+Extra entries cost tokens or premium
+
+Hard cap: max 3 entries/day per user
+
+7) Technical Constraints
+
+Async-first gameplay
+
+Instanced sessions only
+
+No open world
+
+Predictable server usage
+
+Server-authoritative rewards (client cannot grant tokens)
+
+8) Deliverables
+
+Core game loop working for MODE A
+
+Daily limits enforced
+
+Token rewards implemented
+
+Event scheduling scaffold
+
+Admin-configurable caps (runs/day, tokens/day)
+
+🔒 REQUIRED IMPLEMENTATION GUARDRAILS (DO NOT SKIP)
+
+Add feature flags: fracture_trial_enabled, rewards_enabled, events_enabled, chronicle_posts_enabled
+
+Reward claiming must be idempotent (cannot claim twice)
+
+Add an Admin page to edit caps + reward ranges without redeploy
+
+Add logging for: runs started, runs rewarded, tokens granted/day per user
