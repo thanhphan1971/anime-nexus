@@ -2587,41 +2587,22 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Session expired", code: "EXPIRED" });
       }
 
-      // Server-authoritative click validation
-      // Calculate maximum possible clicks based on elapsed time and spawn timing
-      // This prevents clients from reporting more clicks than physically possible
-      const spawnDelay = trialConfig.spawnDelay || 2500;
-      const spawnAccel = trialConfig.spawnAcceleration || 1.0;
-      const windowAvg = ((trialConfig.windowMin || 2000) + (trialConfig.windowMax || 3000)) / 2;
+      // Server-authoritative performance calculation
+      // We DO NOT trust client-reported click counts for outcome determination
+      // Instead, use seeded randomness + time engagement for security
+      const seedHash = session.id.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+      const performanceRoll = ((seedHash * 9301 + 49297) % 233280) / 233280; // Seeded random
       
-      // Calculate how many fractures could have spawned by now
-      let cumulativeTime = 600; // Initial delay before first spawn
-      let maxPossibleSpawns = 0;
-      let currentSpawnDelay = spawnDelay;
-      
-      while (cumulativeTime < (elapsedSeconds * 1000) && maxPossibleSpawns < session.fracturesTotal) {
-        maxPossibleSpawns++;
-        currentSpawnDelay = Math.max(currentSpawnDelay * spawnAccel, 500);
-        cumulativeTime += currentSpawnDelay;
-      }
-      
-      // Cap clicks to what's physically possible given elapsed time
-      // Player needs time to react, so max clicks = spawns that appeared with enough window time
-      const fracturesWithFullWindow = Math.floor(Math.max(0, (elapsedSeconds * 1000 - 600) / Math.max(spawnDelay * 0.8, 500)));
-      const maxReasonableClicks = Math.min(maxPossibleSpawns, fracturesWithFullWindow, session.fracturesTotal);
-      
-      // Validate and cap client-reported clicks
-      const rawClickCount = Math.max(0, Math.floor(clickCount || 0));
-      const validatedClicks = Math.min(rawClickCount, maxReasonableClicks);
-      
-      // Performance calculation - server uses validated clicks with time-based weighting
-      // Clicks matter, but server validates against physical possibility
-      const clickPerformance = session.fracturesTotal > 0 ? validatedClicks / session.fracturesTotal : 0;
+      // Time engagement rewards playing the full duration
       const timeEngagement = Math.min(1, elapsedSeconds / trialConfig.duration);
-      const randomFactor = Math.random();
       
-      // Weight: validated clicks (50%), time engagement (25%), random luck (25%)
-      const combinedPerformance = (clickPerformance * 0.5) + (timeEngagement * 0.25) + (randomFactor * 0.25);
+      // Combined performance: seeded random (40%) + time engagement (40%) + fresh random (20%)
+      // This ensures outcomes are unpredictable but reward engagement
+      const combinedPerformance = (performanceRoll * 0.4) + (timeEngagement * 0.4) + (Math.random() * 0.2);
+      
+      // Client-reported clicks are used ONLY for display, not for outcome calculation
+      // This maintains server authority while giving visual feedback
+      const displayClicks = Math.min(Math.max(0, Math.floor(clickCount || 0)), session.fracturesTotal);
       
       // Outcome determination based on combined performance
       let outcome: 'success' | 'critical_success' | 'failure';
@@ -2652,8 +2633,9 @@ export async function registerRoutes(
         }
       }
 
-      // Use player's actual clicks for display (feels fair)
-      const fracturesStabilized = validatedClicks;
+      // Server calculates fractures based on performance (maintains authority)
+      // Display clicks are used for visual feedback only
+      const fracturesStabilized = Math.floor(combinedPerformance * session.fracturesTotal);
 
       // Calculate rewards - only if session is rewarded and BEFORE daily cap check
       let tokensRewarded = 0;
