@@ -2841,12 +2841,38 @@ export async function registerRoutes(
           await storage.updateUser(user.id, {
             isOnTrial: false,
             isPremium: false,
+            subscriptionStatus: 'expired',
           });
           return res.json({
             status: 'free',
             trialExpired: true,
             trialUsed: true,
             canStartTrial: false
+          });
+        }
+      }
+
+      // Check if premium subscription expired (for canceled_pending_expiry state)
+      if (user.isPremium && user.premiumEndDate && user.subscriptionStatus === 'canceled_pending_expiry') {
+        const now = new Date();
+        if (now > new Date(user.premiumEndDate)) {
+          // Subscription period ended, downgrade to free
+          await storage.updateUser(user.id, {
+            isPremium: false,
+            subscriptionStatus: 'expired',
+          });
+
+          console.log(`[Analytics] sclass_subscription_expired`, {
+            userId: user.id,
+            subscriptionType: user.subscriptionType,
+            endedAt: user.premiumEndDate,
+          });
+
+          return res.json({
+            status: 'free',
+            subscriptionExpired: true,
+            subscriptionStatus: 'expired',
+            canStartTrial: !user.trialUsed,
           });
         }
       }
