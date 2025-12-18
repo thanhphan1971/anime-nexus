@@ -727,3 +727,54 @@ export function useClaimSClassWelcomeReward() {
     },
   });
 }
+
+export function useClaimRetentionSaveBonus() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      apiCall("/api/sclass/retention-save", { method: "POST" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sclassStatus"] });
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+    },
+  });
+}
+
+export function useSwitchToYearly() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      apiCall("/api/sclass/switch-yearly", { method: "POST" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sclassStatus"] });
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+    },
+  });
+}
+
+export function useCancelSubscription() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      apiCall("/api/sclass/cancel-subscription", { method: "POST" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sclassStatus"] });
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+    },
+  });
+}
+
+export function useSubscribeSClass() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (planType: 'monthly' | 'yearly') =>
+      apiCall("/api/sclass/subscribe", { 
+        method: "POST",
+        body: JSON.stringify({ planType })
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sclassStatus"] });
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+    },
+  });
+}

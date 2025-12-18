@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Check, X, Crown, Sparkles, Zap, Star, AlertCircle, Info, Shield, ExternalLink } from "lucide-react";
+import { Check, X, Crown, Sparkles, Zap, Star, AlertCircle, Info, Shield, ExternalLink, Calendar } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,22 +8,31 @@ import { useAuth } from "@/context/AuthContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useSClassStatus, useStartSClassTrial, useConvertSClassTrial, useCancelSClassTrial } from "@/lib/api";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useSClassStatus, useStartSClassTrial, useConvertSClassTrial, useCancelSClassTrial, useSubscribeSClass, useCancelSubscription } from "@/lib/api";
 import { SClassWelcomeModal } from "@/components/SClassWelcomeModal";
+import { CancellationSaveModal } from "@/components/CancellationSaveModal";
+import { DowngradeEmpathyModal } from "@/components/DowngradeEmpathyModal";
 import { getSupabase } from "@/lib/supabaseClient";
 import { toast } from "sonner";
+import { format } from "date-fns";
 
 export default function PremiumPage() {
   const { user, refreshUser } = useAuth();
   const [showSubscribeModal, setShowSubscribeModal] = useState(false);
   const [showTrialModal, setShowTrialModal] = useState(false);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+  const [showCancelSaveModal, setShowCancelSaveModal] = useState(false);
+  const [showDowngradeModal, setShowDowngradeModal] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('monthly');
   const [accessToken, setAccessToken] = useState<string>('');
   
   const { data: sclassStatus } = useSClassStatus();
   const startTrial = useStartSClassTrial();
   const convertTrial = useConvertSClassTrial();
   const cancelTrial = useCancelSClassTrial();
+  const subscribeSClass = useSubscribeSClass();
+  const cancelSubscription = useCancelSubscription();
   
   useEffect(() => {
     const getToken = async () => {
@@ -66,6 +75,27 @@ export default function PremiumPage() {
   const handleWelcomeComplete = () => {
     setShowWelcomeModal(false);
     refreshUser();
+  };
+  
+  const handleSubscribeWithPlan = async () => {
+    try {
+      await subscribeSClass.mutateAsync(selectedPlan);
+      setShowSubscribeModal(false);
+      toast.success(`Subscribed to S-Class ${selectedPlan === 'yearly' ? 'Yearly' : 'Monthly'}!`);
+      refreshUser();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to subscribe");
+    }
+  };
+  
+  const handleCancelConfirmed = async () => {
+    try {
+      const result = await cancelSubscription.mutateAsync();
+      setShowDowngradeModal(true);
+      refreshUser();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to cancel subscription");
+    }
   };
   
   const handleCancelTrial = async () => {
@@ -175,8 +205,34 @@ export default function PremiumPage() {
               <Crown className="fill-current" /> S-Class Membership
             </CardTitle>
             <CardDescription>Premium Access to AniRealm</CardDescription>
+            
+            {!isSClass && !isOnTrial && (
+              <Tabs value={selectedPlan} onValueChange={(v) => setSelectedPlan(v as 'monthly' | 'yearly')} className="mt-4">
+                <TabsList className="grid w-full grid-cols-2 bg-black/40">
+                  <TabsTrigger value="monthly" className="data-[state=active]:bg-yellow-500/20 data-[state=active]:text-yellow-400">
+                    Monthly
+                  </TabsTrigger>
+                  <TabsTrigger value="yearly" className="data-[state=active]:bg-yellow-500/20 data-[state=active]:text-yellow-400">
+                    Yearly
+                    <Badge className="ml-2 bg-green-500/20 text-green-400 border-green-500/50 text-xs">
+                      Save 33%
+                    </Badge>
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+            )}
+            
             <div className="mt-4 text-4xl font-display font-bold text-yellow-400">
-              $9.99 <span className="text-lg text-muted-foreground font-sans font-normal">/ month</span>
+              {selectedPlan === 'yearly' ? (
+                <>
+                  $79.99 <span className="text-lg text-muted-foreground font-sans font-normal">/ year</span>
+                  <p className="text-sm text-green-400 font-sans font-normal mt-1">
+                    $6.67/mo · Save $39.89 vs monthly
+                  </p>
+                </>
+              ) : (
+                <>$9.99 <span className="text-lg text-muted-foreground font-sans font-normal">/ month</span></>
+              )}
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -199,15 +255,46 @@ export default function PremiumPage() {
             
             {/* Subscription Terms - Visible on Paywall */}
             <div className="mt-4 pt-3 border-t border-yellow-500/20 space-y-1.5 text-xs text-white/60">
-              <p>Renews monthly at $9.99 · Cancel anytime in App Store/Play Store</p>
+              <p>Renews {selectedPlan === 'yearly' ? 'yearly at $79.99' : 'monthly at $9.99'} · Cancel anytime in App Store/Play Store</p>
               <p>Rewards are digital items only · No cash value · Outcomes not guaranteed</p>
             </div>
           </CardContent>
           <CardFooter className="flex flex-col gap-3">
             {isSClass ? (
-              <Button className="w-full bg-yellow-500/30 text-yellow-400 border border-yellow-500/50" disabled>
-                Current Plan
-              </Button>
+              <>
+                <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/50">
+                  {sclassStatus?.subscriptionType === 'yearly' ? 'Yearly' : 'Monthly'} Plan
+                </Badge>
+                {sclassStatus?.subscriptionStatus === 'canceled_pending_expiry' ? (
+                  <div className="w-full text-center space-y-2">
+                    <p className="text-sm text-muted-foreground">Subscription canceled</p>
+                    <p className="text-sm font-bold text-yellow-400">
+                      Active until {sclassStatus?.premiumEndDate ? format(new Date(sclassStatus.premiumEndDate), 'MMMM d, yyyy') : 'end of billing period'}
+                    </p>
+                    <Button 
+                      className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold"
+                      onClick={() => setShowSubscribeModal(true)}
+                      data-testid="button-resubscribe"
+                    >
+                      Resubscribe
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <Button className="w-full bg-yellow-500/30 text-yellow-400 border border-yellow-500/50" disabled>
+                      Current Plan
+                    </Button>
+                    <Button 
+                      variant="ghost"
+                      className="text-muted-foreground hover:text-white text-sm"
+                      onClick={() => setShowCancelSaveModal(true)}
+                      data-testid="button-cancel-subscription"
+                    >
+                      Cancel Subscription
+                    </Button>
+                  </>
+                )}
+              </>
             ) : isOnTrial ? (
               <>
                 <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/50">
@@ -314,8 +401,20 @@ export default function PremiumPage() {
           <ScrollArea className="max-h-[60vh]">
             <div className="space-y-4 p-1">
               <div className="text-center py-4">
-                <div className="text-3xl font-bold text-yellow-400">$9.99/month</div>
-                <p className="text-sm text-muted-foreground mt-1">Billed monthly</p>
+                {selectedPlan === 'yearly' ? (
+                  <>
+                    <div className="text-3xl font-bold text-yellow-400">$79.99/year</div>
+                    <p className="text-sm text-muted-foreground mt-1">Billed annually · $6.67/mo</p>
+                    <Badge className="mt-2 bg-green-500/20 text-green-400 border-green-500/50">
+                      Save 33% ($39.89/year)
+                    </Badge>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-3xl font-bold text-yellow-400">$9.99/month</div>
+                    <p className="text-sm text-muted-foreground mt-1">Billed monthly</p>
+                  </>
+                )}
               </div>
 
               <div className="space-y-3 text-sm">
@@ -345,7 +444,7 @@ export default function PremiumPage() {
               <div className="space-y-2 text-xs text-muted-foreground">
                 <p className="flex items-start gap-2">
                   <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
-                  Subscription renews monthly unless canceled
+                  Subscription renews {selectedPlan === 'yearly' ? 'annually' : 'monthly'} unless canceled
                 </p>
                 <p className="flex items-start gap-2">
                   <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
@@ -375,11 +474,11 @@ export default function PremiumPage() {
 
               <Button 
                 className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold h-12 mt-4"
-                onClick={handleSubscribe}
-                disabled={convertTrial.isPending}
+                onClick={isOnTrial ? handleSubscribe : handleSubscribeWithPlan}
+                disabled={subscribeSClass.isPending || convertTrial.isPending}
                 data-testid="button-confirm-subscribe"
               >
-                {convertTrial.isPending ? "Processing..." : "Confirm Subscription"}
+                {(subscribeSClass.isPending || convertTrial.isPending) ? "Processing..." : `Subscribe ${selectedPlan === 'yearly' ? 'Yearly' : 'Monthly'}`}
               </Button>
               <Button 
                 variant="ghost" 
@@ -478,6 +577,23 @@ export default function PremiumPage() {
         isOpen={showWelcomeModal}
         onComplete={handleWelcomeComplete}
         accessToken={accessToken}
+      />
+
+      {/* Cancellation Save Modal (Retention Flow) */}
+      <CancellationSaveModal
+        open={showCancelSaveModal}
+        onOpenChange={setShowCancelSaveModal}
+        onCancelConfirmed={handleCancelConfirmed}
+        onSuccess={refreshUser}
+        saveBonusAvailable={sclassStatus?.retentionSaveBonusAvailable ?? false}
+        currentPlan={(sclassStatus?.subscriptionType as 'monthly' | 'yearly') ?? 'monthly'}
+      />
+
+      {/* Downgrade Empathy Modal (Post-Cancellation) */}
+      <DowngradeEmpathyModal
+        open={showDowngradeModal}
+        onOpenChange={setShowDowngradeModal}
+        activeUntilDate={sclassStatus?.premiumEndDate ? format(new Date(sclassStatus.premiumEndDate), 'MMMM d, yyyy') : undefined}
       />
     </div>
   );

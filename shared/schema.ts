@@ -55,6 +55,11 @@ export const users = pgTable("users", {
   // S-Class Welcome reward
   sclassWelcomeRewardClaimed: boolean("sclass_welcome_reward_claimed").notNull().default(false), // One-time welcome bonus claimed
   sclassJoinedAt: timestamp("sclass_joined_at"), // First time became full S-Class (not trial)
+  // S-Class Subscription Management
+  subscriptionType: text("subscription_type").default('monthly'), // 'monthly' or 'yearly'
+  subscriptionStatus: text("subscription_status").default('none'), // 'none', 'active', 'canceled_pending_expiry', 'expired'
+  subscriptionCanceledAt: timestamp("subscription_canceled_at"), // When user canceled (access continues until premiumEndDate)
+  retentionSaveBonusUsed: boolean("retention_save_bonus_used").notNull().default(false), // One-time retention bonus claimed
 });
 
 // Posts table

@@ -2868,6 +2868,161 @@ export async function registerRoutes(
         canStartTrial: !user.trialUsed && !user.isPremium && !user.isOnTrial,
         sclassJoinedAt: user.sclassJoinedAt,
         welcomeRewardPending: user.isPremium && !user.isOnTrial && !user.sclassWelcomeRewardClaimed,
+        subscriptionType: user.subscriptionType || 'monthly',
+        subscriptionStatus: user.subscriptionStatus || (user.isPremium ? 'active' : 'none'),
+        subscriptionCanceledAt: user.subscriptionCanceledAt,
+        premiumEndDate: user.premiumEndDate,
+        retentionSaveBonusAvailable: user.isPremium && !user.retentionSaveBonusUsed,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Claim retention save bonus (one-time, +200 tokens)
+  app.post("/api/sclass/retention-save", verifySupabaseToken, async (req, res) => {
+    try {
+      const user = await storage.getUserBySupabaseId(req.supabaseUser!.id);
+      if (!user) return res.status(404).json({ error: "User not found" });
+
+      if (!user.isPremium) {
+        return res.status(400).json({ error: "Only S-Class members can claim this bonus" });
+      }
+
+      if (user.retentionSaveBonusUsed) {
+        return res.status(400).json({ error: "Retention bonus already claimed (one-time only)" });
+      }
+
+      // Grant bonus and mark as used
+      await storage.updateUser(user.id, {
+        tokens: (user.tokens || 0) + 200,
+        retentionSaveBonusUsed: true,
+      });
+
+      res.json({ 
+        success: true, 
+        message: "Thank you for staying! +200 tokens added.",
+        tokensAdded: 200
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Switch to yearly subscription
+  app.post("/api/sclass/switch-yearly", verifySupabaseToken, async (req, res) => {
+    try {
+      const user = await storage.getUserBySupabaseId(req.supabaseUser!.id);
+      if (!user) return res.status(404).json({ error: "User not found" });
+
+      if (!user.isPremium) {
+        return res.status(400).json({ error: "Only S-Class members can switch plans" });
+      }
+
+      if (user.subscriptionType === 'yearly') {
+        return res.status(400).json({ error: "Already on yearly plan" });
+      }
+
+      // Calculate new end date (1 year from now)
+      const newEndDate = new Date();
+      newEndDate.setFullYear(newEndDate.getFullYear() + 1);
+
+      await storage.updateUser(user.id, {
+        subscriptionType: 'yearly',
+        premiumEndDate: newEndDate,
+        subscriptionStatus: 'active',
+        subscriptionCanceledAt: null,
+      });
+
+      res.json({ 
+        success: true, 
+        message: "Switched to yearly billing! You're saving 33%.",
+        newEndDate
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Cancel subscription (access continues until billing period ends)
+  app.post("/api/sclass/cancel-subscription", verifySupabaseToken, async (req, res) => {
+    try {
+      const user = await storage.getUserBySupabaseId(req.supabaseUser!.id);
+      if (!user) return res.status(404).json({ error: "User not found" });
+
+      if (!user.isPremium) {
+        return res.status(400).json({ error: "No active subscription to cancel" });
+      }
+
+      if (user.subscriptionStatus === 'canceled_pending_expiry') {
+        return res.status(400).json({ error: "Subscription already canceled" });
+      }
+
+      // Calculate end date if not set (default: end of current billing period)
+      let endDate = user.premiumEndDate;
+      if (!endDate) {
+        // Default to 30 days for monthly, 365 for yearly
+        endDate = new Date();
+        if (user.subscriptionType === 'yearly') {
+          endDate.setFullYear(endDate.getFullYear() + 1);
+        } else {
+          endDate.setDate(endDate.getDate() + 30);
+        }
+      }
+
+      await storage.updateUser(user.id, {
+        subscriptionStatus: 'canceled_pending_expiry',
+        subscriptionCanceledAt: new Date(),
+        premiumEndDate: endDate,
+      });
+
+      res.json({ 
+        success: true, 
+        message: "Subscription canceled. Access continues until billing period ends.",
+        activeUntil: endDate
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Subscribe to S-Class (new subscription or renewal)
+  app.post("/api/sclass/subscribe", verifySupabaseToken, async (req, res) => {
+    try {
+      const user = await storage.getUserBySupabaseId(req.supabaseUser!.id);
+      if (!user) return res.status(404).json({ error: "User not found" });
+
+      const { planType } = req.body; // 'monthly' or 'yearly'
+      const isYearly = planType === 'yearly';
+
+      // Calculate end date
+      const endDate = new Date();
+      if (isYearly) {
+        endDate.setFullYear(endDate.getFullYear() + 1);
+      } else {
+        endDate.setDate(endDate.getDate() + 30);
+      }
+
+      const isFirstTimeSubscriber = !user.sclassJoinedAt && !user.isOnTrial;
+
+      await storage.updateUser(user.id, {
+        isPremium: true,
+        isOnTrial: false,
+        subscriptionType: isYearly ? 'yearly' : 'monthly',
+        subscriptionStatus: 'active',
+        premiumStartDate: new Date(),
+        premiumEndDate: endDate,
+        subscriptionCanceledAt: null,
+        sclassJoinedAt: user.sclassJoinedAt || new Date(),
+        hasPurchased: true,
+        firstPurchaseAt: user.firstPurchaseAt || new Date(),
+      });
+
+      res.json({ 
+        success: true, 
+        planType: isYearly ? 'yearly' : 'monthly',
+        endDate,
+        welcomeRewardPending: isFirstTimeSubscriber && !user.sclassWelcomeRewardClaimed,
       });
     } catch (error: any) {
       res.status(500).json({ error: error.message });

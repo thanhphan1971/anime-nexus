@@ -1,0 +1,166 @@
+REPLIT BUILD PROMPT — S-CLASS RETENTION, CANCELLATION & SAFETY SYSTEM
+1️⃣ Cancellation-Save Screen (Retention Critical)
+
+Trigger
+User attempts to cancel an active S-Class subscription.
+
+Flow Requirements
+
+Intercept cancellation once only
+
+Never block cancellation
+
+Calm, respectful tone (no guilt, no pressure)
+
+Screen Content
+
+Title
+
+Before You Go
+
+Message
+
+You’re an important part of AniRealm.
+If something isn’t working right now, we want to make this easier.
+
+Options (all must be shown)
+
+Option A — Stay in S-Class (Soft Save)
+
+Keep S-Class and receive a small thank-you bonus.
+
+• +200 tokens (one-time only)
+• No renewal or billing changes
+
+Option B — Switch to Yearly (Price Anchor)
+
+Save more by switching to annual billing.
+
+• Clearly display yearly savings
+• No forced upsell
+
+Option C — Cancel Membership
+
+Continue cancellation
+
+• Cancellation proceeds immediately
+• No further prompts
+
+Rules
+
+Save bonus can trigger once per account lifetime
+
+Log save attempts
+
+If user confirms cancellation, never show save screen again
+
+⏳ Cancellation Timing Rule (MANDATORY)
+
+If a user cancels S-Class:
+
+• S-Class access remains active until the end of the current billing period
+• No partial refunds are issued
+• No additional charges occur
+• Subscription auto-expires at period end
+• User is downgraded to Free only after expiration
+
+UI Requirements
+
+Display: “Active until [date]” after cancellation
+
+Clearly communicate continued access during remaining period
+
+Do NOT revoke benefits early
+
+State Machine
+
+Active → Canceled (Pending Expiry) → Expired → Free
+
+2️⃣ Downgrade Empathy Messaging (1-Star Review Prevention)
+
+Trigger
+After successful cancellation confirmation.
+
+Screen Content
+
+Title
+
+You’re Always Welcome Back
+
+Message
+
+Thanks for being part of AniRealm.
+Your progress, identity badge, and history remain safe.
+
+Reassurance Points
+• No progress loss
+• No retroactive paywalls
+• S-Class identity badge remains visible
+• Free play continues without penalty
+
+CTA
+
+Return to the Realm
+
+Rules
+
+No guilt language
+
+No re-upsell on this screen
+
+Show once per cancellation
+
+3️⃣ S-Class Price Anchors (Monthly vs Yearly)
+
+Pricing Structure
+
+S-Class Monthly:
+• $9.99 / month
+
+S-Class Yearly:
+• $79.99 / year
+• Save ~33% vs monthly
+• Best Value
+
+
+Display Rules
+
+Monthly selected by default
+
+Yearly visually highlighted as “Best Value”
+
+Show savings clearly in absolute terms
+
+Compliance
+
+Clearly state renewal terms
+
+Annual billed upfront
+
+Cancel anytime language included
+
+4️⃣ HARD LOCK — What S-Class Will NEVER Include (Non-Negotiable)
+
+S-Class will NEVER:
+
+• Guarantee rare or legendary drops
+• Provide cash-equivalent or withdrawable rewards
+• Affect competitive fairness or rankings
+• Enable pay-to-win mechanics
+• Bypass cooldowns, caps, or safety rules
+• Grant exclusive relic power
+
+Implementation Rules
+
+Enforce in code
+
+No feature flags may override
+
+Treat as permanent constraints
+
+🔐 SYSTEM NOTES (CRITICAL)
+• Never trap users in cancellation flows
+• All save offers must be optional
+• All bonuses must be non-repeatable
+• Log all subscription state transitions
+• Respect App Store & Play Store billing behavior

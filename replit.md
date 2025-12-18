@@ -128,3 +128,31 @@ Preferred communication style: Simple, everyday language.
 - Generated images in `attached_assets/generated_images/`
 - Dicebear API for avatar generation fallbacks
 - Meta image plugin for Open Graph tags with Replit domain detection
+
+## S-Class Monetization System
+
+**Subscription Options**
+- Monthly: $9.99/month (default)
+- Yearly: $79.99/year (~33% savings)
+
+**Subscription States**
+- `none`: No subscription
+- `active`: Active subscription
+- `canceled_pending_expiry`: Canceled but access continues until billing period ends
+- `expired`: Subscription ended, downgraded to free
+
+**Retention System**
+- Cancellation-Save Screen: Intercepts cancellation once, offers save bonus (+200 tokens) or yearly switch
+- Downgrade Empathy Modal: Shows "You're Always Welcome Back" with reassurance points
+- Retention bonus is one-time per account lifetime
+
+**HARD LOCK RULES (Non-Negotiable)**
+S-Class will NEVER:
+1. Guarantee rare or legendary drops
+2. Provide cash-equivalent or withdrawable rewards
+3. Affect competitive fairness or rankings
+4. Enable pay-to-win mechanics
+5. Bypass cooldowns, caps, or safety rules
+6. Grant exclusive relic power
+
+These constraints are permanent and cannot be overridden by feature flags.
