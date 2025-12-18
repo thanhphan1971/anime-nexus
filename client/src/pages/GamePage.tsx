@@ -18,8 +18,21 @@ import {
   useGameEvents,
   useUpdateTutorial
 } from "@/lib/api";
-import { Zap, Shield, Flame, Clock, Trophy, Share2, Sparkles, AlertTriangle, Target, Calendar, Users, BookOpen, Info, Lock, ChevronDown, ChevronUp } from "lucide-react";
+import { Zap, Shield, Flame, Clock, Trophy, Share2, Sparkles, AlertTriangle, Target, Calendar, Users, BookOpen, Info, Lock, ChevronDown, ChevronUp, Coins, Crown } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { Link } from "wouter";
+
+// Analytics tracking for purchase CTAs
+const trackCTAEvent = (eventName: string, context: {
+  userType: 'free' | 's-class';
+  reason: 'runs_used' | 'token_cap';
+  device: 'mobile' | 'desktop';
+}) => {
+  // Track to console for now - can be replaced with actual analytics service
+  console.log(`[Analytics] ${eventName}`, context);
+  // Future: send to analytics service
+  // analytics.track(eventName, context);
+};
 
 import stableSigil from "@assets/generated_images/stable_fracture_blue_sigil.png";
 import volatileSigil from "@assets/generated_images/volatile_fracture_purple_sigil.png";
@@ -391,6 +404,26 @@ function TrialSelection({
   onTutorialRewardedDismiss, showTutorialPracticeOnly, onTutorialPracticeOnlyDismiss, onModeChange
 }: any) {
   const [mobileStatusExpanded, setMobileStatusExpanded] = useState(false);
+  const [ctaShownTracked, setCtaShownTracked] = useState(false);
+  
+  // Reset tracking when user regains rewarded access (so we can track again when they hit cap next time)
+  useEffect(() => {
+    if (!status?.isPracticeOnly && ctaShownTracked) {
+      setCtaShownTracked(false);
+    }
+  }, [status?.isPracticeOnly, ctaShownTracked]);
+  
+  // Track CTA shown when isPracticeOnly becomes true
+  useEffect(() => {
+    if (status?.isPracticeOnly && !ctaShownTracked) {
+      trackCTAEvent('cta_shown_after_cap', {
+        userType: status?.isSClass ? 's-class' : 'free',
+        reason: status?.tokensEarnedToday >= status?.dailyTokenCap ? 'token_cap' : 'runs_used',
+        device: isMobile ? 'mobile' : 'desktop'
+      });
+      setCtaShownTracked(true);
+    }
+  }, [status?.isPracticeOnly, status?.isSClass, status?.tokensEarnedToday, status?.dailyTokenCap, isMobile, ctaShownTracked]);
 
   const trials = [
     { 
@@ -516,6 +549,35 @@ function TrialSelection({
                     {getPracticeOnlyReason()}
                   </div>
                 )}
+                
+                {/* CTA for mobile - only when isPracticeOnly */}
+                {isPracticeOnly && (
+                  <div className="mt-4 pt-3 border-t border-gray-600/30" data-testid="mobile-purchase-cta">
+                    <p className="text-gray-400 text-sm mb-2">Want to progress faster?</p>
+                    <Link href="/tokens">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="w-full border-cyan-500/50 text-cyan-300 hover:bg-cyan-500/20"
+                        onClick={() => {
+                          trackCTAEvent('cta_clicked_after_cap', {
+                            userType: status?.isSClass ? 's-class' : 'free',
+                            reason: status?.tokensEarnedToday >= status?.dailyTokenCap ? 'token_cap' : 'runs_used',
+                            device: 'mobile'
+                          });
+                        }}
+                        data-testid="btn-get-tokens-mobile"
+                      >
+                        <Coins className="w-4 h-4 mr-2" />
+                        Get Tokens
+                      </Button>
+                    </Link>
+                    <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
+                      <Crown className="w-3 h-3" />
+                      S-Class members earn more each day.
+                    </p>
+                  </div>
+                )}
               </motion.div>
             )}
           </div>
@@ -554,6 +616,37 @@ function TrialSelection({
             {isPracticeOnly && (
               <div className="mt-3 text-sm text-yellow-400 bg-yellow-500/10 p-2 rounded" data-testid="desktop-practice-only-reason">
                 {getPracticeOnlyReason()}
+              </div>
+            )}
+            
+            {/* CTA for desktop - only when isPracticeOnly */}
+            {isPracticeOnly && (
+              <div className="mt-4 pt-4 border-t border-gray-600/30 flex items-center justify-between" data-testid="desktop-purchase-cta">
+                <div>
+                  <p className="text-gray-300 text-sm">Want to progress faster?</p>
+                  <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
+                    <Crown className="w-3 h-3" />
+                    S-Class members earn more each day.
+                  </p>
+                </div>
+                <Link href="/tokens">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="border-cyan-500/50 text-cyan-300 hover:bg-cyan-500/20"
+                    onClick={() => {
+                      trackCTAEvent('cta_clicked_after_cap', {
+                        userType: status?.isSClass ? 's-class' : 'free',
+                        reason: status?.tokensEarnedToday >= status?.dailyTokenCap ? 'token_cap' : 'runs_used',
+                        device: 'desktop'
+                      });
+                    }}
+                    data-testid="btn-get-tokens-desktop"
+                  >
+                    <Coins className="w-4 h-4 mr-2" />
+                    Get Tokens
+                  </Button>
+                </Link>
               </div>
             )}
           </CardContent>
@@ -596,33 +689,54 @@ function TrialSelection({
           </div>
         )}
 
-        {/* Rewarded Button */}
-        <Button
-          variant={!isPractice ? 'default' : 'outline'}
-          size="lg"
-          className={`${isMobile ? 'w-full py-6' : 'px-8 py-6'} flex flex-col items-center gap-1 ${
-            isPracticeOnly 
-              ? 'opacity-50 cursor-not-allowed bg-gray-700 border-gray-500' 
-              : !isPractice 
-                ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700' 
-                : 'border-green-500/50 text-green-300 hover:bg-green-500/20'
-          }`}
-          onClick={() => !isPracticeOnly && onModeChange(false)}
-          disabled={isPracticeOnly}
-          data-testid="btn-mode-rewarded"
-        >
-          <div className="flex items-center gap-2">
-            {isPracticeOnly && <Lock className="w-4 h-4" />}
-            <Trophy className="w-5 h-5" />
-            <span className="font-bold">Rewarded (Earn Tokens)</span>
-          </div>
-          <span className="text-xs opacity-80">
-            {isPracticeOnly 
-              ? 'Unavailable: Daily reward limit reached' 
-              : 'Uses 1 rewarded game'
-            }
-          </span>
-        </Button>
+        {/* Rewarded Button with CTA below when disabled */}
+        <div className={`flex flex-col ${isMobile ? 'w-full' : ''}`}>
+          <Button
+            variant={!isPractice ? 'default' : 'outline'}
+            size="lg"
+            className={`${isMobile ? 'w-full py-6' : 'px-8 py-6'} flex flex-col items-center gap-1 ${
+              isPracticeOnly 
+                ? 'opacity-50 cursor-not-allowed bg-gray-700 border-gray-500' 
+                : !isPractice 
+                  ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700' 
+                  : 'border-green-500/50 text-green-300 hover:bg-green-500/20'
+            }`}
+            onClick={() => !isPracticeOnly && onModeChange(false)}
+            disabled={isPracticeOnly}
+            data-testid="btn-mode-rewarded"
+          >
+            <div className="flex items-center gap-2">
+              {isPracticeOnly && <Lock className="w-4 h-4" />}
+              <Trophy className="w-5 h-5" />
+              <span className="font-bold">Rewarded (Earn Tokens)</span>
+            </div>
+            <span className="text-xs opacity-80">
+              {isPracticeOnly 
+                ? 'Daily reward limit reached.' 
+                : 'Uses 1 rewarded game'
+              }
+            </span>
+          </Button>
+          
+          {/* CTA link below disabled Rewarded button */}
+          {isPracticeOnly && (
+            <Link href="/tokens">
+              <button 
+                className="w-full text-center text-sm text-cyan-400 hover:text-cyan-300 underline mt-2 transition-colors"
+                onClick={() => {
+                  trackCTAEvent('cta_clicked_after_cap', {
+                    userType: status?.isSClass ? 's-class' : 'free',
+                    reason: status?.tokensEarnedToday >= status?.dailyTokenCap ? 'token_cap' : 'runs_used',
+                    device: isMobile ? 'mobile' : 'desktop'
+                  });
+                }}
+                data-testid="link-get-tokens-button"
+              >
+                Get tokens to keep progressing
+              </button>
+            </Link>
+          )}
+        </div>
 
         {/* Practice Button */}
         <Button
@@ -755,6 +869,29 @@ function TrialSelection({
             >
               OK
             </Button>
+            
+            {/* Secondary CTA for tokens - subtle placement */}
+            <div className="pt-3 border-t border-gray-700/50 mt-2">
+              <Link href="/tokens">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="w-full text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10"
+                  onClick={() => {
+                    onTutorialPracticeOnlyDismiss(false);
+                    trackCTAEvent('cta_clicked_after_cap', {
+                      userType: status?.isSClass ? 's-class' : 'free',
+                      reason: status?.tokensEarnedToday >= status?.dailyTokenCap ? 'token_cap' : 'runs_used',
+                      device: isMobile ? 'mobile' : 'desktop'
+                    });
+                  }}
+                  data-testid="btn-get-tokens-modal"
+                >
+                  <Coins className="w-4 h-4 mr-2" />
+                  Get Tokens
+                </Button>
+              </Link>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
