@@ -19,8 +19,9 @@ export const DEFAULT_GAME_CONFIG = {
   // Social bonus
   socialBonusRuns: 1,
 
-  // Token economy caps
-  dailyTokenCap: 500, // max tokens earnable per day
+  // Token economy caps (per user type)
+  freeUserDailyTokenCap: 90, // free users max tokens per day
+  premiumUserDailyTokenCap: 210, // S-Class max tokens per day
   consolationRewardMin: 5,
   consolationRewardMax: 15,
 
@@ -168,8 +169,11 @@ export function getGameConfig(siteSettings?: Record<string, string>) {
     if (siteSettings.premium_user_rewarded_runs) {
       config.premiumUserRewardedRuns = parseInt(siteSettings.premium_user_rewarded_runs);
     }
-    if (siteSettings.daily_token_cap) {
-      config.dailyTokenCap = parseInt(siteSettings.daily_token_cap);
+    if (siteSettings.free_user_daily_token_cap) {
+      config.freeUserDailyTokenCap = parseInt(siteSettings.free_user_daily_token_cap);
+    }
+    if (siteSettings.premium_user_daily_token_cap) {
+      config.premiumUserDailyTokenCap = parseInt(siteSettings.premium_user_daily_token_cap);
     }
   }
 

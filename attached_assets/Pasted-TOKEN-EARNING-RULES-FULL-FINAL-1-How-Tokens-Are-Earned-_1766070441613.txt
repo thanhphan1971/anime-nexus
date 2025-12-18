@@ -1,0 +1,130 @@
+TOKEN EARNING RULES — FULL & FINAL
+1️⃣ How Tokens Are Earned
+
+Tokens are earned by playing rewarded Fracture Trial games.
+
+Only rewarded runs grant tokens
+
+Practice runs never grant tokens
+
+Token rewards are granted after a run is completed
+
+2️⃣ Daily Token Limits (Hard Caps)
+
+There is a maximum number of tokens you can earn per day, across all games combined.
+
+Free users: up to 90 tokens per day
+
+S-Class members: up to 210 tokens per day
+
+Once the daily cap is reached:
+
+No more tokens can be earned that day
+
+Games remain playable in Practice Mode
+
+The system will clearly indicate that the daily cap has been reached
+
+Daily limits reset automatically every day.
+
+3️⃣ Rewarded Runs Per Day
+
+Only a limited number of runs per day can reward tokens.
+
+User Type	Rewarded Runs / Day
+Free users	3
+S-Class members	6
+Optional share bonus	+1 rewarded run
+
+Rewarded runs are consumed only when tokens are granted
+
+If the daily token cap is reached first, remaining runs convert to Practice Mode
+
+4️⃣ Token Amount Per Run
+
+Token rewards vary by game mode and performance
+
+Rewards are not fixed
+
+The system ensures total daily earnings never exceed the daily cap
+
+5️⃣ What Happens If You Win More Than the Daily Cap
+
+It is possible for a run to calculate a reward that exceeds your remaining daily allowance.
+
+In that case:
+
+Only the remaining tokens up to the daily cap are deposited
+
+Any excess tokens are not added
+
+Excess tokens are not saved
+
+Excess tokens are not carried over
+
+Excess tokens are not rerolled
+
+Example:
+
+If you are at 85 / 90 tokens and win a run worth 30 tokens, only 5 tokens are added.
+
+6️⃣ No Rollover or Banking
+
+Daily token limits do not roll over
+
+Unused earning capacity is lost at reset
+
+Each day starts fresh at 0 / daily cap
+
+There is no banking, storage, or delayed payout of tokens.
+
+7️⃣ Practice Mode Rules
+
+Practice Mode is always available
+
+Unlimited plays
+
+No token rewards
+
+Used for learning, testing, or fun
+
+Automatically enabled when limits are reached
+
+8️⃣ Transparency & UI Indicators
+
+The game interface will show:
+
+Tokens earned today (e.g. 72 / 90)
+
+Remaining rewarded runs
+
+Clear labeling of Rewarded Run vs Practice Run
+
+No hidden mechanics.
+
+9️⃣ Economy Principle (Important)
+
+Daily token earning is designed to reward play,
+not to replace token purchases.
+
+Token packs remain the fastest way to progress.
+
+10️⃣ Changes & Adjustments
+
+Token limits, rewards, and run counts may be adjusted over time
+
+Any changes will be reflected in the game rules
+
+No changes apply retroactively
+
+✅ Summary (Plain English)
+
+You can earn tokens every day — up to a limit
+
+Limits are clear and visible
+
+Extra tokens don’t carry over
+
+You can always keep playing
+
+Spending saves time, not fun

@@ -2425,7 +2425,7 @@ export async function registerRoutes(
         baseRewardedRuns,
         practiceRunsUsed: stats?.practiceRunsUsed || 0,
         tokensEarnedToday: stats?.tokensEarnedToday || 0,
-        dailyTokenCap: config.dailyTokenCap,
+        dailyTokenCap: user.isPremium ? config.premiumUserDailyTokenCap : config.freeUserDailyTokenCap,
         socialBonusClaimed: stats?.socialBonusClaimed || false,
         eventEntriesUsed: stats?.eventEntriesUsed || 0,
         activeSession: activeSession || null,
@@ -2644,7 +2644,8 @@ export async function registerRoutes(
         const today = getTodayDate();
         const stats = await storage.getUserDailyGameStats(user.id, today);
         const tokensEarnedSoFar = stats?.tokensEarnedToday || 0;
-        const tokensLeftToday = Math.max(0, config.dailyTokenCap - tokensEarnedSoFar);
+        const userDailyTokenCap = user.isPremium ? config.premiumUserDailyTokenCap : config.freeUserDailyTokenCap;
+        const tokensLeftToday = Math.max(0, userDailyTokenCap - tokensEarnedSoFar);
 
         if (tokensLeftToday > 0) {
           if (outcome === 'critical_success') {
