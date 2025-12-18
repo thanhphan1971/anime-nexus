@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { PortalCharge } from "@/components/PortalRing";
 import { RarityFrame } from "@/components/RarityFrame";
 import { CardReveal } from "@/components/CardReveal";
+import { CrystalSigil } from "@/components/CrystalSigil";
 
 export default function FeedPage() {
   const { data: posts, isLoading } = usePosts();
@@ -207,10 +208,22 @@ export default function FeedPage() {
       </div>
     );
   }
+  const getCrystalState = (): "dormant" | "active" | "charged" => {
+    if (freeStatus && freeStatus.remainingToday > 0) return "active";
+    return "dormant";
+  };
+
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
-      {/* Page Header */}
+      {/* Page Header with Crystal Sigil */}
       <div className="text-center pb-2">
+        <div className="flex justify-center mb-3">
+          <CrystalSigil 
+            size={56} 
+            state={getCrystalState()} 
+            onClick={() => setLocation("/cards")}
+          />
+        </div>
         <h1 className="text-2xl font-display font-bold neon-text">HOME</h1>
         <p className="text-sm text-muted-foreground">Share your thoughts, discover posts, and connect with the anime community</p>
       </div>

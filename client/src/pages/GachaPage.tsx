@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { format } from "date-fns";
+import { CrystalSigil } from "@/components/CrystalSigil";
 
 type PullPhase = "idle" | "charging" | "reveal";
 type BannerType = "free" | "paid";
@@ -144,6 +145,12 @@ export default function GachaPage() {
       />
 
       <div className="text-center mb-6 z-10">
+        <div className="flex justify-center mb-4">
+          <CrystalSigil 
+            size={80} 
+            state={phase === "charging" ? "charged" : (canPull() ? "active" : "dormant")} 
+          />
+        </div>
         <h1 className="text-3xl md:text-5xl font-display font-black mb-2">
           <span className="bg-gradient-to-r from-purple-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
             CARD SUMMON
