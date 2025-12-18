@@ -325,7 +325,7 @@ export default function PremiumPage() {
                   disabled={cancelTrial.isPending}
                   data-testid="button-cancel-trial-inline"
                 >
-                  {cancelTrial.isPending ? "Canceling..." : "Cancel Trial"}
+                  {cancelTrial.isPending ? "Ending..." : "End Play Early"}
                 </Button>
                 <p className="text-xs text-center text-muted-foreground">
                   Auto-converts to $9.99/month if not canceled
