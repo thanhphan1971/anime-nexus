@@ -35,23 +35,22 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const navItems = baseNavItems;
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col relative">
+    <div className="min-h-screen text-foreground flex flex-col relative" style={{ backgroundColor: '#0a0a0f' }}>
       {/* Global Aurelith Background */}
       <div 
         className="fixed inset-0 pointer-events-none"
         style={{
-          zIndex: -1,
           backgroundImage: 'url(https://qxbvfdbetukguyvivwsf.supabase.co/storage/v1/object/public/media/ui/aurelith_bg_v1.1.jpg)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           backgroundAttachment: 'fixed',
           filter: 'blur(10px)',
-          opacity: 0.25,
+          opacity: 0.3,
         }}
       />
       <div 
         className="fixed inset-0 pointer-events-none"
-        style={{ zIndex: -1, backgroundColor: 'rgba(0,0,0,0.15)' }}
+        style={{ backgroundColor: 'rgba(0,0,0,0.15)' }}
       />
       <BetaBanner />
       <div className="flex flex-col md:flex-row flex-1">
