@@ -16,7 +16,7 @@ import {
   useCreateChroniclePost,
   useGameEvents
 } from "@/lib/api";
-import { Zap, Shield, Flame, Clock, Trophy, Share2, Sparkles, AlertTriangle, Target, Calendar, Users } from "lucide-react";
+import { Zap, Shield, Flame, Clock, Trophy, Share2, Sparkles, AlertTriangle, Target, Calendar, Users, BookOpen, Info } from "lucide-react";
 
 import stableSigil from "@assets/generated_images/stable_fracture_blue_sigil.png";
 import volatileSigil from "@assets/generated_images/volatile_fracture_purple_sigil.png";
@@ -251,12 +251,15 @@ export default function GamePage() {
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900/20 to-gray-900 p-4">
       <div className="max-w-4xl mx-auto">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 bg-gray-800/50 mb-6">
+          <TabsList className="grid w-full grid-cols-3 bg-gray-800/50 mb-6">
             <TabsTrigger value="play" className="data-[state=active]:bg-purple-600" data-testid="tab-play">
               <Zap className="w-4 h-4 mr-2" /> Play
             </TabsTrigger>
             <TabsTrigger value="events" className="data-[state=active]:bg-cyan-600" data-testid="tab-events">
               <Calendar className="w-4 h-4 mr-2" /> Events
+            </TabsTrigger>
+            <TabsTrigger value="rules" className="data-[state=active]:bg-yellow-600" data-testid="tab-rules">
+              <BookOpen className="w-4 h-4 mr-2" /> Rules
             </TabsTrigger>
           </TabsList>
 
@@ -304,6 +307,10 @@ export default function GamePage() {
 
           <TabsContent value="events">
             <EventsScreen events={eventsData} status={status} />
+          </TabsContent>
+
+          <TabsContent value="rules">
+            <RulesScreen status={status} />
           </TabsContent>
         </Tabs>
       </div>
@@ -821,5 +828,175 @@ function EventCard({ event, isLive = false }: { event: any; isLive?: boolean }) 
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function RulesScreen({ status }: { status: any }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="space-y-6"
+    >
+      <div className="text-center mb-8">
+        <h1 className="text-3xl font-bold bg-gradient-to-r from-yellow-400 via-orange-400 to-red-400 bg-clip-text text-transparent mb-2">
+          Game & Token Rules
+        </h1>
+        <p className="text-gray-400">Everything you need to know about earning tokens</p>
+      </div>
+
+      {status && (
+        <div className="flex flex-wrap gap-4 justify-center mb-6">
+          <Badge variant="outline" className="bg-gray-800/50 border-purple-500/30 text-purple-300 px-4 py-2">
+            <Trophy className="w-4 h-4 mr-2" />
+            {status.rewardedRunsRemaining} Rewarded Runs Left Today
+          </Badge>
+          <Badge variant="outline" className="bg-gray-800/50 border-cyan-500/30 text-cyan-300 px-4 py-2">
+            <Sparkles className="w-4 h-4 mr-2" />
+            {status.tokensEarnedToday}/{status.dailyTokenCap} Tokens Earned Today
+          </Badge>
+        </div>
+      )}
+
+      <div className="grid gap-4">
+        <Card className="bg-gray-800/50 border-purple-500/30">
+          <CardContent className="p-6">
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center flex-shrink-0">
+                <Sparkles className="w-5 h-5 text-purple-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-white mb-2">How You Earn Tokens</h3>
+                <ul className="text-gray-300 space-y-1 text-sm">
+                  <li>• You earn tokens by playing <strong className="text-purple-300">rewarded games</strong></li>
+                  <li>• Only rewarded games give tokens</li>
+                  <li>• Practice Mode lets you play unlimited, but gives no tokens</li>
+                </ul>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gray-800/50 border-cyan-500/30">
+          <CardContent className="p-6">
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 rounded-full bg-cyan-500/20 flex items-center justify-center flex-shrink-0">
+                <Clock className="w-5 h-5 text-cyan-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-white mb-2">Daily Token Limits</h3>
+                <ul className="text-gray-300 space-y-1 text-sm">
+                  <li>• <strong className="text-cyan-300">Free players:</strong> up to 90 tokens per day</li>
+                  <li>• <strong className="text-cyan-300">S-Class members:</strong> up to 210 tokens per day</li>
+                  <li>• This limit applies to all games combined</li>
+                  <li>• Once you reach your daily token limit, you cannot earn more that day</li>
+                </ul>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gray-800/50 border-yellow-500/30">
+          <CardContent className="p-6">
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center flex-shrink-0">
+                <Trophy className="w-5 h-5 text-yellow-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-white mb-2">Rewarded Games Per Day</h3>
+                <ul className="text-gray-300 space-y-1 text-sm">
+                  <li>• <strong className="text-yellow-300">Free players:</strong> up to 3 rewarded games per day</li>
+                  <li>• <strong className="text-yellow-300">S-Class members:</strong> up to 6 rewarded games per day</li>
+                  <li>• Some actions may give +1 extra rewarded game</li>
+                  <li>• You must have a rewarded game available to earn tokens</li>
+                </ul>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gray-800/50 border-red-500/30">
+          <CardContent className="p-6">
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0">
+                <AlertTriangle className="w-5 h-5 text-red-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-white mb-2">Important: Rewarded Games Are a Hard Limit</h3>
+                <ul className="text-gray-300 space-y-1 text-sm">
+                  <li>• If you play all your rewarded games for the day:</li>
+                  <li className="ml-4">- You cannot earn more tokens, even if you did not reach the daily token limit</li>
+                  <li className="ml-4">- You can keep playing in Practice Mode, but will not earn tokens</li>
+                </ul>
+                <div className="mt-3 p-3 bg-red-500/10 rounded-lg text-sm">
+                  <strong className="text-red-300">Example:</strong> A free player can earn up to 90 tokens per day.
+                  If they play all 3 rewarded games and earn 65 tokens, only 65 tokens are added.
+                  The remaining 25 tokens cannot be earned later.
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gray-800/50 border-orange-500/30">
+          <CardContent className="p-6">
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 rounded-full bg-orange-500/20 flex items-center justify-center flex-shrink-0">
+                <Info className="w-5 h-5 text-orange-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-white mb-2">What Happens If You Win More Than the Daily Limit</h3>
+                <ul className="text-gray-300 space-y-1 text-sm">
+                  <li>• Sometimes a game may give more tokens than you are allowed to earn</li>
+                  <li>• Only the tokens that fit within your daily limit are added</li>
+                  <li>• Any extra tokens are <strong className="text-orange-300">not added, not saved, and not carried over</strong></li>
+                </ul>
+                <div className="mt-3 p-3 bg-orange-500/10 rounded-lg text-sm">
+                  <strong className="text-orange-300">Example:</strong> If you are at 85/90 tokens and win 30 tokens, 
+                  only 5 tokens are added to reach the cap.
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gray-800/50 border-green-500/30">
+          <CardContent className="p-6">
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0">
+                <Zap className="w-5 h-5 text-green-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-white mb-2">Practice Mode</h3>
+                <ul className="text-gray-300 space-y-1 text-sm">
+                  <li>• <strong className="text-green-300">Unlimited play</strong> - play as much as you want</li>
+                  <li>• No token rewards</li>
+                  <li>• Always available, even when limits are reached</li>
+                  <li>• Perfect for learning, testing, or just having fun!</li>
+                </ul>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gray-800/50 border-blue-500/30">
+          <CardContent className="p-6">
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center flex-shrink-0">
+                <Clock className="w-5 h-5 text-blue-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-white mb-2">Daily Reset Time</h3>
+                <ul className="text-gray-300 space-y-1 text-sm">
+                  <li>• Token limits and rewarded games reset every day at <strong className="text-blue-300">00:00 UTC</strong></li>
+                  <li>• Tokens or games you did not use do not carry over</li>
+                  <li>• Each day starts fresh with full limits</li>
+                </ul>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </motion.div>
   );
 }
