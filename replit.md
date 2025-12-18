@@ -146,6 +146,13 @@ Preferred communication style: Simple, everyday language.
 - Downgrade Empathy Modal: Shows "You're Always Welcome Back" with reassurance points
 - Retention bonus is one-time per account lifetime
 
+**Reactivation Flow (Canceled → Active)**
+- Users in `canceled_pending_expiry` state see "S-Class active until [date]" on Premium page
+- "Reactivate S-Class" button available (one-tap, no nag)
+- Reactivation clears cancellation, keeps same end date (no free extension)
+- Auto-downgrade to `expired` when billing period ends
+- lastReactivateDate tracked for analytics
+
 **HARD LOCK RULES (Non-Negotiable)**
 S-Class will NEVER:
 1. Guarantee rare or legendary drops
