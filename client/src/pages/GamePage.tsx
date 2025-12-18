@@ -22,16 +22,22 @@ import { Zap, Shield, Flame, Clock, Trophy, Share2, Sparkles, AlertTriangle, Tar
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Link } from "wouter";
 
-// Analytics tracking for purchase CTAs
+// Analytics tracking for purchase CTAs and S-Class upsells
 const trackCTAEvent = (eventName: string, context: {
   userType: 'free' | 's-class';
   reason: 'runs_used' | 'token_cap';
   device: 'mobile' | 'desktop';
 }) => {
-  // Track to console for now - can be replaced with actual analytics service
   console.log(`[Analytics] ${eventName}`, context);
-  // Future: send to analytics service
-  // analytics.track(eventName, context);
+};
+
+// S-Class specific analytics tracking
+const trackSClassEvent = (eventName: string, context: {
+  userType: 'free' | 's-class';
+  reason: 'runs_used' | 'token_cap';
+  device: 'mobile' | 'desktop';
+}) => {
+  console.log(`[Analytics] ${eventName}`, context);
 };
 
 import stableSigil from "@assets/generated_images/stable_fracture_blue_sigil.png";
@@ -405,6 +411,21 @@ function TrialSelection({
 }: any) {
   const [mobileStatusExpanded, setMobileStatusExpanded] = useState(false);
   const [ctaShownTracked, setCtaShownTracked] = useState(false);
+  const [showSClassPanel, setShowSClassPanel] = useState(false);
+  const [sclassPanelShownTracked, setSclassPanelShownTracked] = useState(false);
+  
+  // Track S-Class panel viewed
+  const handleShowSClassPanel = () => {
+    setShowSClassPanel(true);
+    if (!sclassPanelShownTracked) {
+      trackSClassEvent('s_class_panel_viewed', {
+        userType: status?.isSClass ? 's-class' : 'free',
+        reason: status?.tokensEarnedToday >= status?.dailyTokenCap ? 'token_cap' : 'runs_used',
+        device: isMobile ? 'mobile' : 'desktop'
+      });
+      setSclassPanelShownTracked(true);
+    }
+  };
   
   // Reset tracking when user regains rewarded access (so we can track again when they hit cap next time)
   useEffect(() => {
@@ -550,32 +571,38 @@ function TrialSelection({
                   </div>
                 )}
                 
-                {/* CTA for mobile - only when isPracticeOnly */}
-                {isPracticeOnly && (
-                  <div className="mt-4 pt-3 border-t border-gray-600/30" data-testid="mobile-purchase-cta">
-                    <p className="text-gray-400 text-sm mb-2">Want to progress faster?</p>
-                    <Link href="/tokens">
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="w-full border-cyan-500/50 text-cyan-300 hover:bg-cyan-500/20"
-                        onClick={() => {
-                          trackCTAEvent('cta_clicked_after_cap', {
-                            userType: status?.isSClass ? 's-class' : 'free',
-                            reason: status?.tokensEarnedToday >= status?.dailyTokenCap ? 'token_cap' : 'runs_used',
-                            device: 'mobile'
-                          });
-                        }}
-                        data-testid="btn-get-tokens-mobile"
+                {/* S-Class upsell for mobile - only when isPracticeOnly and not already S-Class */}
+                {isPracticeOnly && !status?.isSClass && (
+                  <div className="mt-4 pt-3 border-t border-gray-600/30" data-testid="mobile-sclass-upsell">
+                    <p className="text-gray-300 text-sm mb-2">Want more rewards per day?</p>
+                    <p className="text-gray-400 text-xs mb-3">S-Class members get more rewarded games and a higher daily token limit.</p>
+                    <div className="flex flex-col gap-2">
+                      <Link href="/sclass">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="w-full border-purple-500/50 text-purple-300 hover:bg-purple-500/20"
+                          onClick={() => {
+                            trackSClassEvent('s_class_clicked_after_practice_only', {
+                              userType: 'free',
+                              reason: status?.tokensEarnedToday >= status?.dailyTokenCap ? 'token_cap' : 'runs_used',
+                              device: 'mobile'
+                            });
+                          }}
+                          data-testid="btn-upgrade-sclass-mobile"
+                        >
+                          <Crown className="w-4 h-4 mr-2" />
+                          Upgrade to S-Class
+                        </Button>
+                      </Link>
+                      <button 
+                        className="text-xs text-gray-400 hover:text-gray-300 underline"
+                        onClick={handleShowSClassPanel}
+                        data-testid="btn-learn-more-mobile"
                       >
-                        <Coins className="w-4 h-4 mr-2" />
-                        Get Tokens
-                      </Button>
-                    </Link>
-                    <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
-                      <Crown className="w-3 h-3" />
-                      S-Class members earn more each day.
-                    </p>
+                        Learn more
+                      </button>
+                    </div>
                   </div>
                 )}
               </motion.div>
@@ -619,34 +646,40 @@ function TrialSelection({
               </div>
             )}
             
-            {/* CTA for desktop - only when isPracticeOnly */}
-            {isPracticeOnly && (
-              <div className="mt-4 pt-4 border-t border-gray-600/30 flex items-center justify-between" data-testid="desktop-purchase-cta">
+            {/* S-Class upsell for desktop - only when isPracticeOnly and not already S-Class */}
+            {isPracticeOnly && !status?.isSClass && (
+              <div className="mt-4 pt-4 border-t border-gray-600/30 flex items-center justify-between" data-testid="desktop-sclass-upsell">
                 <div>
-                  <p className="text-gray-300 text-sm">Want to progress faster?</p>
-                  <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
-                    <Crown className="w-3 h-3" />
-                    S-Class members earn more each day.
-                  </p>
+                  <p className="text-gray-300 text-sm">Want more rewards per day?</p>
+                  <p className="text-xs text-gray-400 mt-1">S-Class members get more rewarded games and a higher daily token limit.</p>
                 </div>
-                <Link href="/tokens">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="border-cyan-500/50 text-cyan-300 hover:bg-cyan-500/20"
-                    onClick={() => {
-                      trackCTAEvent('cta_clicked_after_cap', {
-                        userType: status?.isSClass ? 's-class' : 'free',
-                        reason: status?.tokensEarnedToday >= status?.dailyTokenCap ? 'token_cap' : 'runs_used',
-                        device: 'desktop'
-                      });
-                    }}
-                    data-testid="btn-get-tokens-desktop"
+                <div className="flex items-center gap-3">
+                  <button 
+                    className="text-xs text-gray-400 hover:text-gray-300 underline"
+                    onClick={handleShowSClassPanel}
+                    data-testid="btn-learn-more-desktop"
                   >
-                    <Coins className="w-4 h-4 mr-2" />
-                    Get Tokens
-                  </Button>
-                </Link>
+                    Learn more
+                  </button>
+                  <Link href="/sclass">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="border-purple-500/50 text-purple-300 hover:bg-purple-500/20"
+                      onClick={() => {
+                        trackSClassEvent('s_class_clicked_after_practice_only', {
+                          userType: 'free',
+                          reason: status?.tokensEarnedToday >= status?.dailyTokenCap ? 'token_cap' : 'runs_used',
+                          device: 'desktop'
+                        });
+                      }}
+                      data-testid="btn-upgrade-sclass-desktop"
+                    >
+                      <Crown className="w-4 h-4 mr-2" />
+                      Upgrade to S-Class
+                    </Button>
+                  </Link>
+                </div>
               </div>
             )}
           </CardContent>
@@ -718,23 +751,18 @@ function TrialSelection({
             </span>
           </Button>
           
-          {/* CTA link below disabled Rewarded button */}
-          {isPracticeOnly && (
-            <Link href="/tokens">
+          {/* S-Class link below disabled Rewarded button - only for non-S-Class users */}
+          {isPracticeOnly && !status?.isSClass && (
+            <div className="flex flex-col items-center gap-1 mt-2">
+              <span className="text-xs text-gray-400">S-Class members earn more each day.</span>
               <button 
-                className="w-full text-center text-sm text-cyan-400 hover:text-cyan-300 underline mt-2 transition-colors"
-                onClick={() => {
-                  trackCTAEvent('cta_clicked_after_cap', {
-                    userType: status?.isSClass ? 's-class' : 'free',
-                    reason: status?.tokensEarnedToday >= status?.dailyTokenCap ? 'token_cap' : 'runs_used',
-                    device: isMobile ? 'mobile' : 'desktop'
-                  });
-                }}
-                data-testid="link-get-tokens-button"
+                className="text-sm text-purple-400 hover:text-purple-300 underline transition-colors"
+                onClick={handleShowSClassPanel}
+                data-testid="link-see-sclass-benefits"
               >
-                Get tokens to keep progressing
+                See S-Class benefits
               </button>
-            </Link>
+            </div>
           )}
         </div>
 
@@ -870,27 +898,104 @@ function TrialSelection({
               OK
             </Button>
             
-            {/* Secondary CTA for tokens - subtle placement */}
-            <div className="pt-3 border-t border-gray-700/50 mt-2">
-              <Link href="/tokens">
+            {/* S-Class upsell - subtle text only for non-S-Class users */}
+            {!status?.isSClass && (
+              <div className="pt-3 border-t border-gray-700/50 mt-2 text-center">
+                <p className="text-xs text-gray-400 mb-2">S-Class members get more rewarded games each day.</p>
+                <Link href="/sclass">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="text-purple-400 hover:text-purple-300 hover:bg-purple-500/10"
+                    onClick={() => {
+                      onTutorialPracticeOnlyDismiss(false);
+                      trackSClassEvent('s_class_clicked_after_practice_only', {
+                        userType: 'free',
+                        reason: status?.tokensEarnedToday >= status?.dailyTokenCap ? 'token_cap' : 'runs_used',
+                        device: isMobile ? 'mobile' : 'desktop'
+                      });
+                    }}
+                    data-testid="btn-see-sclass-modal"
+                  >
+                    <Crown className="w-4 h-4 mr-2" />
+                    See S-Class
+                  </Button>
+                </Link>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* S-Class Info Panel */}
+      <Dialog open={showSClassPanel} onOpenChange={setShowSClassPanel}>
+        <DialogContent className="bg-gray-900 border-purple-500/50 max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-purple-400 flex items-center gap-2">
+              <Crown className="w-5 h-5" />
+              S-Class at a Glance
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              S-Class membership benefits and comparison
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="bg-gray-800/50 p-3 rounded-lg">
+                <div className="text-gray-400 text-xs mb-1">Rewarded games per day</div>
+                <div className="flex items-center gap-2">
+                  <span className="text-purple-300 font-bold text-lg">6</span>
+                  <span className="text-gray-500 text-xs">(Free: 3)</span>
+                </div>
+              </div>
+              <div className="bg-gray-800/50 p-3 rounded-lg">
+                <div className="text-gray-400 text-xs mb-1">Daily token limit</div>
+                <div className="flex items-center gap-2">
+                  <span className="text-purple-300 font-bold text-lg">210</span>
+                  <span className="text-gray-500 text-xs">(Free: 90)</span>
+                </div>
+              </div>
+              <div className="bg-gray-800/50 p-3 rounded-lg">
+                <div className="text-gray-400 text-xs mb-1">Practice Mode</div>
+                <div className="text-white font-medium">Unlimited</div>
+                <div className="text-gray-500 text-xs">(same as Free)</div>
+              </div>
+              <div className="bg-gray-800/50 p-3 rounded-lg">
+                <div className="text-gray-400 text-xs mb-1">Daily reset</div>
+                <div className="text-white font-medium">00:00 UTC</div>
+              </div>
+            </div>
+            
+            <p className="text-sm text-gray-400 text-center">
+              S-Class helps you progress faster, but the game stays fair for everyone.
+            </p>
+
+            <div className="flex flex-col gap-2 pt-2">
+              <Link href="/sclass">
                 <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="w-full text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10"
+                  variant="outline" 
+                  className="w-full border-purple-500/50 text-purple-300 hover:bg-purple-500/20"
                   onClick={() => {
-                    onTutorialPracticeOnlyDismiss(false);
-                    trackCTAEvent('cta_clicked_after_cap', {
+                    setShowSClassPanel(false);
+                    trackSClassEvent('s_class_clicked_after_practice_only', {
                       userType: status?.isSClass ? 's-class' : 'free',
                       reason: status?.tokensEarnedToday >= status?.dailyTokenCap ? 'token_cap' : 'runs_used',
                       device: isMobile ? 'mobile' : 'desktop'
                     });
                   }}
-                  data-testid="btn-get-tokens-modal"
+                  data-testid="btn-upgrade-sclass-panel"
                 >
-                  <Coins className="w-4 h-4 mr-2" />
-                  Get Tokens
+                  <Crown className="w-4 h-4 mr-2" />
+                  Upgrade to S-Class
                 </Button>
               </Link>
+              <Button 
+                variant="ghost" 
+                onClick={() => setShowSClassPanel(false)}
+                data-testid="btn-close-sclass-panel"
+              >
+                Maybe Later
+              </Button>
             </div>
           </div>
         </DialogContent>

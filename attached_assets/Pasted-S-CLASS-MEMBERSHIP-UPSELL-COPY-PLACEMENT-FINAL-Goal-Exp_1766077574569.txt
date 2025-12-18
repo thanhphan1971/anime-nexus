@@ -1,0 +1,144 @@
+S-CLASS MEMBERSHIP — UPSELL COPY & PLACEMENT (FINAL)
+🎯 Goal
+
+Explain what S-Class changes and what it does NOT change, so users can decide calmly.
+
+No pressure.
+No tricks.
+No confusion.
+
+1️⃣ WHAT S-CLASS IS (PLAYER-FACING COPY)
+
+Use this exact wording wherever S-Class is explained.
+
+⭐ What Is S-Class?
+
+S-Class is an optional upgrade for players who want to progress faster.
+
+It gives you more rewards per day, but it does not remove limits and does not affect fairness.
+
+⭐ What You Get with S-Class
+
+More rewarded games each day
+(6 instead of 3)
+
+Higher daily token limit
+(210 tokens instead of 90)
+
+Faster progression without changing gameplay
+
+⭐ What S-Class Does NOT Do
+
+❌ Does not give unlimited tokens
+
+❌ Does not remove daily limits
+
+❌ Does not affect other players
+
+❌ Does not change game difficulty
+
+Everyone plays the same game.
+
+2️⃣ WHERE TO SHOW S-CLASS UPSELL (ONLY THESE PLACES)
+A) In “Practice Only” State (Primary)
+
+When the user reaches Practice Only mode, show this small, calm panel under the Daily Rewards Status box.
+
+Copy:
+
+Want more rewards per day?
+S-Class members get more rewarded games and a higher daily token limit.
+
+Buttons:
+
+Upgrade to S-Class (secondary emphasis)
+
+Learn more (optional)
+
+B) Under Disabled Rewarded Button (Secondary)
+
+When Rewarded is locked:
+
+Small text under the disabled button:
+
+“S-Class members earn more each day.”
+
+Link-style button:
+
+See S-Class benefits
+
+C) In “Rewards Used Up” Popup (Optional)
+
+At the bottom of the popup, small text only (not a button):
+
+“S-Class members get more rewarded games each day.”
+
+If a button is used:
+
+Label: See S-Class
+
+Secondary style only
+
+3️⃣ S-CLASS INFO PANEL (EXPANDABLE, OPTIONAL)
+
+When users tap Learn more or See S-Class benefits, show this short panel:
+
+⭐ S-Class at a Glance
+
+Rewarded games per day: 6 (Free: 3)
+
+Daily token limit: 210 (Free: 90)
+
+Practice Mode: Unlimited (same as Free)
+
+Daily reset: 00:00 UTC
+
+S-Class helps you progress faster, but the game stays fair for everyone.
+
+4️⃣ LANGUAGE RULES (VERY IMPORTANT)
+
+No “Buy now”
+
+No countdowns
+
+No fear language
+
+No “unlock everything”
+
+Use:
+
+“Progress faster”
+
+“More per day”
+
+“Optional upgrade”
+
+5️⃣ ANALYTICS (FOR YOU, NOT SHOWN TO USERS)
+
+Track:
+
+s_class_panel_viewed
+
+s_class_clicked_after_practice_only
+
+s_class_upgrade_completed
+
+Context:
+
+free vs paid
+
+device
+
+reached limit reason
+
+6️⃣ SUCCESS CRITERIA
+
+This upsell is successful if:
+
+Users understand S-Class without asking support
+
+Free users do not feel punished
+
+Some users upgrade calmly after hitting limits
+
+Retention does not drop
