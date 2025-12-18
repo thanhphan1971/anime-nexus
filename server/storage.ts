@@ -76,7 +76,7 @@ import {
   gameActivityLog,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, sql, desc, ne, inArray, lte, asc } from "drizzle-orm";
+import { eq, and, sql, desc, ne, inArray, lte, lt, asc } from "drizzle-orm";
 
 export interface IStorage {
   // User operations
@@ -1372,6 +1372,17 @@ export class DbStorage implements IStorage {
   }
 
   async getActiveSessionForUser(userId: string): Promise<GameSession | undefined> {
+    // First, auto-expire any sessions that have passed their expiration time
+    await db
+      .update(gameSessions)
+      .set({ status: 'expired', outcome: 'failure', completedAt: new Date() })
+      .where(and(
+        eq(gameSessions.userId, userId),
+        eq(gameSessions.status, 'active'),
+        lt(gameSessions.expiresAt, new Date())
+      ));
+    
+    // Now get the truly active session
     const result = await db
       .select()
       .from(gameSessions)
