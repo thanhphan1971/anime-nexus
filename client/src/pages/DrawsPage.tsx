@@ -15,6 +15,7 @@ import {
 import { motion } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
 import { Link } from "wouter";
+import { CrystalSigil } from "@/components/CrystalSigil";
 
 interface Draw {
   id: string;
@@ -117,6 +118,13 @@ function DrawSection({
     : 'from-purple-500/10 via-pink-500/10 to-yellow-500/10 border-purple-500/30';
   const accentColor = isWeekly ? 'cyan' : 'purple';
   const Icon = isWeekly ? Calendar : Star;
+  
+  const getCrystalState = (): "dormant" | "active" | "charged" => {
+    if (!draw) return "dormant";
+    if (draw.status === 'open') return "charged";
+    if (draw.status === 'upcoming') return "active";
+    return "dormant";
+  };
 
   const weeklyPrizes = [
     { name: '5,000 Tokens', type: 'tokens', icon: <Zap className="h-4 w-4" />, qty: '1 Winner' },
@@ -144,7 +152,7 @@ function DrawSection({
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <CardTitle className={`flex items-center gap-2 text-xl text-${accentColor}-400`}>
-              <Icon className="h-6 w-6" />
+              <CrystalSigil size={28} state={getCrystalState()} />
               {isWeekly ? 'Weekly Token Jackpot' : 'Monthly Card Giveaway'}
               {draw?.status === 'open' && (
                 <Badge className="ml-2 bg-green-500/20 text-green-400 text-xs">OPEN</Badge>
