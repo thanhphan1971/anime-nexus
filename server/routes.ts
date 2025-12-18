@@ -2392,24 +2392,99 @@ export async function registerRoutes(
     }
   });
 
-  // CTA A/B Testing variants
+  // ========================
+  // A/B TESTING SYSTEM (Spec-Compliant)
+  // ========================
+  
+  // Standard CTA copy variants (A/B testing - 3 specific tests per spec)
+  // Test 1: Headline Framing - "reached limit" vs "completed free runs"
+  // Test 2: Benefit Framing - "Upgrade to continue" vs "Unlock extended play"  
+  // Test 3: Tone - "Upgrade required" vs "S-Class members can continue"
   const CTA_VARIANTS = ['A', 'B', 'C'] as const;
   const CTA_COPY = {
-    A: { headline: "Want to progress faster?", style: 'speed' },
-    B: { headline: "Out of rewards for today?", style: 'time' },
-    C: { headline: "S-Class members earn more per day.", style: 'value' },
+    A: { 
+      headline: "You've reached today's limit", 
+      subtext: "Upgrade to continue",
+      buttonLabel: "See Benefits",
+      style: 'neutral'
+    },
+    B: { 
+      headline: "You've completed today's free runs", 
+      subtext: "Unlock extended play",
+      buttonLabel: "See Benefits",
+      style: 'positive'
+    },
+    C: { 
+      headline: "S-Class members can continue playing", 
+      subtext: "Get more rewarded games per day",
+      buttonLabel: "See Benefits",
+      style: 'supportive'
+    },
   };
   
-  // Event CTA variants (used during special events)
+  // Event CTA variants (presentation-only, no economy changes)
+  // Variant A: Soft Event Reminder (non-urgent, calm)
+  // Variant B: Progress-Oriented (informative)
+  // Variant C: Event Flavor (curiosity-driven)
   const EVENT_CTA_COPY = {
-    A: { headline: "Special Event Today — progress faster with tokens.", style: 'time_based' },
-    B: { headline: "Event Day! Keep going with extra tokens.", style: 'celebration' },
-    C: { headline: "Lots of players active today — tokens help you keep up.", style: 'community' },
+    A: { 
+      headline: "Fracture Surge Active — Continue Your Momentum", 
+      subtext: "Practice freely or unlock full runs",
+      buttonLabel: "Continue",
+      style: 'soft_reminder'
+    },
+    B: { 
+      headline: "You've reached today's limit — S-Class unlocks deeper runs", 
+      subtext: "Get more rewarded games and higher token limits",
+      buttonLabel: "See Benefits",
+      style: 'progress_oriented'
+    },
+    C: { 
+      headline: "Realm Alignment Event Live — Practice freely or unlock full runs", 
+      subtext: "S-Class members get extended access",
+      buttonLabel: "Explore Options",
+      style: 'event_flavor'
+    },
   };
+  
+  // First-Purchase Discount Copy (trust-preserving, subtle)
+  const FIRST_PURCHASE_COPY = {
+    headline: "First time here?",
+    subtext: "As a thank-you for trying AniRealm, you can unlock extended play at a reduced price.",
+    buttonLabel: "Unlock once",
+    footnote: "One-time offer · No recurring discount",
+  };
+  
+  // Discount parameters (per spec: 20%, specific products only)
+  const FIRST_PURCHASE_DISCOUNT_PERCENT = 20;
+  const FIRST_PURCHASE_ELIGIBLE_PRODUCTS = ['sclass_subscription', 'small_token_pack'];
+  
+  // Feature flags (can be overridden via site settings)
+  const getMonetizationFlags = (settingsMap: Record<string, any>) => ({
+    abTestsEnabled: settingsMap['monetization_ab_tests_enabled'] !== 'false',
+    discountsEnabled: settingsMap['monetization_discounts_enabled'] !== 'false',
+    eventCtasEnabled: settingsMap['monetization_event_ctas_enabled'] !== 'false',
+  });
   
   // Check if there's an active event (can be controlled via site settings)
-  const isEventActive = async (settingsMap: Record<string, any>) => {
+  const isEventActive = (settingsMap: Record<string, any>) => {
     return settingsMap['game_event_active'] === 'true' || settingsMap['game_event_active'] === true;
+  };
+  
+  // Check if CTA variant lock has expired (7 days per spec)
+  const isVariantLockExpired = (assignedAt: Date | null): boolean => {
+    if (!assignedAt) return true;
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    return assignedAt < sevenDaysAgo;
+  };
+  
+  // Check if first-purchase discount cooldown has expired (30 days per spec)
+  const isDiscountCooldownExpired = (declinedAt: Date | null): boolean => {
+    if (!declinedAt) return true;
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    return declinedAt < thirtyDaysAgo;
   };
 
   // Get user's daily game status
@@ -2426,6 +2501,7 @@ export async function registerRoutes(
       const allSettings = await storage.getAllSiteSettings();
       const settingsMap = Object.fromEntries(allSettings.map(s => [s.key, s.value]));
       const config = getGameConfig(settingsMap);
+      const monetizationFlags = getMonetizationFlags(settingsMap);
       
       const maxRewardedRuns = user.isPremium 
         ? config.premiumUserMaxRuns 
@@ -2447,19 +2523,57 @@ export async function registerRoutes(
       const now = new Date();
       const nextReset = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0));
       
-      // A/B Testing: Assign variant if not already assigned
-      let ctaVariantId = (user as any).ctaVariantId;
-      if (!ctaVariantId) {
-        // Randomly assign a variant (33/33/33 split)
-        ctaVariantId = CTA_VARIANTS[Math.floor(Math.random() * CTA_VARIANTS.length)];
+      // ========================
+      // ACTIVE DAYS TRACKING
+      // ========================
+      const lastActiveDate = (user as any).lastActiveDate;
+      let activeDays = (user as any).activeDays || 0;
+      const todayStart = new Date(today);
+      
+      // Count unique active days
+      if (!lastActiveDate || new Date(lastActiveDate).toISOString().split('T')[0] !== today) {
+        activeDays += 1;
         await storage.updateUser(user.id, { 
-          ctaVariantId,
-          ctaVariantAssignedAt: new Date()
+          activeDays,
+          lastActiveDate: todayStart
         });
       }
       
-      // Check event status
-      const eventActive = await isEventActive(settingsMap);
+      // ========================
+      // A/B TESTING (Spec-Compliant)
+      // ========================
+      let ctaVariantId = (user as any).ctaVariantId;
+      const ctaVariantAssignedAt = (user as any).ctaVariantAssignedAt;
+      
+      // Assign variant if: not assigned, or lock expired (7 days), or A/B tests disabled
+      if (monetizationFlags.abTestsEnabled) {
+        if (!ctaVariantId || isVariantLockExpired(ctaVariantAssignedAt)) {
+          // Randomly assign a variant (33/33/33 split)
+          ctaVariantId = CTA_VARIANTS[Math.floor(Math.random() * CTA_VARIANTS.length)];
+          await storage.updateUser(user.id, { 
+            ctaVariantId,
+            ctaVariantAssignedAt: new Date()
+          });
+        }
+      } else {
+        // A/B tests disabled - use default variant A
+        ctaVariantId = 'A';
+      }
+      
+      // ========================
+      // CTA SEEN COUNT (for first-purchase eligibility)
+      // ========================
+      let ctaSeenCount = (user as any).ctaSeenCount || 0;
+      // Increment when user reaches practice-only mode (cap reached)
+      if (isPracticeOnly) {
+        ctaSeenCount += 1;
+        await storage.updateUser(user.id, { ctaSeenCount });
+      }
+      
+      // ========================
+      // EVENT STATUS
+      // ========================
+      const eventActive = monetizationFlags.eventCtasEnabled && isEventActive(settingsMap);
       const eventName = settingsMap['game_event_name'] || null;
       
       // Get CTA copy based on variant and event status
@@ -2467,10 +2581,30 @@ export async function registerRoutes(
         ? EVENT_CTA_COPY[ctaVariantId as keyof typeof EVENT_CTA_COPY] || EVENT_CTA_COPY.A
         : CTA_COPY[ctaVariantId as keyof typeof CTA_COPY] || CTA_COPY.A;
       
-      // First-purchase discount eligibility
+      // ========================
+      // FIRST-PURCHASE DISCOUNT (Spec-Compliant)
+      // ========================
       const hasPurchased = (user as any).hasPurchased || false;
       const firstPurchaseDiscountUsed = (user as any).firstPurchaseDiscountUsed || false;
-      const firstPurchaseDiscountEligible = !hasPurchased && !firstPurchaseDiscountUsed && isPracticeOnly && !user.isPremium;
+      const firstPurchaseDiscountDeclinedAt = (user as any).firstPurchaseDiscountDeclinedAt;
+      
+      // Per spec: Only show discount if:
+      // - activeDays >= 2 (not on day 1)
+      // - ctaSeenCount >= 1 (seen at least 1 standard CTA)
+      // - !hasPurchased (never purchased)
+      // - !firstPurchaseDiscountUsed (not already used)
+      // - isPracticeOnly (cap reached)
+      // - !isPremium (not already S-Class)
+      // - cooldown expired (30 days since decline)
+      // - discounts enabled (feature flag)
+      const firstPurchaseDiscountEligible = monetizationFlags.discountsEnabled &&
+        activeDays >= 2 &&
+        ctaSeenCount >= 1 &&
+        !hasPurchased &&
+        !firstPurchaseDiscountUsed &&
+        isPracticeOnly &&
+        !user.isPremium &&
+        isDiscountCooldownExpired(firstPurchaseDiscountDeclinedAt);
 
       res.json({
         userId: user.id,
@@ -2504,9 +2638,37 @@ export async function registerRoutes(
         eventActive,
         eventName,
         hasPurchased,
+        activeDays,
+        ctaSeenCount,
+        // First-purchase discount
         firstPurchaseDiscountEligible,
-        firstPurchaseDiscountPercent: 15, // 15% discount for first purchase
+        firstPurchaseDiscountPercent: FIRST_PURCHASE_DISCOUNT_PERCENT,
+        firstPurchaseCopy: firstPurchaseDiscountEligible ? FIRST_PURCHASE_COPY : null,
+        firstPurchaseEligibleProducts: FIRST_PURCHASE_ELIGIBLE_PRODUCTS,
+        // Feature flags for admin/debugging
+        monetizationFlags,
       });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Decline first-purchase discount (30-day cooldown)
+  app.post("/api/game/decline-discount", verifySupabaseToken, async (req, res) => {
+    try {
+      const user = await storage.getUserBySupabaseId(req.supabaseUser!.id);
+      if (!user) return res.status(404).json({ error: "User not found" });
+
+      await storage.updateUser(user.id, {
+        firstPurchaseDiscountDeclinedAt: new Date()
+      });
+      
+      console.log(`[Analytics] first_purchase_discount_declined`, {
+        userId: user.id,
+        timestamp: new Date().toISOString()
+      });
+      
+      res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

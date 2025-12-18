@@ -39,9 +39,13 @@ export const users = pgTable("users", {
   tutorialPracticeOnlyDone: boolean("tutorial_practice_only_done").notNull().default(false),
   // A/B Testing and Monetization fields
   ctaVariantId: text("cta_variant_id"), // 'A', 'B', or 'C' for A/B testing
-  ctaVariantAssignedAt: timestamp("cta_variant_assigned_at"), // When variant was assigned
+  ctaVariantAssignedAt: timestamp("cta_variant_assigned_at"), // When variant was assigned (locked 7 days)
+  ctaSeenCount: integer("cta_seen_count").notNull().default(0), // Times user has seen standard CTA
+  activeDays: integer("active_days").notNull().default(0), // Days user has been active
+  lastActiveDate: timestamp("last_active_date"), // Last active date (for counting unique days)
   hasPurchased: boolean("has_purchased").notNull().default(false), // Has ever made a purchase
   firstPurchaseDiscountUsed: boolean("first_purchase_discount_used").notNull().default(false), // One-time discount used
+  firstPurchaseDiscountDeclinedAt: timestamp("first_purchase_discount_declined_at"), // When declined (30-day cooldown)
   firstPurchaseAt: timestamp("first_purchase_at"), // When first purchase was made
 });
 

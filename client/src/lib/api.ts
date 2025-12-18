@@ -630,6 +630,17 @@ export function useClaimSocialBonus() {
   });
 }
 
+export function useDeclineFirstPurchaseDiscount() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      apiCall("/api/game/decline-discount", { method: "POST" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["gameStatus"] });
+    },
+  });
+}
+
 export function useCreateChroniclePost() {
   const queryClient = useQueryClient();
   return useMutation({

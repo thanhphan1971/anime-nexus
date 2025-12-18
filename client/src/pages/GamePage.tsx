@@ -16,9 +16,10 @@ import {
   useClaimSocialBonus,
   useCreateChroniclePost,
   useGameEvents,
-  useUpdateTutorial
+  useUpdateTutorial,
+  useDeclineFirstPurchaseDiscount
 } from "@/lib/api";
-import { Zap, Shield, Flame, Clock, Trophy, Share2, Sparkles, AlertTriangle, Target, Calendar, Users, BookOpen, Info, Lock, ChevronDown, ChevronUp, Coins, Crown } from "lucide-react";
+import { Zap, Shield, Flame, Clock, Trophy, Share2, Sparkles, AlertTriangle, Target, Calendar, Users, BookOpen, Info, Lock, ChevronDown, ChevronUp, Coins, Crown, X } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Link } from "wouter";
 
@@ -427,6 +428,8 @@ function TrialSelection({
   const [ctaShownTracked, setCtaShownTracked] = useState(false);
   const [showSClassPanel, setShowSClassPanel] = useState(false);
   const [sclassPanelShownTracked, setSclassPanelShownTracked] = useState(false);
+  const [ctaDismissed, setCtaDismissed] = useState(false);
+  const declineDiscount = useDeclineFirstPurchaseDiscount();
   
   // Track S-Class panel viewed
   const handleShowSClassPanel = () => {
@@ -587,9 +590,27 @@ function TrialSelection({
                   </div>
                 )}
                 
-                {/* CTA for mobile - uses A/B tested copy, event variants, and first-purchase discount */}
-                {isPracticeOnly && !status?.isSClass && (
-                  <div className="mt-4 pt-3 border-t border-gray-600/30" data-testid="mobile-sclass-upsell">
+                {/* CTA for mobile - spec-compliant with dismiss button and dynamic copy */}
+                {isPracticeOnly && !status?.isSClass && !ctaDismissed && (
+                  <div className="mt-4 pt-3 border-t border-gray-600/30 relative" data-testid="mobile-sclass-upsell">
+                    {/* Dismiss button (always visible per spec) */}
+                    <button 
+                      className="absolute top-3 right-0 text-gray-400 hover:text-gray-300 p-1"
+                      onClick={() => {
+                        setCtaDismissed(true);
+                        trackCTAEvent('cta_dismissed', {
+                          userType: 'free',
+                          reason: status?.tokensEarnedToday >= status?.dailyTokenCap ? 'token_cap' : 'runs_used',
+                          device: 'mobile',
+                          ctaVariantId: status?.ctaVariantId,
+                          eventActive: status?.eventActive
+                        });
+                      }}
+                      data-testid="btn-dismiss-cta-mobile"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                    
                     {/* Event badge */}
                     {status?.eventActive && (
                       <Badge className="mb-2 bg-gradient-to-r from-orange-500 to-pink-500 text-white" data-testid="event-badge-mobile">
@@ -598,32 +619,49 @@ function TrialSelection({
                     )}
                     
                     {/* Dynamic CTA headline from A/B test */}
-                    <p className="text-gray-300 text-sm mb-2">{status?.ctaCopy?.headline || 'Want more rewards per day?'}</p>
-                    <p className="text-gray-400 text-xs mb-3">S-Class members get more rewarded games and a higher daily token limit.</p>
+                    <p className="text-gray-300 text-sm mb-1 pr-6">{status?.ctaCopy?.headline || "You've completed today's free runs"}</p>
+                    <p className="text-gray-400 text-xs mb-3">{status?.ctaCopy?.subtext || 'Unlock extended play'}</p>
                     
-                    {/* First-purchase discount banner */}
-                    {status?.firstPurchaseDiscountEligible && (
-                      <div className="mb-3 p-2 bg-gradient-to-r from-green-900/30 to-emerald-900/30 border border-green-500/30 rounded-lg" data-testid="first-purchase-discount-mobile">
-                        <p className="text-green-300 text-xs font-medium">First purchase bonus — {status?.firstPurchaseDiscountPercent}% off</p>
-                        <p className="text-green-400/70 text-xs">A small thank-you for supporting the game.</p>
+                    {/* First-purchase discount banner (spec-compliant copy) */}
+                    {status?.firstPurchaseDiscountEligible && status?.firstPurchaseCopy && (
+                      <div className="mb-3 p-2 bg-gradient-to-r from-green-900/30 to-emerald-900/30 border border-green-500/30 rounded-lg relative" data-testid="first-purchase-discount-mobile">
+                        {/* Decline button for discount */}
+                        <button 
+                          className="absolute top-2 right-2 text-green-400 hover:text-green-300 p-1"
+                          onClick={() => {
+                            declineDiscount.mutate();
+                            trackFirstPurchaseEvent('first_purchase_discount_declined', {
+                              userType: 'free',
+                              reason: status?.tokensEarnedToday >= status?.dailyTokenCap ? 'token_cap' : 'runs_used',
+                              device: 'mobile',
+                              discountPercent: status?.firstPurchaseDiscountPercent || 20
+                            });
+                          }}
+                          data-testid="btn-decline-discount-mobile"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                        <p className="text-green-300 text-xs font-medium pr-6">{status.firstPurchaseCopy.headline}</p>
+                        <p className="text-green-400/70 text-xs mb-2">{status.firstPurchaseCopy.subtext}</p>
                         <Link href="/tokens">
                           <Button 
                             size="sm" 
-                            className="w-full mt-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+                            className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
                             onClick={() => {
                               trackFirstPurchaseEvent('first_purchase_discount_clicked', {
                                 userType: 'free',
                                 reason: status?.tokensEarnedToday >= status?.dailyTokenCap ? 'token_cap' : 'runs_used',
                                 device: 'mobile',
-                                discountPercent: status?.firstPurchaseDiscountPercent || 15
+                                discountPercent: status?.firstPurchaseDiscountPercent || 20
                               });
                             }}
                             data-testid="btn-first-purchase-mobile"
                           >
                             <Coins className="w-4 h-4 mr-2" />
-                            Get First-Purchase Bonus
+                            {status.firstPurchaseCopy.buttonLabel}
                           </Button>
                         </Link>
+                        <p className="text-green-400/50 text-xs mt-2 text-center">{status.firstPurchaseCopy.footnote}</p>
                       </div>
                     )}
                     
@@ -645,7 +683,7 @@ function TrialSelection({
                           data-testid="btn-upgrade-sclass-mobile"
                         >
                           <Crown className="w-4 h-4 mr-2" />
-                          Upgrade to S-Class
+                          {status?.ctaCopy?.buttonLabel || 'See Benefits'}
                         </Button>
                       </Link>
                       <button 
@@ -699,9 +737,27 @@ function TrialSelection({
               </div>
             )}
             
-            {/* CTA for desktop - uses A/B tested copy, event variants, and first-purchase discount */}
-            {isPracticeOnly && !status?.isSClass && (
-              <div className="mt-4 pt-4 border-t border-gray-600/30" data-testid="desktop-sclass-upsell">
+            {/* CTA for desktop - spec-compliant with dismiss button and dynamic copy */}
+            {isPracticeOnly && !status?.isSClass && !ctaDismissed && (
+              <div className="mt-4 pt-4 border-t border-gray-600/30 relative" data-testid="desktop-sclass-upsell">
+                {/* Dismiss button (always visible per spec) */}
+                <button 
+                  className="absolute top-4 right-0 text-gray-400 hover:text-gray-300 p-1"
+                  onClick={() => {
+                    setCtaDismissed(true);
+                    trackCTAEvent('cta_dismissed', {
+                      userType: 'free',
+                      reason: status?.tokensEarnedToday >= status?.dailyTokenCap ? 'token_cap' : 'runs_used',
+                      device: 'desktop',
+                      ctaVariantId: status?.ctaVariantId,
+                      eventActive: status?.eventActive
+                    });
+                  }}
+                  data-testid="btn-dismiss-cta-desktop"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+                
                 {/* Event badge */}
                 {status?.eventActive && (
                   <Badge className="mb-3 bg-gradient-to-r from-orange-500 to-pink-500 text-white" data-testid="event-badge-desktop">
@@ -709,39 +765,58 @@ function TrialSelection({
                   </Badge>
                 )}
                 
-                {/* First-purchase discount banner */}
-                {status?.firstPurchaseDiscountEligible && (
-                  <div className="mb-4 p-3 bg-gradient-to-r from-green-900/30 to-emerald-900/30 border border-green-500/30 rounded-lg flex items-center justify-between" data-testid="first-purchase-discount-desktop">
-                    <div>
-                      <p className="text-green-300 text-sm font-medium">First purchase bonus — {status?.firstPurchaseDiscountPercent}% off</p>
-                      <p className="text-green-400/70 text-xs">A small thank-you for supporting the game.</p>
+                {/* First-purchase discount banner (spec-compliant copy) */}
+                {status?.firstPurchaseDiscountEligible && status?.firstPurchaseCopy && (
+                  <div className="mb-4 p-3 bg-gradient-to-r from-green-900/30 to-emerald-900/30 border border-green-500/30 rounded-lg relative" data-testid="first-purchase-discount-desktop">
+                    {/* Decline button for discount */}
+                    <button 
+                      className="absolute top-3 right-3 text-green-400 hover:text-green-300 p-1"
+                      onClick={() => {
+                        declineDiscount.mutate();
+                        trackFirstPurchaseEvent('first_purchase_discount_declined', {
+                          userType: 'free',
+                          reason: status?.tokensEarnedToday >= status?.dailyTokenCap ? 'token_cap' : 'runs_used',
+                          device: 'desktop',
+                          discountPercent: status?.firstPurchaseDiscountPercent || 20
+                        });
+                      }}
+                      data-testid="btn-decline-discount-desktop"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                    <div className="flex items-center justify-between">
+                      <div className="pr-8">
+                        <p className="text-green-300 text-sm font-medium">{status.firstPurchaseCopy.headline}</p>
+                        <p className="text-green-400/70 text-xs">{status.firstPurchaseCopy.subtext}</p>
+                        <p className="text-green-400/50 text-xs mt-1">{status.firstPurchaseCopy.footnote}</p>
+                      </div>
+                      <Link href="/tokens">
+                        <Button 
+                          size="sm" 
+                          className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 whitespace-nowrap"
+                          onClick={() => {
+                            trackFirstPurchaseEvent('first_purchase_discount_clicked', {
+                              userType: 'free',
+                              reason: status?.tokensEarnedToday >= status?.dailyTokenCap ? 'token_cap' : 'runs_used',
+                              device: 'desktop',
+                              discountPercent: status?.firstPurchaseDiscountPercent || 20
+                            });
+                          }}
+                          data-testid="btn-first-purchase-desktop"
+                        >
+                          <Coins className="w-4 h-4 mr-2" />
+                          {status.firstPurchaseCopy.buttonLabel}
+                        </Button>
+                      </Link>
                     </div>
-                    <Link href="/tokens">
-                      <Button 
-                        size="sm" 
-                        className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
-                        onClick={() => {
-                          trackFirstPurchaseEvent('first_purchase_discount_clicked', {
-                            userType: 'free',
-                            reason: status?.tokensEarnedToday >= status?.dailyTokenCap ? 'token_cap' : 'runs_used',
-                            device: 'desktop',
-                            discountPercent: status?.firstPurchaseDiscountPercent || 15
-                          });
-                        }}
-                        data-testid="btn-first-purchase-desktop"
-                      >
-                        <Coins className="w-4 h-4 mr-2" />
-                        Get First-Purchase Bonus
-                      </Button>
-                    </Link>
                   </div>
                 )}
                 
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between pr-8">
                   <div>
                     {/* Dynamic CTA headline from A/B test */}
-                    <p className="text-gray-300 text-sm">{status?.ctaCopy?.headline || 'Want more rewards per day?'}</p>
-                    <p className="text-xs text-gray-400 mt-1">S-Class members get more rewarded games and a higher daily token limit.</p>
+                    <p className="text-gray-300 text-sm">{status?.ctaCopy?.headline || "You've completed today's free runs"}</p>
+                    <p className="text-xs text-gray-400 mt-1">{status?.ctaCopy?.subtext || 'Unlock extended play'}</p>
                   </div>
                   <div className="flex items-center gap-3">
                     <button 
@@ -768,7 +843,7 @@ function TrialSelection({
                         data-testid="btn-upgrade-sclass-desktop"
                       >
                         <Crown className="w-4 h-4 mr-2" />
-                        Upgrade to S-Class
+                        {status?.ctaCopy?.buttonLabel || 'See Benefits'}
                       </Button>
                     </Link>
                   </div>

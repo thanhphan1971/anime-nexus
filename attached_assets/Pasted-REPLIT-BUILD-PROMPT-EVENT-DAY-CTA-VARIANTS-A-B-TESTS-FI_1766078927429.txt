@@ -1,0 +1,265 @@
+REPLIT BUILD PROMPT — EVENT-DAY CTA VARIANTS, A/B TESTS, FIRST-PURCHASE LOGIC
+2️⃣ DESIGN EVENT-DAY CTA VARIANTS (PRESENTATION-ONLY)
+
+Objective
+Increase conversion without touching rewards, limits, or prices.
+
+Hard Rules (MANDATORY)
+
+Do NOT change:
+
+token caps
+
+reward values
+
+run limits
+
+prices
+
+Event CTAs are visual + copy only
+
+Event CTAs must auto-expire when event ends
+
+CTA Variant System
+
+Create a reusable CTA component with variant support.
+
+CTA Zones (Only these are allowed):
+
+Post-run screen (after cap reached)
+
+Home screen secondary banner
+
+Event modal (shown max 1× per event)
+
+Event CTA Variants (Define These)
+
+Variant A — Soft Event Reminder
+
+Text:
+
+“⚡ Fracture Surge Active — Continue Your Momentum”
+
+Button:
+
+“Continue”
+
+Tone: non-urgent, calm
+
+Variant B — Progress-Oriented
+
+Text:
+
+“You’ve reached today’s limit — S-Class unlocks deeper runs”
+
+Button:
+
+“See Benefits”
+
+Tone: informative
+
+Variant C — Event Flavor (No Pressure)
+
+Text:
+
+“Realm Alignment Event Live — Practice freely or unlock full runs”
+
+Button:
+
+“Explore Options”
+
+Tone: curiosity-driven
+
+UI Constraints
+
+No countdown timers
+
+No flashing or urgency language
+
+No price shown on CTA button itself
+
+CTA dismissible (close icon always visible)
+
+3️⃣ DEFINE A/B TESTS FOR CTA WORDING (SAFE ONLY)
+
+Objective
+Improve clarity and trust, not force conversion.
+
+A/B Test Framework
+
+Create a CTA Copy Experiment System with:
+
+Random assignment at user level
+
+Variant locked for 7 days per user
+
+Only 1 active CTA test at a time
+
+Allowed Test Dimensions
+
+You MAY test:
+
+CTA headline text
+
+CTA subtext explanation
+
+Button label wording
+
+You MAY NOT test:
+
+pricing
+
+caps
+
+rewards
+
+eligibility rules
+
+reset timing
+
+Initial A/B Tests to Implement
+Test 1 — Headline Framing
+
+A:
+
+“You’ve reached today’s limit”
+
+B:
+
+“You’ve completed today’s free runs”
+
+Test 2 — Benefit Framing
+
+A:
+
+“Upgrade to continue”
+
+B:
+
+“Unlock extended play”
+
+Test 3 — Neutral vs Supportive
+
+A:
+
+“Upgrade required to continue”
+
+B:
+
+“S-Class members can continue playing”
+
+Metrics to Track
+
+CTA impression → click rate
+
+Click → purchase conversion
+
+Dismiss rate
+
+Support tickets mentioning confusion (flagged)
+
+4️⃣ FIRST-PURCHASE DISCOUNT LOGIC (CAREFUL, POWERFUL)
+
+Objective
+Capture hesitant users once, without training them to wait for discounts.
+
+Core Rules (NON-NEGOTIABLE)
+
+Discount applies only once per account
+
+Only appears after cap is reached
+
+Never appears:
+
+on day 1
+
+before user hits cap
+
+more than once per user
+
+Discount expires silently (no countdown pressure)
+
+Discount Parameters
+
+Discount: 20% off
+
+Eligible products:
+
+S-Class subscription
+
+Small token pack only
+
+Excluded:
+
+bundles
+
+large packs
+
+renewals
+
+Trigger Conditions
+
+Show first-purchase offer ONLY if:
+
+User has hit daily cap
+
+User has ≥2 active days
+
+User has never purchased
+
+User has seen ≥1 standard CTA previously
+
+UI Copy (Subtle, Trust-Preserving)
+
+Headline
+
+“First time here?”
+
+Subtext
+
+“As a thank-you for trying AniRealm, you can unlock extended play at a reduced price.”
+
+Button
+
+“Unlock once”
+
+Footnote
+
+“One-time offer · No recurring discount”
+
+Abuse Protection
+
+One offer per user ID
+
+One offer per device fingerprint
+
+If declined, do NOT reshow for 30 days
+
+Never mention “limited time”
+
+🔒 GLOBAL SAFETY FLAGS (ENFORCE)
+
+All discounts logged
+
+All CTA variants logged
+
+Ability to disable:
+
+all discounts
+
+all A/B tests
+via feature flag
+
+✅ FINAL CHECK BEFORE SHIPPING
+
+Before deployment, verify:
+
+No economy values changed
+
+No copy implies punishment
+
+No urgency language
+
+All CTAs dismissible
+
+All experiments reversible
