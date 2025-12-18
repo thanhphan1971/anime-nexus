@@ -45,7 +45,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           backgroundPosition: 'center',
           backgroundAttachment: 'fixed',
           filter: 'blur(10px)',
-          opacity: 0.3,
+          opacity: 0.4,
         }}
       />
       <div 
