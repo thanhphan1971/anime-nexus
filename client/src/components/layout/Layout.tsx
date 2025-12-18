@@ -35,7 +35,23 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const navItems = baseNavItems;
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col">
+    <div className="min-h-screen bg-background text-foreground flex flex-col relative">
+      {/* Global Aurelith Background */}
+      <div 
+        className="fixed inset-0 pointer-events-none z-0"
+        style={{
+          backgroundImage: 'url(https://qxbvfdbetukguyvivwsf.supabase.co/storage/v1/object/public/media/ui/aurelith_bg_v1.1.jpg)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundAttachment: 'fixed',
+          filter: 'blur(10px)',
+          opacity: 0.07,
+        }}
+      />
+      <div 
+        className="fixed inset-0 pointer-events-none z-0"
+        style={{ backgroundColor: 'rgba(0,0,0,0.15)' }}
+      />
       <BetaBanner />
       <div className="flex flex-col md:flex-row flex-1">
       {/* Desktop Sidebar */}
