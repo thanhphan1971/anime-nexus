@@ -37,6 +37,12 @@ export const users = pgTable("users", {
   tutorialRewardedDone: boolean("tutorial_rewarded_done").notNull().default(false),
   tutorialFirstEarnDone: boolean("tutorial_first_earn_done").notNull().default(false),
   tutorialPracticeOnlyDone: boolean("tutorial_practice_only_done").notNull().default(false),
+  // A/B Testing and Monetization fields
+  ctaVariantId: text("cta_variant_id"), // 'A', 'B', or 'C' for A/B testing
+  ctaVariantAssignedAt: timestamp("cta_variant_assigned_at"), // When variant was assigned
+  hasPurchased: boolean("has_purchased").notNull().default(false), // Has ever made a purchase
+  firstPurchaseDiscountUsed: boolean("first_purchase_discount_used").notNull().default(false), // One-time discount used
+  firstPurchaseAt: timestamp("first_purchase_at"), // When first purchase was made
 });
 
 // Posts table

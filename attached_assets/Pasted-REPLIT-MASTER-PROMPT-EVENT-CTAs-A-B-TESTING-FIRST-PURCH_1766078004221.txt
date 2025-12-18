@@ -1,0 +1,251 @@
+REPLIT MASTER PROMPT — EVENT CTAs, A/B TESTING, FIRST-PURCHASE DISCOUNT (FINAL)
+🎯 Objective
+
+Improve monetization without harming trust by:
+
+gently adjusting CTA wording during special days
+
+testing CTA copy scientifically (not by gut feeling)
+
+offering a one-time, ethical first-purchase discount
+
+All systems must be optional, non-intrusive, and data-driven.
+
+PART 1️⃣ — EVENT-DAY CTA VARIANTS (NO ECONOMY BREAK)
+Purpose
+
+Increase motivation during special days (events, launches, milestones) without changing token caps or rules.
+
+Event Rules (NON-NEGOTIABLE)
+
+NO change to:
+
+daily token caps
+
+rewarded runs
+
+reset time
+
+Events affect presentation only, not rewards.
+
+Event CTA Behavior
+
+When event_active === true:
+
+Keep all rules identical
+
+Swap CTA wording only
+
+Event CTA Copy Variants (Safe)
+
+Use ONE at a time (never stack).
+
+Variant A — Time-Based
+
+“Special Event Today — progress faster with tokens.”
+
+Variant B — Celebration
+
+“Event Day! Keep going with extra tokens.”
+
+Variant C — Community
+
+“Lots of players active today — tokens help you keep up.”
+
+Buttons:
+
+Get Tokens
+
+See Event Info (optional)
+
+No urgency language.
+No countdowns.
+No false scarcity.
+
+Event CTA Placement
+
+Same locations as normal CTAs:
+
+Daily Rewards Status (Practice Only)
+
+Under disabled Rewarded button
+
+Rewards Used Up popup (secondary only)
+
+PART 2️⃣ — CTA A/B TESTING (CONTROLLED & SIMPLE)
+Purpose
+
+Learn which wording works without confusing users.
+
+Test Scope (STRICT)
+
+Test copy only
+
+Never test:
+
+prices
+
+limits
+
+rules
+
+button placement
+
+CTA Copy Variants (Example Set)
+
+Randomly assign users (50/50 or 33/33/33):
+
+Variant A (Speed)
+
+“Want to progress faster?”
+
+Variant B (Time)
+
+“Out of rewards for today?”
+
+Variant C (Value)
+
+“S-Class members earn more per day.”
+
+Button (same for all):
+
+Get Tokens
+
+A/B Assignment Rules
+
+Assign user to a variant on first CTA exposure
+
+Store cta_variant_id in user profile
+
+Do not reassign during test window
+
+Metrics to Track
+
+For each variant:
+
+CTA shown
+
+CTA clicked
+
+Purchase completed
+
+Retention next day
+
+Stop test after:
+
+minimum 7 days OR
+
+statistically meaningful sample
+
+Winner becomes default.
+
+PART 3️⃣ — FIRST-PURCHASE DISCOUNT (ONE-TIME, CONTROLLED)
+Purpose
+
+Help new spenders cross the psychological barrier
+WITHOUT training users to wait for discounts.
+
+Discount Rules (CRITICAL)
+
+Applies only once per user
+
+Applies only to first-ever purchase
+
+Discount range: 10–20% max
+
+Never shown after purchase
+
+Never shown before user hits a reward limit
+
+Discount Trigger
+
+User must:
+
+Be Free user
+
+Have has_purchased === false
+
+Be in Practice Only state (hit cap or used all runs)
+
+Discount Copy (Ethical)
+
+Text:
+
+“First purchase bonus — a small thank-you for supporting the game.”
+
+Button:
+
+Get First-Purchase Bonus
+
+No countdown.
+No fake urgency.
+No “limited time” lies.
+
+Discount Application Logic
+
+Apply discount automatically in checkout
+
+Display original price + discounted price clearly
+
+After purchase:
+
+set has_purchased = true
+
+permanently disable discount eligibility
+
+Post-Purchase Message
+
+After successful purchase, show:
+
+“Thanks for supporting AniRealm!
+Your tokens are ready — enjoy the game.”
+
+No upsell immediately after.
+
+PART 4️⃣ — ANALYTICS (REQUIRED)
+
+Track events:
+
+cta_shown
+
+cta_clicked
+
+purchase_completed
+
+first_purchase_discount_used
+
+cta_variant_id
+
+event_active
+
+Context:
+
+user type
+
+device
+
+reason for Practice Only
+
+variant ID
+
+PART 5️⃣ — SAFETY & ANTI-ABUSE
+
+Discount eligibility stored server-side
+
+Cannot be reset by reinstall
+
+Cannot be triggered multiple times
+
+Cannot stack with events
+
+PART 6️⃣ — ACCEPTANCE CHECKLIST
+
+Events never change earning rules
+
+Users never feel tricked
+
+Discounts never repeat
+
+CTA tests don’t alter UX structure
+
+Economy remains stable

@@ -2392,6 +2392,26 @@ export async function registerRoutes(
     }
   });
 
+  // CTA A/B Testing variants
+  const CTA_VARIANTS = ['A', 'B', 'C'] as const;
+  const CTA_COPY = {
+    A: { headline: "Want to progress faster?", style: 'speed' },
+    B: { headline: "Out of rewards for today?", style: 'time' },
+    C: { headline: "S-Class members earn more per day.", style: 'value' },
+  };
+  
+  // Event CTA variants (used during special events)
+  const EVENT_CTA_COPY = {
+    A: { headline: "Special Event Today — progress faster with tokens.", style: 'time_based' },
+    B: { headline: "Event Day! Keep going with extra tokens.", style: 'celebration' },
+    C: { headline: "Lots of players active today — tokens help you keep up.", style: 'community' },
+  };
+  
+  // Check if there's an active event (can be controlled via site settings)
+  const isEventActive = async (settingsMap: Record<string, any>) => {
+    return settingsMap['game_event_active'] === 'true' || settingsMap['game_event_active'] === true;
+  };
+
   // Get user's daily game status
   app.get("/api/game/status", verifySupabaseToken, async (req, res) => {
     try {
@@ -2426,10 +2446,36 @@ export async function registerRoutes(
       // Calculate next reset time (00:00 UTC tomorrow)
       const now = new Date();
       const nextReset = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0));
+      
+      // A/B Testing: Assign variant if not already assigned
+      let ctaVariantId = (user as any).ctaVariantId;
+      if (!ctaVariantId) {
+        // Randomly assign a variant (33/33/33 split)
+        ctaVariantId = CTA_VARIANTS[Math.floor(Math.random() * CTA_VARIANTS.length)];
+        await storage.updateUser(user.id, { 
+          ctaVariantId,
+          ctaVariantAssignedAt: new Date()
+        });
+      }
+      
+      // Check event status
+      const eventActive = await isEventActive(settingsMap);
+      const eventName = settingsMap['game_event_name'] || null;
+      
+      // Get CTA copy based on variant and event status
+      const ctaCopy = eventActive 
+        ? EVENT_CTA_COPY[ctaVariantId as keyof typeof EVENT_CTA_COPY] || EVENT_CTA_COPY.A
+        : CTA_COPY[ctaVariantId as keyof typeof CTA_COPY] || CTA_COPY.A;
+      
+      // First-purchase discount eligibility
+      const hasPurchased = (user as any).hasPurchased || false;
+      const firstPurchaseDiscountUsed = (user as any).firstPurchaseDiscountUsed || false;
+      const firstPurchaseDiscountEligible = !hasPurchased && !firstPurchaseDiscountUsed && isPracticeOnly && !user.isPremium;
 
       res.json({
         userId: user.id,
         isPremium: user.isPremium,
+        isSClass: user.isPremium, // Alias for frontend
         tokens: user.tokens,
         date: today,
         rewardedRunsUsed,
@@ -2452,6 +2498,14 @@ export async function registerRoutes(
           firstEarnDone: user.tutorialFirstEarnDone || false,
           practiceOnlyDone: user.tutorialPracticeOnlyDone || false,
         },
+        // A/B Testing and Monetization
+        ctaVariantId,
+        ctaCopy,
+        eventActive,
+        eventName,
+        hasPurchased,
+        firstPurchaseDiscountEligible,
+        firstPurchaseDiscountPercent: 15, // 15% discount for first purchase
       });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
