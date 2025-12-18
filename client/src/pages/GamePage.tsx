@@ -56,6 +56,7 @@ export default function GamePage() {
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const gameLoopRef = useRef<NodeJS.Timeout | null>(null);
+  const endGameCalledRef = useRef(false);
 
   const resetGame = useCallback(() => {
     setPhase('selection');
@@ -74,6 +75,8 @@ export default function GamePage() {
 
   const startGame = async (trialType: TrialType) => {
     try {
+      // Reset game state for new game
+      endGameCalledRef.current = false;
       const response = await startSession.mutateAsync({ trialType, isPractice });
       setCurrentSession(response.session);
       setTrialConfig(response.trialConfig);
@@ -138,8 +141,12 @@ export default function GamePage() {
       return p;
     }));
   };
-
+  
   const endGame = useCallback(async () => {
+    // Prevent multiple calls
+    if (endGameCalledRef.current) return;
+    endGameCalledRef.current = true;
+    
     if (timerRef.current) clearInterval(timerRef.current);
     if (gameLoopRef.current) clearTimeout(gameLoopRef.current);
 
