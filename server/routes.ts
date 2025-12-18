@@ -3230,7 +3230,7 @@ export async function registerRoutes(
       const user = await storage.getUserBySupabaseId(req.supabaseUser!.id);
       if (!user) return res.status(404).json({ error: "User not found" });
 
-      const { sessionId, clickCount = 0 } = req.body;
+      const { sessionId, clickCount = 0, forceEnd = false } = req.body;
       
       const session = await storage.getGameSession(sessionId);
       if (!session) return res.status(404).json({ error: "Session not found" });
@@ -3248,12 +3248,12 @@ export async function registerRoutes(
       const config = getGameConfig(settingsMap);
       const trialConfig = config.trials[session.trialType as keyof typeof config.trials];
 
-      // Session must be at least 3 seconds (anti-cheat minimum - allows ending early)
-      // and not more than trial duration + 15 seconds (grace period)
+      // Session must be at least 3 seconds (anti-cheat minimum)
+      // UNLESS forceEnd is true (user clicked "End Game Early" button)
       const MIN_SESSION_TIME = 3;
       const MAX_SESSION_TIME = trialConfig.duration + 15;
       
-      if (elapsedSeconds < MIN_SESSION_TIME) {
+      if (elapsedSeconds < MIN_SESSION_TIME && !forceEnd) {
         return res.status(400).json({ error: "Session completed too quickly", code: "TOO_FAST" });
       }
       

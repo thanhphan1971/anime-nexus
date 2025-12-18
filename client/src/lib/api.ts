@@ -593,7 +593,7 @@ export function useStartGameSession() {
 export function useCompleteGameSession() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: { sessionId: string; clickCount: number }) =>
+    mutationFn: (data: { sessionId: string; clickCount: number; forceEnd?: boolean }) =>
       apiCall("/api/game/complete", {
         method: "POST",
         body: JSON.stringify(data),

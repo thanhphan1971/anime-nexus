@@ -264,7 +264,7 @@ export default function GamePage() {
     }));
   };
   
-  const endGame = useCallback(async () => {
+  const endGame = useCallback(async (forceEnd: boolean = false) => {
     // Prevent multiple calls
     if (endGameCalledRef.current) return;
     endGameCalledRef.current = true;
@@ -278,6 +278,7 @@ export default function GamePage() {
         const response = await completeSession.mutateAsync({
           sessionId: currentSession.id,
           clickCount: fracturesStabilized, // Player's actual performance
+          forceEnd, // Allow early ending when user clicks "End Game Early"
         });
         // Use server-provided values for display
         setFracturesStabilized(response.fracturesStabilized || 0);
@@ -388,7 +389,7 @@ export default function GamePage() {
                   score={score}
                   status={status}
                   onFractureClick={handleFractureClick}
-                  onEndGame={endGame}
+                  onEndGame={() => endGame(true)}
                 />
               )}
 
@@ -1302,7 +1303,7 @@ function GameScreen({ trialConfig, session, timeLeft, fracturePoints, fracturesS
           onClick={onEndGame}
           data-testid="btn-end-game"
         >
-          End Trial Early
+          End Game Early
         </Button>
       </div>
     </motion.div>
