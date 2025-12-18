@@ -2526,6 +2526,12 @@ export async function registerRoutes(
           duration: trialConfig.duration,
           fractureCount: trialConfig.fractureCount,
           riskLevel: trialConfig.riskLevel,
+          // Gameplay mechanics for distinct trial feels
+          spawnDelay: trialConfig.spawnDelay,
+          windowMin: trialConfig.windowMin,
+          windowMax: trialConfig.windowMax,
+          maxConcurrent: trialConfig.maxConcurrent,
+          spawnAcceleration: trialConfig.spawnAcceleration,
         },
       });
     } catch (error: any) {
@@ -2534,14 +2540,14 @@ export async function registerRoutes(
   });
 
   // Complete a game session (server-authoritative outcome)
-  // Security: Outcomes and rewards are determined server-side only
-  // Client only reports session completion, server uses elapsed time and random seed
+  // Security: Outcomes incorporate player clicks but are validated server-side
+  // Click count is capped to prevent manipulation
   app.post("/api/game/complete", verifySupabaseToken, async (req, res) => {
     try {
       const user = await storage.getUserBySupabaseId(req.supabaseUser!.id);
       if (!user) return res.status(404).json({ error: "User not found" });
 
-      const { sessionId } = req.body;
+      const { sessionId, clickCount = 0 } = req.body;
       
       const session = await storage.getGameSession(sessionId);
       if (!session) return res.status(404).json({ error: "Session not found" });
@@ -2559,10 +2565,10 @@ export async function registerRoutes(
       const config = getGameConfig(settingsMap);
       const trialConfig = config.trials[session.trialType as keyof typeof config.trials];
 
-      // Session must be at least 10 seconds (anti-cheat minimum)
-      // and not more than 60 seconds old (expired sessions can't claim)
-      const MIN_SESSION_TIME = 10;
-      const MAX_SESSION_TIME = 60;
+      // Session must be at least 8 seconds (anti-cheat minimum - lowered for faster trials)
+      // and not more than trial duration + 15 seconds (grace period)
+      const MIN_SESSION_TIME = 8;
+      const MAX_SESSION_TIME = trialConfig.duration + 15;
       
       if (elapsedSeconds < MIN_SESSION_TIME) {
         return res.status(400).json({ error: "Session completed too quickly", code: "TOO_FAST" });
@@ -2581,21 +2587,48 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Session expired", code: "EXPIRED" });
       }
 
-      // Server-authoritative outcome determination using session seed
-      // The outcome is based on: session seed + trial config + time factor
-      // This prevents client manipulation
-      const seedHash = session.id.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-      const performanceRoll = ((seedHash * 9301 + 49297) % 233280) / 233280; // Seeded random
-      const outcomeRoll = Math.random(); // Fresh random for outcome
+      // Server-authoritative click validation
+      // Calculate maximum possible clicks based on elapsed time and spawn timing
+      // This prevents clients from reporting more clicks than physically possible
+      const spawnDelay = trialConfig.spawnDelay || 2500;
+      const spawnAccel = trialConfig.spawnAcceleration || 1.0;
+      const windowAvg = ((trialConfig.windowMin || 2000) + (trialConfig.windowMax || 3000)) / 2;
       
-      // Performance based on time engagement (more time = better performance simulation)
-      const timeEngagement = Math.min(1, (elapsedSeconds - MIN_SESSION_TIME) / (trialConfig.duration - MIN_SESSION_TIME));
-      const simulatedPerformance = (performanceRoll * 0.3 + timeEngagement * 0.7); // Weight toward time spent
+      // Calculate how many fractures could have spawned by now
+      let cumulativeTime = 600; // Initial delay before first spawn
+      let maxPossibleSpawns = 0;
+      let currentSpawnDelay = spawnDelay;
       
+      while (cumulativeTime < (elapsedSeconds * 1000) && maxPossibleSpawns < session.fracturesTotal) {
+        maxPossibleSpawns++;
+        currentSpawnDelay = Math.max(currentSpawnDelay * spawnAccel, 500);
+        cumulativeTime += currentSpawnDelay;
+      }
+      
+      // Cap clicks to what's physically possible given elapsed time
+      // Player needs time to react, so max clicks = spawns that appeared with enough window time
+      const fracturesWithFullWindow = Math.floor(Math.max(0, (elapsedSeconds * 1000 - 600) / Math.max(spawnDelay * 0.8, 500)));
+      const maxReasonableClicks = Math.min(maxPossibleSpawns, fracturesWithFullWindow, session.fracturesTotal);
+      
+      // Validate and cap client-reported clicks
+      const rawClickCount = Math.max(0, Math.floor(clickCount || 0));
+      const validatedClicks = Math.min(rawClickCount, maxReasonableClicks);
+      
+      // Performance calculation - server uses validated clicks with time-based weighting
+      // Clicks matter, but server validates against physical possibility
+      const clickPerformance = session.fracturesTotal > 0 ? validatedClicks / session.fracturesTotal : 0;
+      const timeEngagement = Math.min(1, elapsedSeconds / trialConfig.duration);
+      const randomFactor = Math.random();
+      
+      // Weight: validated clicks (50%), time engagement (25%), random luck (25%)
+      const combinedPerformance = (clickPerformance * 0.5) + (timeEngagement * 0.25) + (randomFactor * 0.25);
+      
+      // Outcome determination based on combined performance
       let outcome: 'success' | 'critical_success' | 'failure';
+      const outcomeRoll = Math.random();
       
-      if (simulatedPerformance >= 0.5) {
-        // Good performance
+      if (combinedPerformance >= 0.5) {
+        // Good performance - use full success rates
         if (outcomeRoll < trialConfig.criticalRate) {
           outcome = 'critical_success';
         } else if (outcomeRoll < trialConfig.successRate) {
@@ -2603,20 +2636,24 @@ export async function registerRoutes(
         } else {
           outcome = 'failure';
         }
-      } else if (simulatedPerformance >= 0.25) {
+      } else if (combinedPerformance >= 0.3) {
         // Moderate performance - reduced success rate
-        if (outcomeRoll < trialConfig.successRate * 0.5) {
+        if (outcomeRoll < trialConfig.successRate * 0.6) {
           outcome = 'success';
         } else {
           outcome = 'failure';
         }
       } else {
-        // Poor performance
-        outcome = 'failure';
+        // Poor performance - mostly failure
+        if (outcomeRoll < trialConfig.successRate * 0.2) {
+          outcome = 'success';
+        } else {
+          outcome = 'failure';
+        }
       }
 
-      // Server generates simulated fracture count
-      const fracturesStabilized = Math.floor(simulatedPerformance * session.fracturesTotal);
+      // Use player's actual clicks for display (feels fair)
+      const fracturesStabilized = validatedClicks;
 
       // Calculate rewards - only if session is rewarded and BEFORE daily cap check
       let tokensRewarded = 0;

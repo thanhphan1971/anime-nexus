@@ -25,10 +25,11 @@ export const DEFAULT_GAME_CONFIG = {
   consolationRewardMax: 15,
 
   // Trial types and their settings
+  // Each trial has distinct gameplay feel through spawn mechanics
   trials: {
     safe: {
       name: 'Safe Trial',
-      description: 'Low risk, small but guaranteed reward',
+      description: 'Slow and steady. Fractures appear one at a time with generous windows.',
       riskLevel: 'low',
       tokenCost: 0,
       rewardRange: { min: 10, max: 25 },
@@ -36,11 +37,17 @@ export const DEFAULT_GAME_CONFIG = {
       successRate: 0.85, // 85% success rate
       criticalRate: 0.15, // 15% of successes are critical
       duration: 20, // seconds
-      fractureCount: 3,
+      fractureCount: 5, // total fractures
+      // Gameplay mechanics
+      spawnDelay: 3500, // ms between spawns (slow)
+      windowMin: 3000, // min time to click (generous)
+      windowMax: 4000, // max time to click
+      maxConcurrent: 1, // only 1 active at a time
+      spawnAcceleration: 1.0, // no speedup
     },
     unstable: {
       name: 'Unstable Trial',
-      description: 'Medium risk, higher potential reward',
+      description: 'Faster pace with overlapping fractures. Stay alert!',
       riskLevel: 'medium',
       tokenCost: 0,
       rewardRange: { min: 25, max: 50 },
@@ -48,11 +55,17 @@ export const DEFAULT_GAME_CONFIG = {
       successRate: 0.65, // 65% success rate
       criticalRate: 0.20, // 20% of successes are critical
       duration: 25, // seconds
-      fractureCount: 4,
+      fractureCount: 8, // more fractures
+      // Gameplay mechanics
+      spawnDelay: 2500, // ms between spawns (medium)
+      windowMin: 2000, // tighter window
+      windowMax: 3000,
+      maxConcurrent: 2, // up to 2 active at once
+      spawnAcceleration: 0.92, // speeds up 8% each spawn
     },
     overcharged: {
       name: 'Overcharged Trial',
-      description: 'Token entry required. Highest risk, highest reward',
+      description: 'Chaos mode! Rapid spawns, short windows, multiple active fractures.',
       riskLevel: 'high',
       tokenCost: 25, // costs 25 tokens to enter
       rewardRange: { min: 50, max: 100 },
@@ -60,7 +73,13 @@ export const DEFAULT_GAME_CONFIG = {
       successRate: 0.45, // 45% success rate
       criticalRate: 0.25, // 25% of successes are critical
       duration: 30, // seconds
-      fractureCount: 5,
+      fractureCount: 12, // many fractures
+      // Gameplay mechanics
+      spawnDelay: 1800, // ms between spawns (fast)
+      windowMin: 1200, // very tight window
+      windowMax: 2000,
+      maxConcurrent: 3, // up to 3 active at once!
+      spawnAcceleration: 0.88, // speeds up 12% each spawn
     },
   },
 
@@ -107,6 +126,12 @@ export interface TrialConfig {
   criticalRate: number;
   duration: number;
   fractureCount: number;
+  // Gameplay mechanics
+  spawnDelay: number;
+  windowMin: number;
+  windowMax: number;
+  maxConcurrent: number;
+  spawnAcceleration: number;
 }
 
 // Helper to get config with site_settings overrides

@@ -77,22 +77,37 @@ export default function GamePage() {
     try {
       // Reset game state for new game
       endGameCalledRef.current = false;
+      setFracturesStabilized(0);
+      setScore(0);
+      
       const response = await startSession.mutateAsync({ trialType, isPractice });
       setCurrentSession(response.session);
       setTrialConfig(response.trialConfig);
       setTimeLeft(response.trialConfig.duration);
       setPhase('playing');
       
-      const initialPoints: FracturePoint[] = Array.from({ length: response.trialConfig.fractureCount }, (_, i) => ({
+      // Get gameplay parameters from config (with defaults for backward compat)
+      const { 
+        fractureCount = 5,
+        spawnDelay = 2500,
+        windowMin = 2000,
+        windowMax = 3000,
+        maxConcurrent = 1,
+        spawnAcceleration = 1.0,
+      } = response.trialConfig;
+      
+      // Generate all fracture points upfront with varied positions
+      const initialPoints: FracturePoint[] = Array.from({ length: fractureCount }, (_, i) => ({
         id: i,
-        x: 20 + Math.random() * 60,
-        y: 20 + Math.random() * 60,
+        x: 15 + Math.random() * 70, // Spread across arena
+        y: 15 + Math.random() * 70,
         active: false,
         stabilized: false,
-        window: 2000 + Math.random() * 1000,
+        window: windowMin + Math.random() * (windowMax - windowMin),
       }));
       setFracturePoints(initialPoints);
 
+      // Timer countdown
       timerRef.current = setInterval(() => {
         setTimeLeft(prev => {
           if (prev <= 1) {
@@ -103,28 +118,41 @@ export default function GamePage() {
         });
       }, 1000);
 
-      let currentPointIndex = 0;
-      const activateNextPoint = () => {
-        if (currentPointIndex < initialPoints.length) {
+      // Simple spawning with concurrency: spawn one fracture at a time at spawnDelay intervals
+      // maxConcurrent determines how many can be active simultaneously based on window overlap
+      // With shorter spawnDelay + longer windows = more overlap = more concurrent active
+      let nextSpawnIndex = 0;
+      let currentDelay = spawnDelay;
+      
+      const spawnNextFracture = () => {
+        if (nextSpawnIndex >= fractureCount) return;
+        
+        const pointToActivate = nextSpawnIndex;
+        
+        // Activate in React state
+        setFracturePoints(prev => prev.map((p, i) => 
+          i === pointToActivate ? { ...p, active: true } : p
+        ));
+        
+        // Set timeout to deactivate if not clicked
+        const pointWindow = initialPoints[pointToActivate].window;
+        setTimeout(() => {
           setFracturePoints(prev => prev.map((p, i) => 
-            i === currentPointIndex ? { ...p, active: true } : p
+            i === pointToActivate && !p.stabilized ? { ...p, active: false } : p
           ));
-          
-          const pointWindow = initialPoints[currentPointIndex].window;
-          setTimeout(() => {
-            setFracturePoints(prev => prev.map((p, i) => 
-              i === currentPointIndex && !p.stabilized ? { ...p, active: false } : p
-            ));
-          }, pointWindow);
-          
-          currentPointIndex++;
-          if (currentPointIndex < initialPoints.length) {
-            gameLoopRef.current = setTimeout(activateNextPoint, (response.trialConfig.duration * 1000) / initialPoints.length);
-          }
+        }, pointWindow);
+        
+        nextSpawnIndex++;
+        
+        // Schedule next spawn with acceleration
+        if (nextSpawnIndex < fractureCount) {
+          currentDelay = Math.max(currentDelay * spawnAcceleration, 500); // Accelerates over time
+          gameLoopRef.current = setTimeout(spawnNextFracture, currentDelay);
         }
       };
 
-      setTimeout(activateNextPoint, 1000);
+      // Start spawning after brief delay
+      setTimeout(spawnNextFracture, 600);
 
     } catch (error: any) {
       console.error('Failed to start game:', error);
@@ -152,8 +180,11 @@ export default function GamePage() {
 
     if (currentSession) {
       try {
-        // Server-authoritative: only send sessionId, server determines outcome
-        const response = await completeSession.mutateAsync(currentSession.id);
+        // Send actual click count to server for outcome calculation
+        const response = await completeSession.mutateAsync({
+          sessionId: currentSession.id,
+          clickCount: fracturesStabilized, // Player's actual performance
+        });
         // Use server-provided values for display
         setFracturesStabilized(response.fracturesStabilized || 0);
         setScore(response.session?.score || 0);
@@ -168,7 +199,7 @@ export default function GamePage() {
         }
       }
     }
-  }, [currentSession, completeSession]);
+  }, [currentSession, completeSession, fracturesStabilized]);
 
   useEffect(() => {
     if (phase === 'playing' && timeLeft === 0 && currentSession) {
