@@ -196,11 +196,9 @@ export default function GamePage() {
         setPhase('result');
       } catch (error: any) {
         console.error('Failed to complete game:', error);
-        // Handle session expired or too fast errors
-        if (error?.code === 'EXPIRED' || error?.code === 'TOO_FAST') {
-          setResult({ outcome: 'failure', tokensRewarded: 0, canClaimReward: false });
-          setPhase('result');
-        }
+        // Always transition to result screen on error so user isn't stuck
+        setResult({ outcome: 'failure', tokensRewarded: 0, canClaimReward: false });
+        setPhase('result');
       }
     }
   }, [currentSession, completeSession, fracturesStabilized]);
