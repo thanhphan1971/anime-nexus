@@ -1,7 +1,7 @@
 import { motion, type Variants } from "framer-motion";
 
 export const CRYSTAL_SIGIL_URL =
-  "https://qxbvfdbetukguyvivwsf.supabase.co/storage/v1/object/public/media/ui/mediauisigilscrystal-sigil.png";
+  "https://qxbvfdbetukguyvivwsf.supabase.co/storage/v1/object/public/media/ui/mediauisigilscrystal-sigil.png.png";
 
 type CrystalState = "dormant" | "active" | "charged";
 
