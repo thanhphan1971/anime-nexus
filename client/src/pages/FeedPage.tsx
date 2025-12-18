@@ -221,7 +221,7 @@ export default function FeedPage() {
           <CrystalSigil 
             size={56} 
             state={getCrystalState()} 
-            onClick={() => setLocation("/cards")}
+            onClick={() => setLocation("/gacha")}
           />
         </div>
         <h1 className="text-2xl font-display font-bold neon-text">HOME</h1>
@@ -415,7 +415,7 @@ export default function FeedPage() {
               
               <Button
                 variant="outline"
-                onClick={() => setLocation("/cards")}
+                onClick={() => setLocation("/gacha")}
                 className="h-12 border-purple-500/50 hover:bg-purple-500/10 text-purple-300"
                 data-testid="button-paid-summon"
               >
