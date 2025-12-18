@@ -672,18 +672,20 @@ function ResultScreen({ result, shareToChronicle, setShareToChronicle, onClaimRe
               )}
             </div>
 
-            <div className="flex justify-center gap-6 text-sm">
-              <div>
-                <div className="text-gray-500">Fractures</div>
-                <div className="text-white">{result.session.fracturesStabilized}/{result.session.fracturesTotal}</div>
+            {result.session && (
+              <div className="flex justify-center gap-6 text-sm">
+                <div>
+                  <div className="text-gray-500">Fractures</div>
+                  <div className="text-white">{result.session.fracturesStabilized}/{result.session.fracturesTotal}</div>
+                </div>
+                <div>
+                  <div className="text-gray-500">Score</div>
+                  <div className="text-white">{result.session.score}</div>
+                </div>
               </div>
-              <div>
-                <div className="text-gray-500">Score</div>
-                <div className="text-white">{result.session.score}</div>
-              </div>
-            </div>
+            )}
 
-            {result.session.isRewarded && config?.features?.chronicle_posts_enabled && (
+            {result.session?.isRewarded && config?.features?.chronicle_posts_enabled && (
               <div className="flex items-center justify-center gap-3 mt-4">
                 <Switch 
                   checked={shareToChronicle} 
