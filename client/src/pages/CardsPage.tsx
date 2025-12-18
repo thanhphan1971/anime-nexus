@@ -73,8 +73,7 @@ export default function CardsPage() {
 
     try {
       const result = await summonCards.mutateAsync();
-      const card = result.cards?.[0] || result.cards;
-      setReward(card);
+      setReward(result.cards);
       await refreshUser();
       toast.success(`Summoned ${result.cards?.length || 1} card(s)!`);
     } catch (error: any) {
@@ -251,17 +250,30 @@ export default function CardsPage() {
               <motion.div
                 initial={{ scale: 0, y: 50 }}
                 animate={{ scale: 1, y: 0 }}
-                className="text-center space-y-6"
+                className="text-center space-y-6 w-full"
               >
-                <div className="relative w-72 aspect-[3/4] mx-auto rounded-xl overflow-hidden border-4 border-yellow-500 shadow-[0_0_50px_hsl(45,100%,50%,0.5)]">
-                  <img src={reward.image} alt={reward.name} className="w-full h-full object-cover" />
-                  <div className="absolute bottom-0 inset-x-0 bg-black/80 p-4 text-white">
-                     <Badge className="bg-yellow-500 text-black mb-2">{reward.rarity}</Badge>
-                     <h2 className="text-xl font-bold">{reward.name}</h2>
-                  </div>
+                <h3 className="font-display font-bold text-xl text-primary">
+                  {Array.isArray(reward) ? `You received ${reward.length} card${reward.length > 1 ? 's' : ''}!` : 'You received a card!'}
+                </h3>
+                <div className={`flex justify-center gap-4 ${Array.isArray(reward) && reward.length > 1 ? 'flex-wrap' : ''}`}>
+                  {(Array.isArray(reward) ? reward : [reward]).map((card: any, index: number) => (
+                    <div key={card?.id || index} className="relative w-56 aspect-[3/4] rounded-xl overflow-hidden border-4 border-yellow-500 shadow-[0_0_50px_hsl(45,100%,50%,0.5)]">
+                      <img src={card?.image} alt={card?.name} className="w-full h-full object-cover" />
+                      <div className="absolute bottom-0 inset-x-0 bg-black/80 p-3 text-white">
+                        <Badge className="bg-yellow-500 text-black mb-1 text-xs">{card?.rarity}</Badge>
+                        <h2 className="text-sm font-bold">{card?.name}</h2>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <Button size="lg" onClick={() => setReward(null)} className="w-full max-w-xs">
-                  Add to Collection
+                <Button 
+                  size="lg" 
+                  onClick={() => setReward(null)} 
+                  className="bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500 text-white font-bold px-8"
+                  data-testid="button-back-to-summons"
+                >
+                  <Sparkles className="h-5 w-5 mr-2" />
+                  Back to Summons
                 </Button>
               </motion.div>
             )}
