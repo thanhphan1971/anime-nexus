@@ -1,0 +1,126 @@
+he current “Free Daily Summon” flow routes to a page that becomes inaccessible after the user claims their daily free summons. This is bad UX. We will delete/retire that page and make one single Summoning experience live inside the Cards page.
+
+Critical requirement
+
+DO NOT make the crystal image itself a link.
+
+The clickable entry point is the Home box labeled “Free Daily Summon”.
+
+All summon actions must happen on the Cards page.
+
+1) Remove the broken/old Free Daily Summon page
+
+Identify the route/page Replit previously created for “Free Daily Summon” (the one that becomes inaccessible after claiming).
+
+Delete it or retire it so it’s no longer reachable.
+
+Remove any navigation references to it.
+
+2) Home page behavior change (the correct link)
+
+On the Home page:
+
+A) Click behavior
+
+The box/card labeled “Free Daily Summon” must be clickable.
+
+Clicking it must redirect to the Cards page (the page where summoning happens), NOT to a special free-summon page.
+
+B) Destination anchor
+
+When redirected to Cards page from Home, auto-scroll or focus to the Summoning section (the area under “How Summoning Works”).
+
+3) Cards page — Summoning section redesign (single source of truth)
+
+On the Cards page, below the box titled “How Summoning Works”, the user currently sees the Paid Summon area:
+
+PAID SUMMON
+Cost: 100 Tokens
+2x S-Class Pull
+Summon Now (100 Tokens)
+Your balance: X tokens
+
+Change required
+
+Add a second button on the RIGHT of the Paid Summon button:
+
+New button label
+
+“Free Daily Summon” (or “Claim Free Summon”)
+
+Placement
+
+Same row as Paid Summon CTA
+
+Right side, visually equal priority but clearly “free”
+
+4) Free Daily Summon rules + UI
+A) Show eligibility and remaining free summons
+
+In the Summoning section (near the free button), show:
+
+“Free summons remaining today: {remaining}/{dailyLimit}”
+
+Rules:
+
+Free users: dailyLimit = 1
+
+S-Class users: dailyLimit = 2
+
+B) Button enabled/disabled logic
+
+If remaining > 0 → Free button enabled
+
+If remaining == 0 → Free button disabled and show text:
+
+“No free summons left today. Resets at midnight.” (use user timezone or server timezone consistently)
+
+C) What happens when clicked
+
+On click “Free Daily Summon”:
+
+Perform the summon using the standard banner (not premium banner)
+
+Deduct 0 tokens
+
+Decrement remaining free summons
+
+Show the same reveal UI used by Paid Summon (consistent experience)
+
+5) Data + backend logic (must persist)
+
+Implement a persistent system (DB) to track daily free summons:
+
+Suggested fields:
+
+user_id
+
+free_summons_used_today
+
+last_free_summon_date (YYYY-MM-DD)
+
+On each summon:
+
+If date != today → reset used to 0 and set date=today
+
+Daily limit depends on membership tier (Free vs S-Class)
+
+6) Remove the “can’t access after claiming” bug permanently
+
+There must NOT exist any separate “free summon page” that only works when remaining > 0.
+
+Instead:
+
+Cards page always accessible
+
+Free summon button simply becomes disabled when none left
+
+7) Acceptance tests (Replit must verify)
+
+Free user sees 1/1 daily free summons at start of day. After claiming: 0/1, button disabled.
+
+S-Class user sees 2/2. After 1 claim: 1/2. After 2 claims: 0/2, button disabled.
+
+Home “Free Daily Summon” box always redirects to Cards page summoning section, regardless of remaining.
+
+Paid Summon always works if tokens >= 100.

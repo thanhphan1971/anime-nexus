@@ -4,12 +4,13 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Coins, Sparkles, Layers, ShoppingBag, ArrowRightLeft, Filter, Search, ShieldCheck, Gift, Star, Crown, Loader2, Book } from "lucide-react";
+import { Coins, Sparkles, Layers, ShoppingBag, ArrowRightLeft, Filter, Search, ShieldCheck, Gift, Star, Crown, Loader2, Book, Clock } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
-import { useUserCards, useSummonCards, useMarketListings, usePurchaseListing } from "@/lib/api";
+import { useUserCards, useSummonCards, useMarketListings, usePurchaseListing, useFreeGachaStatus, useFreeSummon } from "@/lib/api";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
+import { format } from "date-fns";
 
 const RARITY_FILTERS = ["All", "Common", "Rare", "Epic", "Legendary", "Mythic"] as const;
 
@@ -22,11 +23,47 @@ export default function CardsPage() {
   const [, setLocation] = useLocation();
   const [reward, setReward] = useState<any>(null);
   const [rarityFilter, setRarityFilter] = useState<string>("All");
+  const [isFreeLoading, setIsFreeLoading] = useState(false);
+
+  const { data: freeStatus, refetch: refetchFreeStatus } = useFreeGachaStatus();
+  const freeSummonMutation = useFreeSummon();
 
   const filteredCards = userCards?.filter((userCard: any) => {
     if (rarityFilter === "All") return true;
     return userCard.card.rarity === rarityFilter;
   });
+
+  const getResetTimeString = () => {
+    if (!freeStatus?.nextResetAt) return "12:00 AM";
+    try {
+      return format(new Date(freeStatus.nextResetAt), "h:mm a");
+    } catch {
+      return "12:00 AM";
+    }
+  };
+
+  const handleFreeSummon = async () => {
+    if (!user) {
+      toast.error("Please sign in to summon");
+      return;
+    }
+    if (!freeStatus || freeStatus.remainingToday <= 0) {
+      toast.error("No free summons remaining today!");
+      return;
+    }
+    setIsFreeLoading(true);
+    try {
+      const result = await freeSummonMutation.mutateAsync();
+      setReward(result.card);
+      await refetchFreeStatus();
+      await refreshUser();
+      toast.success(`Summoned ${result.card?.name || 'a card'}!`);
+    } catch (error: any) {
+      toast.error(error.message || "Summon failed");
+    } finally {
+      setIsFreeLoading(false);
+    }
+  };
 
   const handleSummon = async () => {
     if (!user || user.tokens < 100) {
@@ -36,9 +73,10 @@ export default function CardsPage() {
 
     try {
       const result = await summonCards.mutateAsync();
-      setReward(result.cards);
+      const card = result.cards?.[0] || result.cards;
+      setReward(card);
       await refreshUser();
-      toast.success(`Summoned ${result.cards.length} card(s)!`);
+      toast.success(`Summoned ${result.cards?.length || 1} card(s)!`);
     } catch (error: any) {
       toast.error(error.message || "Summon failed");
     }
@@ -131,36 +169,74 @@ export default function CardsPage() {
 
           <div className="min-h-[400px] flex flex-col items-center justify-center relative">
           <AnimatePresence mode="wait">
-            {!reward && !summonCards.isPending && (
-              <div className="text-center space-y-6">
-                <div className="relative w-64 h-80 mx-auto bg-card border-2 border-dashed border-white/20 rounded-xl flex items-center justify-center">
-                  <div className="text-center">
-                    <Sparkles className="h-16 w-16 mx-auto mb-4 text-muted-foreground animate-pulse" />
-                    <p className="font-display font-bold text-xl">PAID SUMMON</p>
+            {!reward && !summonCards.isPending && !isFreeLoading && (
+              <div className="text-center space-y-6 w-full max-w-2xl">
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div className="relative bg-gradient-to-br from-green-500/10 to-emerald-500/5 border-2 border-green-500/30 rounded-xl p-6 flex flex-col items-center">
+                    <Gift className="h-12 w-12 mb-4 text-green-400" />
+                    <p className="font-display font-bold text-xl text-green-400">FREE SUMMON</p>
+                    <p className="text-xs text-muted-foreground mt-2">Standard Banner</p>
+                    <p className="text-xs text-muted-foreground">{user?.isPremium ? "2 daily summons" : "1 daily summon"}</p>
+                    
+                    {freeStatus && (
+                      <div className="mt-4 flex items-center gap-2 bg-green-500/10 px-3 py-1.5 rounded-full">
+                        <Star className="h-4 w-4 text-yellow-400" />
+                        <span className="font-bold text-white text-sm" data-testid="text-free-remaining">
+                          {freeStatus.remainingToday} / {freeStatus.dailyFreeLimit}
+                        </span>
+                      </div>
+                    )}
+                    
+                    <Button 
+                      size="lg" 
+                      onClick={handleFreeSummon} 
+                      disabled={!freeStatus || freeStatus.remainingToday <= 0}
+                      className="mt-4 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 disabled:opacity-50 text-white font-bold px-6 w-full"
+                      data-testid="button-free-summon"
+                    >
+                      <Gift className="h-5 w-5 mr-2" />
+                      {freeStatus && freeStatus.remainingToday > 0 ? "Free Summon" : "No Summons Left"}
+                    </Button>
+                    
+                    {freeStatus && freeStatus.remainingToday <= 0 && (
+                      <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        Resets at {getResetTimeString()}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="relative bg-gradient-to-br from-yellow-500/10 to-amber-500/5 border-2 border-yellow-500/30 rounded-xl p-6 flex flex-col items-center">
+                    <Coins className="h-12 w-12 mb-4 text-yellow-400" />
+                    <p className="font-display font-bold text-xl text-yellow-400">PAID SUMMON</p>
                     <p className="text-xs text-muted-foreground mt-2">Cost: 100 Tokens</p>
                     <p className="text-xs text-muted-foreground">{user?.isPremium ? "2x S-Class Pull" : "Single Pull"}</p>
+                    
+                    <div className="mt-4 flex items-center gap-2 bg-yellow-500/10 px-3 py-1.5 rounded-full">
+                      <Coins className="h-4 w-4 text-yellow-400" />
+                      <span className="font-bold text-white text-sm">{user?.tokens || 0} tokens</span>
+                    </div>
+                    
+                    <Button 
+                      size="lg" 
+                      onClick={handleSummon} 
+                      disabled={(user?.tokens || 0) < 100}
+                      className="mt-4 bg-gradient-to-r from-yellow-600 to-amber-600 hover:from-yellow-500 hover:to-amber-500 disabled:opacity-50 text-white font-bold px-6 w-full"
+                      data-testid="button-paid-summon"
+                    >
+                      <Sparkles className="h-5 w-5 mr-2" />
+                      Summon (100 Tokens)
+                    </Button>
+                    
+                    {(user?.tokens || 0) < 100 && (
+                      <p className="text-xs text-red-400 mt-2">Not enough tokens</p>
+                    )}
                   </div>
                 </div>
-                <Button 
-                  size="lg" 
-                  onClick={handleSummon} 
-                  disabled={(user?.tokens || 0) < 100}
-                  className="bg-gradient-to-r from-yellow-600 to-amber-600 hover:from-yellow-500 hover:to-amber-500 disabled:opacity-50 text-white font-bold px-8"
-                  data-testid="button-summon"
-                >
-                  <Sparkles className="h-5 w-5 mr-2" />
-                  Summon Now (100 Tokens)
-                </Button>
-                {(user?.tokens || 0) < 100 && (
-                  <p className="text-xs text-red-400">Not enough tokens (you have {user?.tokens || 0})</p>
-                )}
-                <p className="text-sm text-muted-foreground max-w-xs mx-auto">
-                  Your balance: <span className="text-yellow-400 font-bold">{user?.tokens || 0}</span> tokens
-                </p>
               </div>
             )}
 
-            {summonCards.isPending && (
+            {(summonCards.isPending || isFreeLoading) && (
               <motion.div
                 initial={{ scale: 0, rotate: 0 }}
                 animate={{ scale: 1.5, rotate: 360 }}
