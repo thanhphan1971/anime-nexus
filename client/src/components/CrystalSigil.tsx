@@ -22,19 +22,18 @@ export function CrystalSigil({
     switch (state) {
       case "dormant":
         return {
-          opacity: 0.5,
-          filter: "brightness(0.7)",
-          animation: "none",
+          opacity: 0.7,
+          filter: "brightness(0.85) saturate(0.8)",
         };
       case "active":
         return {
-          opacity: 0.85,
-          filter: "brightness(1) drop-shadow(0 0 8px rgba(139, 92, 246, 0.5))",
+          opacity: 1,
+          filter: "brightness(1.05) saturate(1.1) drop-shadow(0 0 6px rgba(139, 92, 246, 0.7)) drop-shadow(0 0 12px rgba(139, 92, 246, 0.4))",
         };
       case "charged":
         return {
           opacity: 1,
-          filter: "brightness(1.1) drop-shadow(0 0 15px rgba(139, 92, 246, 0.8)) drop-shadow(0 0 30px rgba(6, 182, 212, 0.5))",
+          filter: "brightness(1.15) saturate(1.2) drop-shadow(0 0 8px rgba(139, 92, 246, 1)) drop-shadow(0 0 20px rgba(6, 182, 212, 0.8)) drop-shadow(0 0 35px rgba(139, 92, 246, 0.5))",
         };
       default:
         return {};
@@ -69,17 +68,17 @@ export function CrystalSigil({
       opacity: 0,
     },
     active: {
-      opacity: [0.3, 0.5, 0.3],
+      opacity: [0.4, 0.7, 0.4],
       transition: {
-        duration: 3,
+        duration: 2.5,
         repeat: Infinity,
         ease: "easeInOut" as const
       }
     },
     charged: {
-      opacity: [0.5, 0.8, 0.5],
+      opacity: [0.6, 1, 0.6],
       transition: {
-        duration: 1.5,
+        duration: 1.2,
         repeat: Infinity,
         ease: "easeInOut" as const
       }
@@ -97,11 +96,16 @@ export function CrystalSigil({
     >
       {(state === "active" || state === "charged") && (
         <motion.div
-          className="absolute inset-0 rounded-full"
+          className="absolute rounded-full"
           style={{
+            width: size * 1.5,
+            height: size * 1.5,
+            left: '50%',
+            top: '50%',
+            transform: 'translate(-50%, -50%)',
             background: state === "charged" 
-              ? "radial-gradient(circle, rgba(139, 92, 246, 0.4) 0%, rgba(6, 182, 212, 0.2) 50%, transparent 70%)"
-              : "radial-gradient(circle, rgba(139, 92, 246, 0.3) 0%, transparent 60%)",
+              ? "radial-gradient(circle, rgba(139, 92, 246, 0.5) 0%, rgba(6, 182, 212, 0.3) 40%, transparent 70%)"
+              : "radial-gradient(circle, rgba(139, 92, 246, 0.4) 0%, rgba(139, 92, 246, 0.1) 50%, transparent 70%)",
           }}
           variants={glowVariants}
           animate={state}
