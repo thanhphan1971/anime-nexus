@@ -162,6 +162,21 @@ export default function CardsPage() {
             <div className="mt-3 pt-3 border-t border-white/10 text-xs text-muted-foreground">
               <strong className="text-white">What can you do with cards?</strong> Collect them, trade with other players in the Market, or sell for tokens. Rare cards are worth more!
             </div>
+            
+            {/* Free Summon Rules */}
+            <div className="mt-3 pt-3 border-t border-white/10">
+              <p className="font-bold text-white text-sm mb-2">Free Daily Summon Rules:</p>
+              <div className="text-xs space-y-1.5 text-muted-foreground">
+                <p className="flex items-start gap-2"><span className="text-purple-400">•</span> Every account receives 1 free summon per day</p>
+                <p className="flex items-start gap-2"><span className="text-yellow-400">•</span> S-Class members receive 2 free summons per day</p>
+                <p className="flex items-start gap-2"><span className="text-cyan-400">•</span> Free summons can ONLY be used on the Standard Banner</p>
+                <p className="flex items-start gap-2"><span className="text-cyan-400">•</span> Standard Banner contains permanent, non-limited cards</p>
+                <p className="flex items-start gap-2"><span className="text-pink-400">•</span> Event-limited and premium-only cards are excluded</p>
+                <p className="flex items-start gap-2"><span className="text-pink-400">•</span> Free summons have lower rare drop rates than paid summons</p>
+                <p className="flex items-start gap-2"><span className="text-gray-400">•</span> Free summons do not carry over if unused</p>
+                <p className="flex items-start gap-2"><span className="text-gray-400">•</span> Daily reset occurs at 12:00 AM local time</p>
+              </div>
+            </div>
           </div>
 
           <div className="min-h-[400px] flex flex-col items-center justify-center relative">
