@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useSClassStatus, useStartSClassTrial, useConvertSClassTrial, useCancelSClassTrial, useSubscribeSClass, useCancelSubscription } from "@/lib/api";
+import { useSClassStatus, useStartSClassTrial, useConvertSClassTrial, useCancelSClassTrial, useSubscribeSClass, useCancelSubscription, useReactivateSubscription } from "@/lib/api";
 import { SClassWelcomeModal } from "@/components/SClassWelcomeModal";
 import { CancellationSaveModal } from "@/components/CancellationSaveModal";
 import { DowngradeEmpathyModal } from "@/components/DowngradeEmpathyModal";
@@ -33,6 +33,7 @@ export default function PremiumPage() {
   const cancelTrial = useCancelSClassTrial();
   const subscribeSClass = useSubscribeSClass();
   const cancelSubscription = useCancelSubscription();
+  const reactivateSubscription = useReactivateSubscription();
   
   useEffect(() => {
     const getToken = async () => {
@@ -266,18 +267,27 @@ export default function PremiumPage() {
                   {sclassStatus?.subscriptionType === 'yearly' ? 'Yearly' : 'Monthly'} Plan
                 </Badge>
                 {sclassStatus?.subscriptionStatus === 'canceled_pending_expiry' ? (
-                  <div className="w-full text-center space-y-2">
-                    <p className="text-sm text-muted-foreground">Subscription canceled</p>
-                    <p className="text-sm font-bold text-yellow-400">
-                      Active until {sclassStatus?.premiumEndDate ? format(new Date(sclassStatus.premiumEndDate), 'MMMM d, yyyy') : 'end of billing period'}
+                  <div className="w-full text-center space-y-3">
+                    <p className="text-sm text-yellow-400/80">
+                      S-Class active until {sclassStatus?.premiumEndDate ? format(new Date(sclassStatus.premiumEndDate), 'MMMM d, yyyy') : 'end of billing period'}
                     </p>
                     <Button 
-                      className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold"
-                      onClick={() => setShowSubscribeModal(true)}
-                      data-testid="button-resubscribe"
+                      className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold h-12"
+                      onClick={async () => {
+                        try {
+                          await reactivateSubscription.mutateAsync();
+                          toast.success("Welcome back! Your S-Class membership is active again.");
+                          refreshUser();
+                        } catch (error: any) {
+                          toast.error(error.message || "Failed to reactivate");
+                        }
+                      }}
+                      disabled={reactivateSubscription.isPending}
+                      data-testid="button-reactivate"
                     >
-                      Resubscribe
+                      {reactivateSubscription.isPending ? "Reactivating..." : "Reactivate S-Class"}
                     </Button>
+                    <p className="text-xs text-muted-foreground">Keep benefits without interruption</p>
                   </div>
                 ) : (
                   <>
