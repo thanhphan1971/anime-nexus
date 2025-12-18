@@ -2674,6 +2674,206 @@ export async function registerRoutes(
     }
   });
 
+  // ============ S-CLASS TRIAL & WELCOME ROUTES ============
+  
+  // Start S-Class trial (3 days, one per lifetime)
+  app.post("/api/sclass/start-trial", verifySupabaseToken, async (req, res) => {
+    try {
+      const user = await storage.getUserBySupabaseId(req.supabaseUser!.id);
+      if (!user) return res.status(404).json({ error: "User not found" });
+
+      // Check eligibility
+      if (user.trialUsed) {
+        return res.status(400).json({ error: "Trial already used. One trial per account lifetime." });
+      }
+      if (user.isPremium) {
+        return res.status(400).json({ error: "Already an S-Class member." });
+      }
+      if (user.isOnTrial) {
+        return res.status(400).json({ error: "Already on trial." });
+      }
+
+      // Start 3-day trial
+      const now = new Date();
+      const trialEnd = new Date(now);
+      trialEnd.setDate(trialEnd.getDate() + 3);
+
+      await storage.updateUser(user.id, {
+        isOnTrial: true,
+        trialStartDate: now,
+        trialEndDate: trialEnd,
+        trialUsed: true,
+        isPremium: true, // Grant S-Class access during trial
+      });
+
+      console.log(`[Analytics] sclass_trial_started`, {
+        userId: user.id,
+        trialStart: now.toISOString(),
+        trialEnd: trialEnd.toISOString()
+      });
+
+      res.json({ 
+        success: true, 
+        trialStartDate: now.toISOString(),
+        trialEndDate: trialEnd.toISOString()
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Cancel S-Class trial
+  app.post("/api/sclass/cancel-trial", verifySupabaseToken, async (req, res) => {
+    try {
+      const user = await storage.getUserBySupabaseId(req.supabaseUser!.id);
+      if (!user) return res.status(404).json({ error: "User not found" });
+
+      if (!user.isOnTrial) {
+        return res.status(400).json({ error: "Not on trial." });
+      }
+
+      // Downgrade silently
+      await storage.updateUser(user.id, {
+        isOnTrial: false,
+        isPremium: false,
+      });
+
+      console.log(`[Analytics] sclass_trial_cancelled`, {
+        userId: user.id,
+        timestamp: new Date().toISOString()
+      });
+
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Convert trial to full S-Class subscription
+  app.post("/api/sclass/convert-trial", verifySupabaseToken, async (req, res) => {
+    try {
+      const user = await storage.getUserBySupabaseId(req.supabaseUser!.id);
+      if (!user) return res.status(404).json({ error: "User not found" });
+
+      const now = new Date();
+      const premiumEnd = new Date(now);
+      premiumEnd.setMonth(premiumEnd.getMonth() + 1);
+
+      // Mark as full S-Class (first time joining triggers welcome reward eligibility)
+      const updates: Record<string, any> = {
+        isOnTrial: false,
+        isPremium: true,
+        premiumStartDate: now,
+        premiumEndDate: premiumEnd,
+        hasPurchased: true,
+        firstPurchaseAt: user.firstPurchaseAt || now,
+      };
+
+      // Only set sclassJoinedAt if this is first time becoming full S-Class
+      if (!user.sclassJoinedAt) {
+        updates.sclassJoinedAt = now;
+      }
+
+      await storage.updateUser(user.id, updates);
+
+      console.log(`[Analytics] sclass_trial_converted`, {
+        userId: user.id,
+        timestamp: now.toISOString()
+      });
+
+      res.json({ 
+        success: true,
+        showWelcomeReward: !user.sclassWelcomeRewardClaimed
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Claim S-Class welcome reward (+300 tokens, one-time)
+  app.post("/api/sclass/claim-welcome-reward", verifySupabaseToken, async (req, res) => {
+    try {
+      const user = await storage.getUserBySupabaseId(req.supabaseUser!.id);
+      if (!user) return res.status(404).json({ error: "User not found" });
+
+      // Check eligibility
+      if (user.sclassWelcomeRewardClaimed) {
+        return res.status(400).json({ error: "Welcome reward already claimed." });
+      }
+      if (!user.isPremium || user.isOnTrial) {
+        return res.status(400).json({ error: "Must be a full S-Class member to claim." });
+      }
+
+      // Grant +300 tokens and mark as claimed
+      const WELCOME_BONUS_TOKENS = 300;
+      await storage.updateUser(user.id, {
+        tokens: (user.tokens || 0) + WELCOME_BONUS_TOKENS,
+        sclassWelcomeRewardClaimed: true,
+      });
+
+      console.log(`[Analytics] sclass_welcome_reward_claimed`, {
+        userId: user.id,
+        tokensGranted: WELCOME_BONUS_TOKENS,
+        timestamp: new Date().toISOString()
+      });
+
+      res.json({ 
+        success: true,
+        tokensGranted: WELCOME_BONUS_TOKENS,
+        newBalance: (user.tokens || 0) + WELCOME_BONUS_TOKENS
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get S-Class status (trial status, days remaining, etc.)
+  app.get("/api/sclass/status", verifySupabaseToken, async (req, res) => {
+    try {
+      const user = await storage.getUserBySupabaseId(req.supabaseUser!.id);
+      if (!user) return res.status(404).json({ error: "User not found" });
+
+      // Check if trial expired
+      if (user.isOnTrial && user.trialEndDate) {
+        const now = new Date();
+        if (now > new Date(user.trialEndDate)) {
+          // Trial expired, downgrade
+          await storage.updateUser(user.id, {
+            isOnTrial: false,
+            isPremium: false,
+          });
+          return res.json({
+            status: 'free',
+            trialExpired: true,
+            trialUsed: true,
+            canStartTrial: false
+          });
+        }
+      }
+
+      // Calculate trial days remaining
+      let trialDaysRemaining = 0;
+      if (user.isOnTrial && user.trialEndDate) {
+        const now = new Date();
+        const end = new Date(user.trialEndDate);
+        trialDaysRemaining = Math.max(0, Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
+      }
+
+      res.json({
+        status: user.isOnTrial ? 'trial' : user.isPremium ? 'sclass' : 'free',
+        isOnTrial: user.isOnTrial || false,
+        trialDaysRemaining,
+        trialEndDate: user.trialEndDate,
+        trialUsed: user.trialUsed || false,
+        canStartTrial: !user.trialUsed && !user.isPremium && !user.isOnTrial,
+        sclassJoinedAt: user.sclassJoinedAt,
+        welcomeRewardPending: user.isPremium && !user.isOnTrial && !user.sclassWelcomeRewardClaimed,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Update tutorial flags
   app.post("/api/game/tutorial", verifySupabaseToken, async (req, res) => {
     try {

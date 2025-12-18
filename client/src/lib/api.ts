@@ -669,3 +669,61 @@ export function useGameEvents() {
     refetchInterval: 60000, // Refresh every minute
   });
 }
+
+// ============ S-CLASS TRIAL & WELCOME ============
+
+export function useSClassStatus() {
+  return useQuery({
+    queryKey: ["sclassStatus"],
+    queryFn: () => apiCall("/api/sclass/status"),
+    refetchInterval: 30000, // Check trial expiry every 30s
+  });
+}
+
+export function useStartSClassTrial() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      apiCall("/api/sclass/start-trial", { method: "POST" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sclassStatus"] });
+      queryClient.invalidateQueries({ queryKey: ["gameStatus"] });
+    },
+  });
+}
+
+export function useCancelSClassTrial() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      apiCall("/api/sclass/cancel-trial", { method: "POST" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sclassStatus"] });
+      queryClient.invalidateQueries({ queryKey: ["gameStatus"] });
+    },
+  });
+}
+
+export function useConvertSClassTrial() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      apiCall("/api/sclass/convert-trial", { method: "POST" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sclassStatus"] });
+      queryClient.invalidateQueries({ queryKey: ["gameStatus"] });
+    },
+  });
+}
+
+export function useClaimSClassWelcomeReward() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      apiCall("/api/sclass/claim-welcome-reward", { method: "POST" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sclassStatus"] });
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+    },
+  });
+}

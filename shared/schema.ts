@@ -47,6 +47,14 @@ export const users = pgTable("users", {
   firstPurchaseDiscountUsed: boolean("first_purchase_discount_used").notNull().default(false), // One-time discount used
   firstPurchaseDiscountDeclinedAt: timestamp("first_purchase_discount_declined_at"), // When declined (30-day cooldown)
   firstPurchaseAt: timestamp("first_purchase_at"), // When first purchase was made
+  // S-Class Trial fields
+  isOnTrial: boolean("is_on_trial").notNull().default(false), // Currently in trial period
+  trialStartDate: timestamp("trial_start_date"), // When trial started
+  trialEndDate: timestamp("trial_end_date"), // When trial ends (3 days after start)
+  trialUsed: boolean("trial_used").notNull().default(false), // Has used trial (one per lifetime)
+  // S-Class Welcome reward
+  sclassWelcomeRewardClaimed: boolean("sclass_welcome_reward_claimed").notNull().default(false), // One-time welcome bonus claimed
+  sclassJoinedAt: timestamp("sclass_joined_at"), // First time became full S-Class (not trial)
 });
 
 // Posts table

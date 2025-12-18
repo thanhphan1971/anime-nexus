@@ -19,6 +19,12 @@ interface Profile {
   isAdmin: boolean;
   animeInterests: string[];
   theme: string;
+  isOnTrial?: boolean;
+  trialStartDate?: string;
+  trialEndDate?: string;
+  trialUsed?: boolean;
+  sclassWelcomeRewardClaimed?: boolean;
+  sclassJoinedAt?: string;
 }
 
 interface AuthContextType {

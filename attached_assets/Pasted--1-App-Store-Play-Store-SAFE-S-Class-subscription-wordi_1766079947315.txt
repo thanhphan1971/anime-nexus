@@ -1,0 +1,133 @@
+✅ 1️⃣ App Store / Play Store–SAFE S-Class subscription wording
+
+Why this matters (brutal truth):
+Apple rejects vague or “benefit-only” subscriptions. You MUST clearly state:
+
+price
+
+renewal
+
+cancellation
+
+what is NOT guaranteed
+
+🔹 PROMPT FOR REPLIT — SUBSCRIPTION WORDING
+Create App Store and Play Store–compliant subscription wording for “S-Class Membership”.
+
+Rules:
+- Clearly state price, billing frequency, and renewal
+- Explicitly state cancellation terms
+- Avoid gambling language (no “win”, “chance to win money”, etc.)
+- Clarify that rewards are digital, non-cash, and not guaranteed
+
+Subscription Copy:
+
+S-Class Membership — Premium Access
+
+• Subscription renews monthly unless canceled
+• Cancel anytime in App Store / Play Store settings
+• Payment is charged to your account upon confirmation
+• No refunds for partial periods
+
+Benefits include:
+• Additional daily game entries
+• Extra weekly and monthly draw entries
+• Higher card pull efficiency (no guaranteed rarity)
+• Cosmetic perks and progression boosts
+
+Important Notes:
+• Rewards are digital items only
+• No cash value
+• Outcomes are randomized and not guaranteed
+• Subscription does not guarantee prizes
+
+Display this wording on:
+- Paywall screen
+- Subscription confirmation screen
+- Account → Membership info
+
+✅ 2️⃣ First-time S-Class upgrade “THANK YOU” experience
+
+(Retention + emotional lock-in)
+
+Why this matters:
+If you don’t emotionally reward the upgrade, users cancel next month.
+
+🔹 PROMPT FOR REPLIT — THANK YOU FLOW
+Create a one-time “Thank You for Joining S-Class” experience that triggers immediately after first successful subscription.
+
+Flow requirements:
+1. Full-screen modal (non-skippable)
+2. Premium visual treatment (glow, subtle animation)
+3. Clear appreciation language
+4. Immediate tangible reward
+
+Content:
+
+Headline:
+“Welcome to S-Class”
+
+Message:
+“Thank you for supporting AniRealm.
+Your membership strengthens the world and unlocks deeper access to events, rewards, and progression.”
+
+Rewards (one-time):
+• +300 bonus tokens
+• Exclusive S-Class badge (permanent)
+• Instant access to today’s premium benefits
+
+Rules:
+• Trigger only once per account lifetime
+• Never repeat on renewals
+• Log reward grant to prevent abuse
+
+Include a CTA:
+“Enter the Fracture”
+
+✅ 3️⃣ Grace period / Trial for S-Class
+
+(VERY powerful — must be controlled)
+
+You were right to flag this as dangerous if done wrong.
+
+✅ Correct strategy (don’t be greedy)
+
+Short
+
+Limited
+
+No farming
+
+No repeat abuse
+
+🔹 PROMPT FOR REPLIT — S-CLASS TRIAL SYSTEM
+Implement a controlled S-Class trial system.
+
+Trial Rules:
+• Length: 3 days
+• Eligibility: One trial per account lifetime
+• Requires payment method confirmation
+• Trial auto-converts to paid unless canceled
+
+During trial:
+• Access to S-Class gameplay perks
+• Reduced draw entries (50% of full S-Class)
+• No trial-only bonus tokens
+
+Restrictions:
+• No trial participation in monthly grand draw
+• Trial badge shown as “S-Class Trial”
+• Trial users clearly labeled internally
+
+UX Requirements:
+• Trial banner showing “Trial ends in X days”
+• Reminder 24 hours before trial ends
+• Clear cancel instructions
+
+Post-Trial:
+• If converted → trigger S-Class Thank You flow
+• If canceled → downgrade silently, no punishment
+
+Compliance:
+• Explicitly disclose auto-renewal before trial start
+• Follow App Store and Play Store trial rules
