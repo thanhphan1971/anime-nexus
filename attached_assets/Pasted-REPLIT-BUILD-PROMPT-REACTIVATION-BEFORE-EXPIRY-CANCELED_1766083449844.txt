@@ -1,0 +1,86 @@
+REPLIT BUILD PROMPT — REACTIVATION BEFORE EXPIRY (CANCELED → ACTIVE)
+
+Goal:
+Allow users who canceled S-Class but are still within their paid period (“Canceled / Pending Expiry”) to reactivate easily, without spam, without dark patterns, and with correct billing behavior.
+
+1) Subscription States (must be explicit)
+Implement and persist these states:
+- FREE
+- TRIAL (if applicable)
+- ACTIVE
+- CANCELED_PENDING_EXPIRY (user canceled but access is still active until period end)
+- EXPIRED (period ended, now free)
+
+Store:
+- membership_status
+- current_period_end (timestamp/date)
+- cancel_effective_date = current_period_end
+- last_cancel_date
+- last_reactivate_date
+
+2) “Active until [date]” Status Indicator (lightweight)
+When membership_status = CANCELED_PENDING_EXPIRY:
+Show a subtle status line (NOT a disruptive banner) in these places only:
+A) Account → Membership page
+B) S-Class paywall screen (top small text)
+C) Membership settings modal (if any)
+
+Copy:
+“S-Class active until {formatted_date}”
+
+Rules:
+- Do not show this line on home screen or every screen
+- Do not show popups automatically
+
+3) Reactivation Button (quiet, available)
+When membership_status = CANCELED_PENDING_EXPIRY:
+Show a single primary button in Account → Membership:
+Button label: “Reactivate S-Class”
+Secondary text (small): “Keep benefits without interruption”
+
+Also show a smaller “Reactivate” link/button on the S-Class paywall screen.
+
+Rules:
+- Do not show reactivation prompts elsewhere
+- Do not nag repeatedly
+
+4) Reactivation Flow (one-tap, compliant)
+On “Reactivate S-Class”:
+- Start the platform-native subscription management flow (App Store / Play Store)
+- If user confirms, update membership_status = ACTIVE
+- Keep current_period_end unchanged (do NOT extend time for free)
+- Ensure renewal resumes normally on next billing cycle
+- Log last_reactivate_date
+
+If user exits or cancels the store flow:
+- Keep membership_status = CANCELED_PENDING_EXPIRY
+- No further prompts
+
+5) Expiry Handling (automatic downgrade)
+At current_period_end:
+- If membership_status is CANCELED_PENDING_EXPIRY and subscription is not renewed:
+  -> set membership_status = EXPIRED
+  -> then set to FREE (or treat EXPIRED as a transient state)
+- Remove “Active until” indicator
+- Remove “Reactivate” button
+- S-Class identity badge remains (cosmetic, permanent)
+
+6) UI Messaging Rules (anti-dark-pattern)
+- No countdown pressure copy
+- No guilt language
+- No forced modal
+- No push notifications by default (unless user opts in later)
+- No reactivation bonus for now (keep simple + safe)
+
+7) QA / Edge Cases (must test)
+- Cancel mid-period → user keeps access until period end
+- Reactivate before period end → clear cancellation state, remain ACTIVE
+- Reactivate on last day → still works, no extra free time
+- Multiple cancel/reactivate cycles → state stays correct and benefits are not duplicated
+- Offline/failed store callback → app reconciles status on next refresh
+
+Deliverables:
+- Updated data model for membership status + dates
+- Account → Membership UI with status line + Reactivate button
+- Paywall top status line + Reactivate link
+- Backend logic to reconcile store subscription status and update state

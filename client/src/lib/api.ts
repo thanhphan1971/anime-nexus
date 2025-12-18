@@ -764,6 +764,18 @@ export function useCancelSubscription() {
   });
 }
 
+export function useReactivateSubscription() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      apiCall("/api/sclass/reactivate", { method: "POST" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sclassStatus"] });
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+    },
+  });
+}
+
 export function useSubscribeSClass() {
   const queryClient = useQueryClient();
   return useMutation({

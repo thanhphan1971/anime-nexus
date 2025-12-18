@@ -59,6 +59,7 @@ export const users = pgTable("users", {
   subscriptionType: text("subscription_type").default('monthly'), // 'monthly' or 'yearly'
   subscriptionStatus: text("subscription_status").default('none'), // 'none', 'active', 'canceled_pending_expiry', 'expired'
   subscriptionCanceledAt: timestamp("subscription_canceled_at"), // When user canceled (access continues until premiumEndDate)
+  lastReactivateDate: timestamp("last_reactivate_date"), // When user last reactivated after canceling
   retentionSaveBonusUsed: boolean("retention_save_bonus_used").notNull().default(false), // One-time retention bonus claimed
 });
 

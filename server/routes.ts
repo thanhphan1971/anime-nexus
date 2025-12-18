@@ -2986,6 +2986,45 @@ export async function registerRoutes(
     }
   });
 
+  // Reactivate subscription (for users who canceled but still in paid period)
+  app.post("/api/sclass/reactivate", verifySupabaseToken, async (req, res) => {
+    try {
+      const user = await storage.getUserBySupabaseId(req.supabaseUser!.id);
+      if (!user) return res.status(404).json({ error: "User not found" });
+
+      // Must be in canceled_pending_expiry state
+      if (user.subscriptionStatus !== 'canceled_pending_expiry') {
+        return res.status(400).json({ error: "No pending cancellation to reactivate" });
+      }
+
+      // Must still have time left on subscription
+      if (!user.premiumEndDate || user.premiumEndDate < new Date()) {
+        return res.status(400).json({ error: "Subscription period has expired" });
+      }
+
+      // Reactivate: clear cancellation state, keep same end date
+      await storage.updateUser(user.id, {
+        subscriptionStatus: 'active',
+        subscriptionCanceledAt: null,
+        lastReactivateDate: new Date(),
+      });
+
+      console.log(`[Analytics] sclass_reactivated`, {
+        userId: user.id,
+        subscriptionType: user.subscriptionType,
+        remainingDays: Math.ceil((user.premiumEndDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)),
+      });
+
+      res.json({ 
+        success: true, 
+        message: "Welcome back! Your S-Class membership is active again.",
+        activeUntil: user.premiumEndDate
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Subscribe to S-Class (new subscription or renewal)
   app.post("/api/sclass/subscribe", verifySupabaseToken, async (req, res) => {
     try {
