@@ -2565,9 +2565,9 @@ export async function registerRoutes(
       const config = getGameConfig(settingsMap);
       const trialConfig = config.trials[session.trialType as keyof typeof config.trials];
 
-      // Session must be at least 8 seconds (anti-cheat minimum - lowered for faster trials)
+      // Session must be at least 3 seconds (anti-cheat minimum - allows ending early)
       // and not more than trial duration + 15 seconds (grace period)
-      const MIN_SESSION_TIME = 8;
+      const MIN_SESSION_TIME = 3;
       const MAX_SESSION_TIME = trialConfig.duration + 15;
       
       if (elapsedSeconds < MIN_SESSION_TIME) {
