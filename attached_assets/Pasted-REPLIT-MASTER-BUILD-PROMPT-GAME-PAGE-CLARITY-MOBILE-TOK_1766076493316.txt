@@ -1,0 +1,336 @@
+REPLIT MASTER BUILD PROMPT — GAME PAGE CLARITY + MOBILE + TOKEN RULES + REWARD TUTORIAL (FINAL)
+🎯 Objective
+
+Eliminate all user confusion about:
+
+Rewarded vs Practice modes
+
+Why tokens are (or aren’t) earned
+
+Rewarded games remaining
+
+Daily token limits
+
+Daily reset time
+
+This must be clear even if a user:
+
+played earlier in the morning
+
+returns at night
+
+is 13 years old
+
+doesn’t read long text
+
+A) Economy Rules (Do NOT change)
+Daily token caps (across ALL games combined)
+
+Free users: max 90 tokens/day
+
+S-Class users: max 210 tokens/day
+
+Rewarded games per day
+
+Free: 3 rewarded games/day
+
+S-Class: 6 rewarded games/day
+
+Optional bonus: +1 rewarded game (if implemented)
+
+Daily reset time
+
+Reset occurs every day at 00:00 UTC
+
+Core rules
+
+Tokens can be earned only in Rewarded games
+
+Practice games are unlimited but give 0 tokens
+
+Rewarded games are a hard limit: if a user uses all rewarded games, they cannot earn more tokens that day even if they are below the daily token cap
+
+If a game reward would exceed remaining daily allowance, deposit only the remaining amount and discard overflow
+
+Tokens/runs not earned today are not saved and do not carry over
+
+B) Desktop/Tablet UI — Permanent “Daily Rewards Status” Box (MANDATORY)
+
+Add a permanent info box above the game area. Always visible and updates live.
+
+Title
+
+Daily Rewards Status
+
+Content (always shown)
+
+Status:
+
+If eligible to earn tokens: Rewarded Available
+
+If not eligible: Practice Only 🔒
+
+Rewarded Games Left:
+
+X / Y (Y is 3 for Free, 6 for S-Class)
+
+Tokens Earned Today:
+
+X / Z (Z is 90 for Free, 210 for S-Class)
+
+Daily Reset:
+
+“Resets daily at 00:00 UTC”
+
+(Recommended) show countdown: Resets in HH:MM
+
+Reason line (only when Practice Only)
+
+Show one of these under Status:
+
+“You’ve used all rewarded games for today.”
+
+“You’ve reached today’s token limit.”
+
+Visual states
+
+Rewarded Available: normal/positive style
+
+Practice Only: muted/warning style + lock icon
+
+C) Mode Buttons — Clear, explicit, and never confusing
+
+Replace any confusing toggle with two clear buttons + descriptions.
+
+Button 1: Rewarded
+
+Label: Rewarded (Earn Tokens)
+Description under button: “Press here to play rewarded games and earn tokens.”
+
+If unavailable (no rewarded games OR token cap reached):
+
+Disable button
+
+Greyed out
+
+Text under button: “Unavailable: You’ve reached today’s reward limit.”
+
+Button 2: Practice
+
+Label: Practice (No Tokens)
+Description under button: “Press here to practice. Unlimited play, no tokens.”
+
+Default selection rules
+
+If rewarded is available: default select Rewarded
+
+If user is Practice Only: auto-select Practice and lock Rewarded
+
+D) Popups & Toasts (Edge cases must be explicit)
+1) When rewards end (once per day)
+
+Trigger modal when:
+
+the user uses their last rewarded game OR
+
+reaches daily token cap
+
+Title: Rewarded Games Used Up
+Message:
+“You’ve used all rewarded games for today. You can keep playing in Practice Mode, but you won’t earn tokens until the daily reset.”
+Buttons:
+
+Primary: Switch to Practice
+
+Secondary: OK
+
+After closing:
+
+Status box shows Practice Only
+
+Rewarded button disabled
+
+Practice selected
+
+2) Token cap reached mid-run (clamp)
+
+If reward would exceed remaining daily allowance:
+
+Deposit only remaining tokens
+
+Show toast: “Daily token limit reached — +X tokens added.”
+
+E) Game Page Rules (Player-facing text, simple language)
+
+Add a visible “Token Rules” section or collapsible panel on the game page with this wording:
+
+Free players can earn up to 90 tokens per day.
+
+S-Class members can earn up to 210 tokens per day.
+
+Tokens are earned only in Rewarded games.
+
+Practice is unlimited but gives no tokens.
+
+If you use all rewarded games, you can’t earn more tokens that day (even if you’re below the daily limit).
+
+Tokens you don’t earn today are not saved for later.
+Example: if a free player plays all 3 rewarded games and earns 65 tokens, only 65 tokens are added, even though the daily limit is 90.
+
+Daily reset is 00:00 UTC.
+
+F) Mobile-only condensed version (Responsive)
+Breakpoint
+
+Mobile layout when width ≤ 768px
+
+Desktop/tablet layout above 768px (keep full design)
+
+Mobile condensed “status bar” (always visible)
+
+Replace big info box with compact bar:
+
+When Rewarded available:
+🎯 Rewarded | 🎮 1/3 | 💎 65/90 | ⏰ 2h 14m
+
+When Practice Only:
+🔒 Practice | 🎮 0/3 | 💎 65/90 | ⏰ 2h 14m
+
+Tap status bar → expands full panel showing same details as desktop (stacked)
+
+Tap outside / close → collapses back
+
+Mobile mode buttons
+
+Two large stacked buttons:
+
+Rewarded (Earn Tokens) — subtitle “Uses 1 rewarded game”
+
+Practice (No Tokens) — subtitle “Unlimited play”
+
+If Rewarded unavailable:
+
+disabled + lock + “Daily reward limit reached”
+
+G) NEW: Reward Tutorial (Guided, contextual, one-time)
+Goal
+
+Teach players without forcing them to read walls of text.
+Show short overlays at the moment they matter.
+Tutorial steps should be one-time only per user (store a flag in DB).
+
+Tutorial triggers + copy
+Step 1 — First time user opens game page (only once)
+
+Highlight the two mode buttons (small overlay near buttons):
+
+Title: Two Ways to Play
+
+Body: “Rewarded earns tokens (limited each day). Practice is unlimited but gives no tokens.”
+Button: Got it
+
+Mark tutorial_step_buttons_done = true.
+
+Step 2 — First time user enters Rewarded mode (only once)
+
+Small overlay anchored to Rewarded button or status area:
+
+Title: Rewarded = Tokens
+
+Body: “Play Rewarded games to earn tokens. Your daily limits show at the top.”
+Button: Continue
+
+Mark tutorial_step_rewarded_done = true.
+
+Step 3 — First time user earns tokens (only once)
+
+After token deposit, show toast/banner:
+
+“You earned +X tokens! 🎉”
+Then a second short line:
+
+“See your remaining rewards in Daily Rewards Status.”
+
+Mark tutorial_step_first_earn_done = true.
+
+Step 4 — First time user becomes Practice Only (most important, once ever)
+
+Trigger when rewarded games hit 0 OR token cap reached:
+Modal (stronger teaching moment):
+
+Title: Rewards Paused
+
+Body: “You’ve reached today’s reward limit. You can keep playing in Practice Mode, but you won’t earn tokens until 00:00 UTC.”
+Buttons:
+
+Switch to Practice
+
+OK
+
+Mark tutorial_step_practice_only_done = true.
+
+Tutorial rules
+
+Tutorial must never repeat after completion flags are set
+
+Tutorial must not block gameplay longer than ~30–60 seconds total
+
+Tutorial should be dismissible
+
+Tutorial must use real backend state (don’t show Rewarded tutorial if Rewarded is disabled)
+
+H) Backend requirements (UI must reflect real state)
+
+Expose an endpoint or server function that returns:
+
+rewardedRunsUsedToday
+
+rewardedRunsDailyLimit
+
+tokensEarnedToday
+
+dailyTokenCap
+
+isPracticeOnly (true if runs exhausted OR cap reached)
+
+nextResetUtc (00:00 UTC)
+
+tutorial flags:
+
+tutorial_step_buttons_done
+
+tutorial_step_rewarded_done
+
+tutorial_step_first_earn_done
+
+tutorial_step_practice_only_done
+
+UI refresh rules:
+
+Fetch on page load
+
+Refresh after each game completion
+
+Refresh after token deposit
+
+Refresh after switching mode
+
+I) Acceptance tests (must pass)
+
+On page load, user sees clear status, runs left, tokens today, reset time
+
+After using all rewarded games, user sees:
+
+Practice Only 🔒
+
+Rewarded button disabled
+
+popup explaining why
+
+If user returns later same day, status still shows Practice Only and why
+
+Mobile shows compact bar, tap expands details
+
+Tutorial shows once and never repeats
+
+Token clamping works and shows “Daily token limit reached — +X added”

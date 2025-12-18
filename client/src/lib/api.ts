@@ -562,6 +562,20 @@ export function useGameStatus() {
   });
 }
 
+export function useUpdateTutorial() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (step: 'buttons' | 'rewarded' | 'firstEarn' | 'practiceOnly') =>
+      apiCall("/api/game/tutorial", {
+        method: "POST",
+        body: JSON.stringify({ step }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["gameStatus"] });
+    },
+  });
+}
+
 export function useStartGameSession() {
   const queryClient = useQueryClient();
   return useMutation({

@@ -1217,7 +1217,7 @@ export async function registerRoutes(
         // Create new entry
         entry = await storage.createDrawEntry({
           drawId: req.params.id,
-          userId: req.session.userId,
+          userId: user.id,
           tickets: ticketsToAdd,
           entrySource: 'manual',
         });
@@ -2414,23 +2414,70 @@ export async function registerRoutes(
         ? config.premiumUserRewardedRuns 
         : config.freeUserRewardedRuns;
 
+      const rewardedRunsUsed = stats?.rewardedRunsUsed || 0;
+      const tokensEarnedToday = stats?.tokensEarnedToday || 0;
+      const dailyTokenCap = user.isPremium ? config.premiumUserDailyTokenCap : config.freeUserDailyTokenCap;
+      const totalRewardedRuns = (stats?.socialBonusClaimed ? baseRewardedRuns + 1 : baseRewardedRuns);
+      const rewardedRunsRemaining = Math.max(0, totalRewardedRuns - rewardedRunsUsed);
+      
+      // Calculate isPracticeOnly - true if runs exhausted OR token cap reached
+      const isPracticeOnly = rewardedRunsRemaining <= 0 || tokensEarnedToday >= dailyTokenCap;
+      
+      // Calculate next reset time (00:00 UTC tomorrow)
+      const now = new Date();
+      const nextReset = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0));
+
       res.json({
         userId: user.id,
         isPremium: user.isPremium,
         tokens: user.tokens,
         date: today,
-        rewardedRunsUsed: stats?.rewardedRunsUsed || 0,
-        rewardedRunsRemaining: Math.max(0, (stats?.socialBonusClaimed ? baseRewardedRuns + 1 : baseRewardedRuns) - (stats?.rewardedRunsUsed || 0)),
+        rewardedRunsUsed,
+        rewardedRunsRemaining,
+        rewardedRunsTotal: totalRewardedRuns,
         maxRewardedRuns,
         baseRewardedRuns,
         practiceRunsUsed: stats?.practiceRunsUsed || 0,
-        tokensEarnedToday: stats?.tokensEarnedToday || 0,
-        dailyTokenCap: user.isPremium ? config.premiumUserDailyTokenCap : config.freeUserDailyTokenCap,
+        tokensEarnedToday,
+        dailyTokenCap,
+        isPracticeOnly,
+        nextResetUtc: nextReset.toISOString(),
         socialBonusClaimed: stats?.socialBonusClaimed || false,
         eventEntriesUsed: stats?.eventEntriesUsed || 0,
         activeSession: activeSession || null,
         features: config.features,
+        tutorial: {
+          buttonsDone: user.tutorialButtonsDone || false,
+          rewardedDone: user.tutorialRewardedDone || false,
+          firstEarnDone: user.tutorialFirstEarnDone || false,
+          practiceOnlyDone: user.tutorialPracticeOnlyDone || false,
+        },
       });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Update tutorial flags
+  app.post("/api/game/tutorial", verifySupabaseToken, async (req, res) => {
+    try {
+      const user = await storage.getUserBySupabaseId(req.supabaseUser!.id);
+      if (!user) return res.status(404).json({ error: "User not found" });
+
+      const { step } = req.body;
+      const validSteps = ['buttons', 'rewarded', 'firstEarn', 'practiceOnly'];
+      if (!validSteps.includes(step)) {
+        return res.status(400).json({ error: "Invalid tutorial step" });
+      }
+
+      const updates: Record<string, boolean> = {};
+      if (step === 'buttons') updates.tutorialButtonsDone = true;
+      if (step === 'rewarded') updates.tutorialRewardedDone = true;
+      if (step === 'firstEarn') updates.tutorialFirstEarnDone = true;
+      if (step === 'practiceOnly') updates.tutorialPracticeOnlyDone = true;
+
+      await storage.updateUser(user.id, updates);
+      res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

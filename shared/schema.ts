@@ -32,6 +32,11 @@ export const users = pgTable("users", {
   freeSummonsResetAt: timestamp("free_summons_reset_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   supabaseUserId: varchar("supabase_user_id").unique(),
+  // Tutorial flags for one-time guided tutorials
+  tutorialButtonsDone: boolean("tutorial_buttons_done").notNull().default(false),
+  tutorialRewardedDone: boolean("tutorial_rewarded_done").notNull().default(false),
+  tutorialFirstEarnDone: boolean("tutorial_first_earn_done").notNull().default(false),
+  tutorialPracticeOnlyDone: boolean("tutorial_practice_only_done").notNull().default(false),
 });
 
 // Posts table

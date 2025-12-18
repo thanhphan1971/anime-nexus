@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useAuth } from "@/context/AuthContext";
 import { 
   useGameConfig, 
@@ -14,9 +15,11 @@ import {
   useClaimGameReward,
   useClaimSocialBonus,
   useCreateChroniclePost,
-  useGameEvents
+  useGameEvents,
+  useUpdateTutorial
 } from "@/lib/api";
-import { Zap, Shield, Flame, Clock, Trophy, Share2, Sparkles, AlertTriangle, Target, Calendar, Users, BookOpen, Info } from "lucide-react";
+import { Zap, Shield, Flame, Clock, Trophy, Share2, Sparkles, AlertTriangle, Target, Calendar, Users, BookOpen, Info, Lock, ChevronDown, ChevronUp } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 import stableSigil from "@assets/generated_images/stable_fracture_blue_sigil.png";
 import volatileSigil from "@assets/generated_images/volatile_fracture_purple_sigil.png";
@@ -36,6 +39,7 @@ interface FracturePoint {
 
 export default function GamePage() {
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   const { data: config } = useGameConfig();
   const { data: status, refetch: refetchStatus } = useGameStatus();
   const { data: eventsData } = useGameEvents();
@@ -44,6 +48,7 @@ export default function GamePage() {
   const claimReward = useClaimGameReward();
   const claimSocialBonus = useClaimSocialBonus();
   const createChronicle = useCreateChroniclePost();
+  const updateTutorial = useUpdateTutorial();
 
   const [phase, setPhase] = useState<GamePhase>('selection');
   const [selectedTrial, setSelectedTrial] = useState<TrialType | null>(null);
@@ -57,6 +62,57 @@ export default function GamePage() {
   const [result, setResult] = useState<any>(null);
   const [shareToChronicle, setShareToChronicle] = useState(true);
   const [activeTab, setActiveTab] = useState('play');
+  const [showRewardsEndedModal, setShowRewardsEndedModal] = useState(false);
+  const [showTutorialButtons, setShowTutorialButtons] = useState(false);
+  const [showTutorialRewarded, setShowTutorialRewarded] = useState(false);
+  const [showTutorialPracticeOnly, setShowTutorialPracticeOnly] = useState(false);
+
+  // Check if should show practice-only modal after game ends
+  useEffect(() => {
+    if (status?.isPracticeOnly && !status?.tutorial?.practiceOnlyDone && phase === 'selection') {
+      setShowTutorialPracticeOnly(true);
+    }
+  }, [status?.isPracticeOnly, status?.tutorial?.practiceOnlyDone, phase]);
+
+  // Auto-select practice mode if isPracticeOnly
+  useEffect(() => {
+    if (status?.isPracticeOnly && !isPractice) {
+      setIsPractice(true);
+    }
+  }, [status?.isPracticeOnly, isPractice]);
+
+  // Show buttons tutorial on first page load
+  useEffect(() => {
+    if (status && !status.tutorial?.buttonsDone && phase === 'selection') {
+      setShowTutorialButtons(true);
+    }
+  }, [status?.tutorial?.buttonsDone, phase]);
+
+  // Show rewarded tutorial when user first enters rewarded mode (after buttons tutorial is done)
+  useEffect(() => {
+    if (status && status.tutorial?.buttonsDone && !status.tutorial?.rewardedDone && 
+        !status.isPracticeOnly && !isPractice && phase === 'selection' && !showTutorialButtons) {
+      setShowTutorialRewarded(true);
+    }
+  }, [status?.tutorial?.buttonsDone, status?.tutorial?.rewardedDone, status?.isPracticeOnly, isPractice, phase, showTutorialButtons]);
+
+  const handleTutorialButtonsDismiss = async () => {
+    setShowTutorialButtons(false);
+    await updateTutorial.mutateAsync('buttons');
+  };
+
+  const handleTutorialRewardedDismiss = async () => {
+    setShowTutorialRewarded(false);
+    await updateTutorial.mutateAsync('rewarded');
+  };
+
+  const handleTutorialPracticeOnlyDismiss = async (switchToPractice?: boolean) => {
+    setShowTutorialPracticeOnly(false);
+    await updateTutorial.mutateAsync('practiceOnly');
+    if (switchToPractice) {
+      setIsPractice(true);
+    }
+  };
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const gameLoopRef = useRef<NodeJS.Timeout | null>(null);
@@ -272,6 +328,19 @@ export default function GamePage() {
                   onSelectTrial={startGame}
                   onSocialBonus={handleSocialBonus}
                   isLoading={startSession.isPending}
+                  isMobile={isMobile}
+                  showTutorialButtons={showTutorialButtons}
+                  onTutorialButtonsDismiss={handleTutorialButtonsDismiss}
+                  showTutorialRewarded={showTutorialRewarded}
+                  onTutorialRewardedDismiss={handleTutorialRewardedDismiss}
+                  showTutorialPracticeOnly={showTutorialPracticeOnly}
+                  onTutorialPracticeOnlyDismiss={handleTutorialPracticeOnlyDismiss}
+                  onModeChange={(practice: boolean) => {
+                    setIsPractice(practice);
+                    if (!practice && !status?.tutorial?.rewardedDone && !status?.isPracticeOnly) {
+                      setShowTutorialRewarded(true);
+                    }
+                  }}
                 />
               )}
 
@@ -316,7 +385,13 @@ export default function GamePage() {
   );
 }
 
-function TrialSelection({ config, status, isPractice, setIsPractice, onSelectTrial, onSocialBonus, isLoading }: any) {
+function TrialSelection({ 
+  config, status, isPractice, setIsPractice, onSelectTrial, onSocialBonus, isLoading,
+  isMobile, showTutorialButtons, onTutorialButtonsDismiss, showTutorialRewarded, 
+  onTutorialRewardedDismiss, showTutorialPracticeOnly, onTutorialPracticeOnlyDismiss, onModeChange
+}: any) {
+  const [mobileStatusExpanded, setMobileStatusExpanded] = useState(false);
+
   const trials = [
     { 
       type: 'safe' as TrialType, 
@@ -347,6 +422,31 @@ function TrialSelection({ config, status, isPractice, setIsPractice, onSelectTri
     },
   ];
 
+  // Calculate countdown to next reset
+  const getTimeUntilReset = () => {
+    if (!status?.nextResetUtc) return '00:00';
+    const now = new Date();
+    const reset = new Date(status.nextResetUtc);
+    const diff = reset.getTime() - now.getTime();
+    if (diff <= 0) return '00:00';
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    return `${hours}h ${minutes}m`;
+  };
+
+  const isPracticeOnly = status?.isPracticeOnly || false;
+  const rewardedTotal = status?.rewardedRunsTotal || status?.baseRewardedRuns || 3;
+  const rewardedUsed = status?.rewardedRunsUsed || 0;
+  const rewardedRemaining = status?.rewardedRunsRemaining || 0;
+
+  // Reason for practice-only
+  const getPracticeOnlyReason = () => {
+    if (!isPracticeOnly) return null;
+    if (rewardedRemaining <= 0) return "You've used all rewarded games for today.";
+    if ((status?.tokensEarnedToday || 0) >= (status?.dailyTokenCap || 90)) return "You've reached today's token limit.";
+    return "Rewards unavailable.";
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -354,47 +454,212 @@ function TrialSelection({ config, status, isPractice, setIsPractice, onSelectTri
       exit={{ opacity: 0, y: -20 }}
       className="space-y-6"
     >
-      <div className="text-center mb-8">
+      <div className="text-center mb-4">
         <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent mb-2">
           The Fracture Trial
         </h1>
         <p className="text-gray-400">Stabilize dimensional fractures and earn rewards</p>
       </div>
 
-      {status && (
-        <div className="flex flex-wrap gap-4 justify-center mb-6">
-          <Badge variant="outline" className="bg-gray-800/50 border-purple-500/30 text-purple-300 px-4 py-2">
-            <Trophy className="w-4 h-4 mr-2" />
-            {status.rewardedRunsRemaining}/{status.baseRewardedRuns + (status.socialBonusClaimed ? 1 : 0)} Rewarded Runs Left
-          </Badge>
-          <Badge variant="outline" className="bg-gray-800/50 border-cyan-500/30 text-cyan-300 px-4 py-2">
-            <Sparkles className="w-4 h-4 mr-2" />
-            {status.tokensEarnedToday}/{status.dailyTokenCap} Tokens Today
-          </Badge>
-          {!status.socialBonusClaimed && (
-            <Button 
-              size="sm" 
-              variant="outline" 
-              className="border-yellow-500/50 text-yellow-300 hover:bg-yellow-500/20"
-              onClick={onSocialBonus}
-              data-testid="btn-social-bonus"
-            >
-              <Share2 className="w-4 h-4 mr-2" /> Claim +1 Run (Social)
-            </Button>
-          )}
+      {/* MOBILE STATUS BAR */}
+      {isMobile && status && (
+        <div className="mb-4">
+          <div 
+            className={`p-3 rounded-lg cursor-pointer transition-all ${
+              isPracticeOnly 
+                ? 'bg-gray-700/80 border border-gray-500/50' 
+                : 'bg-gradient-to-r from-purple-900/50 to-cyan-900/50 border border-purple-500/30'
+            }`}
+            onClick={() => setMobileStatusExpanded(!mobileStatusExpanded)}
+            data-testid="mobile-status-bar"
+          >
+            <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className={isPracticeOnly ? 'text-gray-400' : 'text-cyan-300'}>
+                  {isPracticeOnly ? '🔒 Practice' : '🎯 Rewarded'}
+                </span>
+                <span className="text-gray-300">🎮 {rewardedRemaining}/{rewardedTotal}</span>
+                <span className="text-gray-300">💎 {status.tokensEarnedToday}/{status.dailyTokenCap}</span>
+                <span className="text-gray-400">⏰ {getTimeUntilReset()}</span>
+              </div>
+              {mobileStatusExpanded ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+            </div>
+            
+            {mobileStatusExpanded && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="mt-4 pt-4 border-t border-gray-600/50 space-y-2"
+                data-testid="mobile-status-expanded"
+              >
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-400">Status</span>
+                  <span className={isPracticeOnly ? 'text-yellow-400' : 'text-green-400'} data-testid="text-status">
+                    {isPracticeOnly ? 'Practice Only 🔒' : 'Rewarded Available'}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-400">Rewarded Games Left</span>
+                  <span className="text-white" data-testid="text-rewarded-remaining">{rewardedRemaining} / {rewardedTotal}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-400">Tokens Earned Today</span>
+                  <span className="text-white" data-testid="text-tokens-today">{status.tokensEarnedToday} / {status.dailyTokenCap}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-400">Daily Reset</span>
+                  <span className="text-gray-300" data-testid="text-reset-time">Resets in {getTimeUntilReset()}</span>
+                </div>
+                {isPracticeOnly && (
+                  <div className="text-xs text-yellow-400 mt-2" data-testid="text-practice-only-reason">
+                    {getPracticeOnlyReason()}
+                  </div>
+                )}
+              </motion.div>
+            )}
+          </div>
         </div>
       )}
 
-      <div className="flex items-center justify-center gap-3 mb-6">
-        <span className={`text-sm ${!isPractice ? 'text-white' : 'text-gray-400'}`}>Rewarded</span>
-        <Switch 
-          checked={isPractice} 
-          onCheckedChange={setIsPractice}
-          data-testid="switch-practice"
-        />
-        <span className={`text-sm ${isPractice ? 'text-white' : 'text-gray-400'}`}>Practice</span>
+      {/* DESKTOP STATUS BOX */}
+      {!isMobile && status && (
+        <Card className={`mb-6 ${isPracticeOnly ? 'bg-gray-800/60 border-gray-500/30' : 'bg-gradient-to-r from-purple-900/30 to-cyan-900/30 border-purple-500/30'}`} data-testid="desktop-status-box">
+          <CardContent className="p-4">
+            <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+              <Info className="w-5 h-5 text-purple-400" />
+              Daily Rewards Status
+            </h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <div>
+                <div className="text-gray-400 mb-1">Status</div>
+                <div className={`font-medium flex items-center gap-1 ${isPracticeOnly ? 'text-yellow-400' : 'text-green-400'}`} data-testid="desktop-status-text">
+                  {isPracticeOnly && <Lock className="w-4 h-4" />}
+                  {isPracticeOnly ? 'Practice Only' : 'Rewarded Available'}
+                </div>
+              </div>
+              <div>
+                <div className="text-gray-400 mb-1">Rewarded Games Left</div>
+                <div className="text-white font-medium" data-testid="desktop-rewarded-remaining">{rewardedRemaining} / {rewardedTotal}</div>
+              </div>
+              <div>
+                <div className="text-gray-400 mb-1">Tokens Earned Today</div>
+                <div className="text-white font-medium" data-testid="desktop-tokens-today">{status.tokensEarnedToday} / {status.dailyTokenCap}</div>
+              </div>
+              <div>
+                <div className="text-gray-400 mb-1">Daily Reset</div>
+                <div className="text-gray-300" data-testid="desktop-reset-time">Resets in {getTimeUntilReset()}</div>
+              </div>
+            </div>
+            {isPracticeOnly && (
+              <div className="mt-3 text-sm text-yellow-400 bg-yellow-500/10 p-2 rounded" data-testid="desktop-practice-only-reason">
+                {getPracticeOnlyReason()}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* MODE BUTTONS - Two clear buttons */}
+      <div className={`relative ${isMobile ? 'flex flex-col gap-3' : 'flex gap-4 justify-center'} mb-6`}>
+        {/* Tutorial overlay for buttons */}
+        {showTutorialButtons && (
+          <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 -translate-y-full z-50 w-72">
+            <Card className="bg-purple-900/95 border-purple-400 shadow-xl">
+              <CardContent className="p-4">
+                <h4 className="text-white font-bold mb-2">Two Ways to Play</h4>
+                <p className="text-gray-300 text-sm mb-3">
+                  Rewarded earns tokens (limited each day). Practice is unlimited but gives no tokens.
+                </p>
+                <Button size="sm" onClick={onTutorialButtonsDismiss} className="w-full" data-testid="btn-tutorial-buttons-dismiss">
+                  Got it
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Tutorial overlay for rewarded mode */}
+        {showTutorialRewarded && (
+          <div className="absolute -top-2 left-0 transform -translate-y-full z-50 w-72">
+            <Card className="bg-green-900/95 border-green-400 shadow-xl">
+              <CardContent className="p-4">
+                <h4 className="text-white font-bold mb-2">Rewarded = Tokens</h4>
+                <p className="text-gray-300 text-sm mb-3">
+                  Play Rewarded games to earn tokens. Your daily limits show at the top.
+                </p>
+                <Button size="sm" onClick={onTutorialRewardedDismiss} className="w-full" data-testid="btn-tutorial-rewarded-dismiss">
+                  Continue
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Rewarded Button */}
+        <Button
+          variant={!isPractice ? 'default' : 'outline'}
+          size="lg"
+          className={`${isMobile ? 'w-full py-6' : 'px-8 py-6'} flex flex-col items-center gap-1 ${
+            isPracticeOnly 
+              ? 'opacity-50 cursor-not-allowed bg-gray-700 border-gray-500' 
+              : !isPractice 
+                ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700' 
+                : 'border-green-500/50 text-green-300 hover:bg-green-500/20'
+          }`}
+          onClick={() => !isPracticeOnly && onModeChange(false)}
+          disabled={isPracticeOnly}
+          data-testid="btn-mode-rewarded"
+        >
+          <div className="flex items-center gap-2">
+            {isPracticeOnly && <Lock className="w-4 h-4" />}
+            <Trophy className="w-5 h-5" />
+            <span className="font-bold">Rewarded (Earn Tokens)</span>
+          </div>
+          <span className="text-xs opacity-80">
+            {isPracticeOnly 
+              ? 'Unavailable: Daily reward limit reached' 
+              : 'Uses 1 rewarded game'
+            }
+          </span>
+        </Button>
+
+        {/* Practice Button */}
+        <Button
+          variant={isPractice ? 'default' : 'outline'}
+          size="lg"
+          className={`${isMobile ? 'w-full py-6' : 'px-8 py-6'} flex flex-col items-center gap-1 ${
+            isPractice 
+              ? 'bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800' 
+              : 'border-gray-500/50 text-gray-300 hover:bg-gray-500/20'
+          }`}
+          onClick={() => onModeChange(true)}
+          data-testid="btn-mode-practice"
+        >
+          <div className="flex items-center gap-2">
+            <Target className="w-5 h-5" />
+            <span className="font-bold">Practice (No Tokens)</span>
+          </div>
+          <span className="text-xs opacity-80">Unlimited play</span>
+        </Button>
       </div>
 
+      {/* Social Bonus */}
+      {status && !status.socialBonusClaimed && !isPracticeOnly && (
+        <div className="text-center mb-4">
+          <Button 
+            size="sm" 
+            variant="outline" 
+            className="border-yellow-500/50 text-yellow-300 hover:bg-yellow-500/20"
+            onClick={onSocialBonus}
+            data-testid="btn-social-bonus"
+          >
+            <Share2 className="w-4 h-4 mr-2" /> Claim +1 Rewarded Game (Social Bonus)
+          </Button>
+        </div>
+      )}
+
+      {/* Trial Cards */}
       <div className="grid md:grid-cols-3 gap-4">
         {trials.map(({ type, sigil, color, borderColor, glowColor, animation }) => {
           const trialInfo = config?.trials?.[type];
@@ -462,6 +727,37 @@ function TrialSelection({ config, status, isPractice, setIsPractice, onSelectTri
           Practice mode: No rewards will be earned
         </div>
       )}
+
+      {/* Practice Only Tutorial Modal */}
+      <Dialog open={showTutorialPracticeOnly} onOpenChange={() => {}}>
+        <DialogContent className="bg-gray-900 border-yellow-500/50">
+          <DialogHeader>
+            <DialogTitle className="text-yellow-400 flex items-center gap-2">
+              <Lock className="w-5 h-5" />
+              Rewards Paused
+            </DialogTitle>
+            <DialogDescription className="text-gray-300 pt-4">
+              You've reached today's reward limit. You can keep playing in Practice Mode, but you won't earn tokens until 00:00 UTC.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 mt-4">
+            <Button 
+              onClick={() => onTutorialPracticeOnlyDismiss(true)}
+              className="bg-gradient-to-r from-gray-600 to-gray-700"
+              data-testid="btn-switch-to-practice"
+            >
+              Switch to Practice
+            </Button>
+            <Button 
+              variant="outline"
+              onClick={() => onTutorialPracticeOnlyDismiss(false)}
+              data-testid="btn-dismiss-practice-modal"
+            >
+              OK
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   );
 }
