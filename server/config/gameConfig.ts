@@ -28,8 +28,8 @@ export const DEFAULT_GAME_CONFIG = {
   // Each trial has distinct gameplay feel through spawn mechanics
   trials: {
     safe: {
-      name: 'Safe Trial',
-      description: 'Slow and steady. Fractures appear one at a time with generous windows.',
+      name: 'Stable Fracture',
+      description: 'Calm and controlled. Fractures appear one at a time with generous windows.',
       riskLevel: 'low',
       tokenCost: 0,
       rewardRange: { min: 10, max: 25 },
@@ -44,10 +44,12 @@ export const DEFAULT_GAME_CONFIG = {
       windowMax: 4000, // max time to click
       maxConcurrent: 1, // only 1 active at a time
       spawnAcceleration: 1.0, // no speedup
+      // Visual theme
+      colorTheme: 'stable', // blue/cyan/white
     },
     unstable: {
-      name: 'Unstable Trial',
-      description: 'Faster pace with overlapping fractures. Stay alert!',
+      name: 'Volatile Fracture',
+      description: 'Growing instability. Faster pace with overlapping fractures.',
       riskLevel: 'medium',
       tokenCost: 0,
       rewardRange: { min: 25, max: 50 },
@@ -62,10 +64,12 @@ export const DEFAULT_GAME_CONFIG = {
       windowMax: 3000,
       maxConcurrent: 2, // up to 2 active at once
       spawnAcceleration: 0.92, // speeds up 8% each spawn
+      // Visual theme
+      colorTheme: 'volatile', // purple/magenta
     },
     overcharged: {
-      name: 'Overcharged Trial',
-      description: 'Chaos mode! Rapid spawns, short windows, multiple active fractures.',
+      name: 'Overcharged Rift',
+      description: 'Maximum energy overload! Rapid spawns, short windows, pure chaos.',
       riskLevel: 'high',
       tokenCost: 25, // costs 25 tokens to enter
       rewardRange: { min: 50, max: 100 },
@@ -80,6 +84,8 @@ export const DEFAULT_GAME_CONFIG = {
       windowMax: 2000,
       maxConcurrent: 3, // up to 3 active at once!
       spawnAcceleration: 0.88, // speeds up 12% each spawn
+      // Visual theme
+      colorTheme: 'overcharged', // gold/yellow
     },
   },
 
@@ -132,6 +138,8 @@ export interface TrialConfig {
   windowMax: number;
   maxConcurrent: number;
   spawnAcceleration: number;
+  // Visual theme
+  colorTheme: 'stable' | 'volatile' | 'overcharged';
 }
 
 // Helper to get config with site_settings overrides

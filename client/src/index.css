@@ -155,3 +155,57 @@ h1, h2, h3, h4, h5, h6 {
 .animate-marquee:hover {
   animation-play-state: paused;
 }
+
+/* Fracture Trial Sigil Animations */
+@keyframes pulse-slow {
+  0%, 100% {
+    opacity: 1;
+    filter: drop-shadow(0 0 8px rgba(34, 211, 238, 0.4));
+  }
+  50% {
+    opacity: 0.85;
+    filter: drop-shadow(0 0 16px rgba(34, 211, 238, 0.7));
+  }
+}
+
+@keyframes flicker {
+  0%, 100% {
+    opacity: 1;
+    filter: drop-shadow(0 0 8px rgba(168, 85, 247, 0.5));
+  }
+  25% {
+    opacity: 0.9;
+    filter: drop-shadow(0 0 12px rgba(168, 85, 247, 0.7));
+  }
+  50% {
+    opacity: 0.95;
+    filter: drop-shadow(0 0 6px rgba(168, 85, 247, 0.4));
+  }
+  75% {
+    opacity: 0.85;
+    filter: drop-shadow(0 0 14px rgba(168, 85, 247, 0.8));
+  }
+}
+
+@keyframes surge {
+  0%, 100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 10px rgba(250, 204, 21, 0.5));
+  }
+  50% {
+    transform: scale(1.02);
+    filter: drop-shadow(0 0 20px rgba(250, 204, 21, 0.8));
+  }
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 2s ease-in-out infinite;
+}
+
+.animate-flicker {
+  animation: flicker 1.5s ease-in-out infinite;
+}
+
+.animate-surge {
+  animation: surge 0.8s ease-in-out infinite;
+}

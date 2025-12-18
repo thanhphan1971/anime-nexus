@@ -18,6 +18,10 @@ import {
 } from "@/lib/api";
 import { Zap, Shield, Flame, Clock, Trophy, Share2, Sparkles, AlertTriangle, Target, Calendar, Users } from "lucide-react";
 
+import stableSigil from "@assets/generated_images/stable_fracture_blue_sigil.png";
+import volatileSigil from "@assets/generated_images/volatile_fracture_purple_sigil.png";
+import overchargedSigil from "@assets/generated_images/overcharged_rift_gold_sigil.png";
+
 type TrialType = 'safe' | 'unstable' | 'overcharged';
 type GamePhase = 'selection' | 'playing' | 'result';
 
@@ -309,9 +313,33 @@ export default function GamePage() {
 
 function TrialSelection({ config, status, isPractice, setIsPractice, onSelectTrial, onSocialBonus, isLoading }: any) {
   const trials = [
-    { type: 'safe' as TrialType, icon: Shield, color: 'from-green-500 to-emerald-600', borderColor: 'border-green-500/50' },
-    { type: 'unstable' as TrialType, icon: Zap, color: 'from-purple-500 to-violet-600', borderColor: 'border-purple-500/50' },
-    { type: 'overcharged' as TrialType, icon: Flame, color: 'from-orange-500 to-red-600', borderColor: 'border-orange-500/50' },
+    { 
+      type: 'safe' as TrialType, 
+      icon: Shield, 
+      sigil: stableSigil,
+      color: 'from-cyan-500 to-blue-600', 
+      borderColor: 'border-cyan-500/50',
+      glowColor: 'shadow-cyan-500/30',
+      animation: 'animate-pulse-slow'
+    },
+    { 
+      type: 'unstable' as TrialType, 
+      icon: Zap, 
+      sigil: volatileSigil,
+      color: 'from-purple-500 to-fuchsia-600', 
+      borderColor: 'border-purple-500/50',
+      glowColor: 'shadow-purple-500/40',
+      animation: 'animate-flicker'
+    },
+    { 
+      type: 'overcharged' as TrialType, 
+      icon: Flame, 
+      sigil: overchargedSigil,
+      color: 'from-yellow-400 to-orange-500', 
+      borderColor: 'border-yellow-500/50',
+      glowColor: 'shadow-yellow-500/50',
+      animation: 'animate-surge'
+    },
   ];
 
   return (
@@ -363,7 +391,7 @@ function TrialSelection({ config, status, isPractice, setIsPractice, onSelectTri
       </div>
 
       <div className="grid md:grid-cols-3 gap-4">
-        {trials.map(({ type, icon: Icon, color, borderColor }) => {
+        {trials.map(({ type, sigil, color, borderColor, glowColor, animation }) => {
           const trialInfo = config?.trials?.[type];
           if (!trialInfo) return null;
           
@@ -377,15 +405,21 @@ function TrialSelection({ config, status, isPractice, setIsPractice, onSelectTri
               whileTap={{ scale: 0.98 }}
             >
               <Card 
-                className={`bg-gray-800/50 ${borderColor} cursor-pointer transition-all hover:shadow-lg hover:shadow-purple-500/20 ${!hasEnoughTokens ? 'opacity-50' : ''}`}
+                className={`bg-gray-900/80 ${borderColor} border-2 cursor-pointer transition-all hover:shadow-xl ${glowColor} ${!hasEnoughTokens ? 'opacity-50' : ''}`}
                 onClick={() => hasEnoughTokens && !isLoading && onSelectTrial(type)}
                 data-testid={`trial-card-${type}`}
               >
                 <CardContent className="p-6 text-center">
-                  <div className={`w-16 h-16 rounded-full bg-gradient-to-br ${color} mx-auto mb-4 flex items-center justify-center shadow-lg`}>
-                    <Icon className="w-8 h-8 text-white" />
+                  <div className={`w-20 h-20 mx-auto mb-4 ${animation}`}>
+                    <img 
+                      src={sigil} 
+                      alt={trialInfo.name} 
+                      className="w-full h-full object-contain drop-shadow-lg"
+                    />
                   </div>
-                  <h3 className="text-lg font-bold text-white mb-2">{trialInfo.name}</h3>
+                  <h3 className={`text-lg font-bold mb-2 bg-gradient-to-r ${color} bg-clip-text text-transparent`}>
+                    {trialInfo.name}
+                  </h3>
                   <p className="text-sm text-gray-400 mb-4">{trialInfo.description}</p>
                   
                   <div className="space-y-2 text-sm">
@@ -402,7 +436,7 @@ function TrialSelection({ config, status, isPractice, setIsPractice, onSelectTri
                     {isOvercharged && (
                       <div className="flex justify-between">
                         <span className="text-gray-500">Entry</span>
-                        <span className="text-orange-300">{trialInfo.tokenCost} tokens</span>
+                        <span className="text-yellow-300">{trialInfo.tokenCost} tokens</span>
                       </div>
                     )}
                     <div className="flex justify-between">
@@ -428,10 +462,36 @@ function TrialSelection({ config, status, isPractice, setIsPractice, onSelectTri
 }
 
 function GameScreen({ trialConfig, session, timeLeft, fracturePoints, fracturesStabilized, score, status, onFractureClick, onEndGame }: { trialConfig: any; session: any; timeLeft: number; fracturePoints: FracturePoint[]; fracturesStabilized: number; score: number; status: any; onFractureClick: (id: number) => void; onEndGame: () => void }) {
+  // Updated colors matching the new trial themes
   const trialColors: Record<string, string> = {
-    safe: 'from-green-500/20 to-green-900/20',
-    unstable: 'from-purple-500/20 to-purple-900/20',
-    overcharged: 'from-orange-500/20 to-red-900/20',
+    safe: 'from-cyan-500/20 to-blue-900/20',
+    unstable: 'from-purple-500/20 to-fuchsia-900/20',
+    overcharged: 'from-yellow-500/20 to-orange-900/20',
+  };
+  
+  const trialBorderColors: Record<string, string> = {
+    safe: 'border-cyan-500/40',
+    unstable: 'border-purple-500/40',
+    overcharged: 'border-yellow-500/40',
+  };
+  
+  const trialGlowColors: Record<string, string> = {
+    safe: 'rgba(34, 211, 238, 0.5)',
+    unstable: 'rgba(168, 85, 247, 0.5)',
+    overcharged: 'rgba(250, 204, 21, 0.5)',
+  };
+  
+  // Fracture point colors per trial
+  const fractureActiveColors: Record<string, string> = {
+    safe: 'bg-cyan-500 shadow-lg shadow-cyan-500/50',
+    unstable: 'bg-purple-500 shadow-lg shadow-purple-500/50',
+    overcharged: 'bg-yellow-500 shadow-lg shadow-yellow-500/50',
+  };
+  
+  const fractureStabilizedColors: Record<string, string> = {
+    safe: 'bg-cyan-300',
+    unstable: 'bg-fuchsia-400',
+    overcharged: 'bg-orange-400',
   };
 
   const urgencyColor = timeLeft <= 5 ? 'text-red-400 animate-pulse' : timeLeft <= 10 ? 'text-yellow-400' : 'text-white';
@@ -450,9 +510,9 @@ function GameScreen({ trialConfig, session, timeLeft, fracturePoints, fracturesS
             {timeLeft}s
           </div>
           <Badge className={`${
-            session.trialType === 'safe' ? 'bg-green-500/20 text-green-300' :
+            session.trialType === 'safe' ? 'bg-cyan-500/20 text-cyan-300' :
             session.trialType === 'unstable' ? 'bg-purple-500/20 text-purple-300' :
-            'bg-orange-500/20 text-orange-300'
+            'bg-yellow-500/20 text-yellow-300'
           }`}>
             {trialConfig.name}
           </Badge>
@@ -461,27 +521,27 @@ function GameScreen({ trialConfig, session, timeLeft, fracturePoints, fracturesS
           </Badge>
         </div>
         <div className="flex items-center gap-4">
-          <span className="text-cyan-300">
+          <span className={session.trialType === 'safe' ? 'text-cyan-300' : session.trialType === 'unstable' ? 'text-purple-300' : 'text-yellow-300'}>
             <Target className="w-4 h-4 inline mr-1" />
             {fracturesStabilized}/{trialConfig.fractureCount}
           </span>
-          <span className="text-purple-300">Score: {score}</span>
+          <span className={session.trialType === 'safe' ? 'text-cyan-300' : session.trialType === 'unstable' ? 'text-purple-300' : 'text-yellow-300'}>Score: {score}</span>
         </div>
       </div>
 
       <div 
-        className={`relative w-full aspect-square max-w-lg mx-auto rounded-xl bg-gradient-to-br ${trialColors[session.trialType] || trialColors.safe} border border-purple-500/30 overflow-hidden`}
+        className={`relative w-full aspect-square max-w-lg mx-auto rounded-xl bg-gradient-to-br ${trialColors[session.trialType] || trialColors.safe} border-2 ${trialBorderColors[session.trialType] || trialBorderColors.safe} overflow-hidden`}
         data-testid="game-arena"
       >
         <div className="absolute inset-0 flex items-center justify-center">
           <motion.div 
-            className="w-32 h-32 rounded-full border-4 border-purple-500/50 flex items-center justify-center"
+            className={`w-32 h-32 rounded-full border-4 ${trialBorderColors[session.trialType] || trialBorderColors.safe} flex items-center justify-center`}
             animate={{ 
-              boxShadow: ['0 0 20px rgba(168, 85, 247, 0.5)', '0 0 40px rgba(168, 85, 247, 0.8)', '0 0 20px rgba(168, 85, 247, 0.5)'],
+              boxShadow: [`0 0 20px ${trialGlowColors[session.trialType]}`, `0 0 40px ${trialGlowColors[session.trialType]}`, `0 0 20px ${trialGlowColors[session.trialType]}`],
             }}
             transition={{ duration: 2, repeat: Infinity }}
           >
-            <Zap className="w-16 h-16 text-purple-400" />
+            <Zap className={`w-16 h-16 ${session.trialType === 'safe' ? 'text-cyan-400' : session.trialType === 'overcharged' ? 'text-yellow-400' : 'text-purple-400'}`} />
           </motion.div>
         </div>
 
@@ -498,9 +558,9 @@ function GameScreen({ trialConfig, session, timeLeft, fracturePoints, fracturesS
               transition={{ duration: 0.3 }}
               className={`absolute w-12 h-12 -translate-x-1/2 -translate-y-1/2 rounded-full flex items-center justify-center cursor-pointer transition-colors ${
                 point.active 
-                  ? 'bg-cyan-500 shadow-lg shadow-cyan-500/50 animate-pulse' 
+                  ? `${fractureActiveColors[session.trialType] || fractureActiveColors.safe} animate-pulse` 
                   : point.stabilized 
-                    ? 'bg-green-500' 
+                    ? fractureStabilizedColors[session.trialType] || fractureStabilizedColors.safe
                     : 'bg-gray-600'
               }`}
               style={{ left: `${point.x}%`, top: `${point.y}%` }}
@@ -518,7 +578,7 @@ function GameScreen({ trialConfig, session, timeLeft, fracturePoints, fracturesS
             className="absolute inset-0 pointer-events-none"
             animate={{ opacity: [0.1, 0.2, 0.1] }}
             transition={{ duration: 0.5, repeat: Infinity }}
-            style={{ background: 'radial-gradient(circle at center, rgba(6, 182, 212, 0.2) 0%, transparent 70%)' }}
+            style={{ background: `radial-gradient(circle at center, ${trialGlowColors[session.trialType] || trialGlowColors.safe} 0%, transparent 70%)` }}
           />
         )}
       </div>

@@ -1,0 +1,106 @@
+GLOBAL LOGO RULES (apply to ALL 3)
+
+Use these rules every time, so the set feels cohesive:
+
+Style: abstract fracture sigil
+
+No text, no letters, no numbers
+
+Centered composition
+
+High contrast on dark background
+
+Designed to sit inside a square game board
+
+Works at small size (mobile-first)
+
+Slight glow, clean edges
+
+Ratio: 1:1
+
+Background: transparent OR pure black
+
+Negative prompt (important):
+text, letters, numbers, words, character, face, human, creature, scenery, landscape, detailed background, clutter, messy composition
+
+1️⃣ SAFE TRIAL → rename suggestion: STABLE FRACTURE
+Visual Meaning
+
+Calm, controlled, safe, predictable
+This is where new users start.
+
+Prompt
+Abstract fracture sigil, stable and symmetrical geometric symbol, smooth crystalline structure, balanced design, soft blue and white energy glow, minimal cracks, calm and controlled energy, futuristic rune-like emblem, clean sharp edges, subtle light pulse, centered composition, dark background, high contrast, minimalist sci-fi fantasy style, polished and refined
+
+Color Direction
+
+White
+
+Pale blue
+
+Soft cyan glow
+
+2️⃣ UNSTABLE TRIAL → rename suggestion: VOLATILE FRACTURE
+Visual Meaning
+
+Risk, instability, tension, growing chaos
+
+Prompt
+Abstract fracture sigil, asymmetrical broken geometric symbol, visible energy fractures, unstable crystalline form, glowing purple and magenta energy, jagged cracks radiating outward, controlled chaos, fractured core, sharp angles, intense glow, dynamic tension, centered composition, dark background, minimalist sci-fi fantasy emblem
+
+Color Direction
+
+Purple
+
+Magenta
+
+Faint red accents
+
+3️⃣ OVERCHARGED TRIAL → rename suggestion: OVERCHARGED RIFT
+Visual Meaning
+
+Maximum energy, danger, reward, overload
+
+Prompt
+Abstract fracture sigil, explosive energy core, heavily fractured geometric symbol, bright golden and electric yellow energy, intense glow, lightning-like cracks, overcharged power radiating outward, unstable but contained core, sharp aggressive angles, high energy sci-fi emblem, centered composition, dark background, dramatic contrast
+
+Color Direction
+
+Gold
+
+Electric yellow
+
+White-hot highlights
+
+OPTIONAL: ANIMATION DIRECTION (tell Replit, not the image AI)
+
+After you generate the static sigils, tell Replit:
+
+Stable Fracture → slow pulse (1–2s)
+
+Volatile Fracture → irregular glow flicker
+
+Overcharged Rift → brief surge when game starts
+
+No continuous heavy animation.
+
+Brutally Honest Note (important)
+
+Do NOT ask the AI to design:
+
+full logos with text
+
+UI buttons
+
+backgrounds
+
+You only want pure symbols.
+Everything else is UI-layered later.
+
+This keeps:
+
+performance high
+
+theming easy
+
+re-skinning cheap for events
