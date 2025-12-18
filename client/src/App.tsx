@@ -13,6 +13,7 @@ import AnimeListPage from "@/pages/AnimeListPage";
 import CardsPage from "@/pages/CardsPage";
 import CardCatalogPage from "@/pages/CardCatalogPage";
 import PremiumPage from "@/pages/PremiumPage";
+import BenefitsPage from "@/pages/BenefitsPage";
 import CreatePostPage from "@/pages/CreatePostPage";
 import HelpPage from "@/pages/HelpPage";
 import AdminPage from "@/pages/AdminPage";
@@ -55,6 +56,7 @@ function Router() {
         <Route path="/cards/catalog" component={CardCatalogPage} />
         <Route path="/draws" component={DrawsPage} />
         <Route path="/sclass" component={PremiumPage} />
+        <Route path="/benefits" component={BenefitsPage} />
         <Route path="/create" component={CreatePostPage} />
         <Route path="/help" component={HelpPage} />
         <Route path="/admin" component={AdminPage} />

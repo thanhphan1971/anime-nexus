@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Check, X, Crown, Sparkles, Zap, Star, AlertCircle, Info, Shield } from "lucide-react";
+import { Check, X, Crown, Sparkles, Zap, Star, AlertCircle, Info, Shield, ExternalLink } from "lucide-react";
+import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -82,31 +83,36 @@ export default function PremiumPage() {
       name: "Daily Game Entries",
       free: "3 Rewarded Runs / Day",
       premium: "6 Rewarded Runs / Day",
-      icon: Star
+      icon: Star,
+      anchor: "game-entries"
     },
     {
       name: "Daily Token Cap",
-      free: "90 Tokens / Day",
-      premium: "210 Tokens / Day",
-      icon: Zap
+      free: "Earn up to 90 Tokens / Day (via game)",
+      premium: "Earn up to 210 Tokens / Day (via game)",
+      icon: Zap,
+      anchor: "token-cap"
     },
     {
       name: "Weekly & Monthly Draws",
       free: "Standard Entries",
       premium: "Extra Weekly & Monthly Entries",
-      icon: Sparkles
+      icon: Sparkles,
+      anchor: "prize-draws"
     },
     {
       name: "Card Pull Efficiency",
       free: "Standard Rates",
       premium: "Higher Pull Efficiency (no guaranteed rarity)",
-      icon: Crown
+      icon: Crown,
+      anchor: "card-pulls"
     },
     {
       name: "Identity Badge",
       free: "Standard Badge",
       premium: "Exclusive 'S-Class' Golden Badge",
-      icon: Shield
+      icon: Shield,
+      anchor: "badges"
     }
   ];
 
@@ -136,15 +142,20 @@ export default function PremiumPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             {features.map((feature, i) => (
-              <div key={i} className="flex items-start gap-3 p-3 rounded-lg bg-white/5">
-                <div className="mt-1 bg-white/10 p-1 rounded">
-                  <feature.icon className="h-4 w-4 text-muted-foreground" />
+              <Link key={i} href={`/benefits#${feature.anchor}`}>
+                <div className="flex items-start gap-3 p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors cursor-pointer group" data-testid={`link-benefit-free-${feature.anchor}`}>
+                  <div className="mt-1 bg-white/10 p-1 rounded">
+                    <feature.icon className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-bold text-sm text-muted-foreground group-hover:text-white/80 flex items-center gap-1">
+                      {feature.name}
+                      <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </p>
+                    <p className="text-sm">{feature.free}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="font-bold text-sm text-muted-foreground">{feature.name}</p>
-                  <p className="text-sm">{feature.free}</p>
-                </div>
-              </div>
+              </Link>
             ))}
           </CardContent>
           <CardFooter>
@@ -170,15 +181,20 @@ export default function PremiumPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             {features.map((feature, i) => (
-              <div key={i} className="flex items-start gap-3 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
-                <div className="mt-1 bg-yellow-500/20 p-1 rounded">
-                  <feature.icon className="h-4 w-4 text-yellow-400" />
+              <Link key={i} href={`/benefits#${feature.anchor}`}>
+                <div className="flex items-start gap-3 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20 hover:bg-yellow-500/20 transition-colors cursor-pointer group" data-testid={`link-benefit-premium-${feature.anchor}`}>
+                  <div className="mt-1 bg-yellow-500/20 p-1 rounded">
+                    <feature.icon className="h-4 w-4 text-yellow-400" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-bold text-sm text-yellow-400 flex items-center gap-1">
+                      {feature.name}
+                      <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </p>
+                    <p className="text-sm text-white">{feature.premium}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="font-bold text-sm text-yellow-400">{feature.name}</p>
-                  <p className="text-sm text-white">{feature.premium}</p>
-                </div>
-              </div>
+              </Link>
             ))}
             
             {/* Subscription Terms - Visible on Paywall */}
