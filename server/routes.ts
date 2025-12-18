@@ -2664,7 +2664,7 @@ export async function registerRoutes(
       const updatedSession = await storage.updateGameSession(sessionId, {
         status: 'completed',
         outcome,
-        score: Math.floor(simulatedPerformance * 1000),
+        score: Math.floor(combinedPerformance * 1000),
         fracturesStabilized,
         tokensRewarded,
         completedAt: new Date(),
