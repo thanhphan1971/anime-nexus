@@ -224,18 +224,18 @@ function DrawSection({
             )}
           </div>
           
-          {canEnter ? (
+          {draw?.status === 'open' && (isWeekly || isPremium) ? (
             <Button 
               onClick={onEnter}
-              disabled={isEntering}
+              disabled={isEntering || allEntriesUsed}
               className={`${isWeekly 
                 ? 'bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600' 
                 : 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600'
-              } text-white font-bold px-6`}
+              } text-white font-bold px-6 disabled:opacity-50 disabled:cursor-not-allowed`}
               data-testid={`button-enter-${type}-draw`}
             >
               <Ticket className="h-4 w-4 mr-2" />
-              {isEntering ? 'Entering...' : 'Enter Draw'}
+              {isEntering ? 'Entering...' : allEntriesUsed ? 'Max Entries Reached' : 'Enter Draw'}
             </Button>
           ) : !isPremium && !isWeekly ? (
             <Link href="/sclass">
