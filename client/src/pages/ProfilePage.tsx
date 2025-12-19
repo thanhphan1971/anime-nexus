@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams } from "wouter";
+import { useParams, Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Settings, MapPin, Link as LinkIcon, Calendar, Loader2, Crown, Upload, Sparkles, Camera } from "lucide-react";
+import { Settings, MapPin, Link as LinkIcon, Calendar, Loader2, Crown, Upload, Sparkles, Camera, Globe } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { usePosts, useUpdateUser } from "@/lib/api";
 import { formatDistanceToNow } from "date-fns";
@@ -293,6 +293,11 @@ export default function ProfilePage() {
                  <div className="flex items-center gap-2">
                    <Calendar className="h-4 w-4" /> Joined {profileUser.createdAt ? formatDistanceToNow(new Date(profileUser.createdAt), { addSuffix: true }) : 'recently'}
                  </div>
+                 <Link href="/universe">
+                   <div className="flex items-center gap-2 cursor-pointer hover:text-primary transition-colors" data-testid="link-universe">
+                     <Globe className="h-4 w-4" /> Explore the Universe
+                   </div>
+                 </Link>
                </div>
 
                {/* Stats */}
