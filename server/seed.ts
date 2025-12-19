@@ -235,7 +235,7 @@ export async function seedDatabase() {
       ],
       entryRules: { minAccountAgeDays: 1 },
       maxEntriesPerUser: 1,
-      premiumEntriesPerUser: 3,
+      premiumEntriesPerUser: 2,
       isFeatured: true,
     },
     {
@@ -252,8 +252,8 @@ export async function seedDatabase() {
         { name: "30 Days S-Class", type: "premium_days", value: 30, quantity: 2 }
       ],
       entryRules: { premiumOnly: true, minAccountAgeDays: 7 },
-      maxEntriesPerUser: 1,
-      premiumEntriesPerUser: 2,
+      maxEntriesPerUser: 0,
+      premiumEntriesPerUser: 1,
       isFeatured: true,
     },
   ];
