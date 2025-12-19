@@ -258,6 +258,11 @@ export default function PremiumPage() {
             <div className="mt-4 pt-3 border-t border-yellow-500/20 space-y-1.5 text-xs text-white/60">
               <p>Renews {selectedPlan === 'yearly' ? 'yearly at $79.99' : 'monthly at $9.99'} · Cancel anytime in App Store/Play Store</p>
               <p>Rewards are digital items only · No cash value · Outcomes not guaranteed</p>
+              {selectedPlan === 'yearly' && (
+                <p className="text-yellow-400/80 font-medium">
+                  Yearly subscriptions are non-refundable. If canceled, your S-Class benefits remain active until your subscription expires.
+                </p>
+              )}
             </div>
           </CardContent>
           <CardFooter className="flex flex-col gap-3">
