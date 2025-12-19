@@ -139,6 +139,66 @@ export const TRIBE_VEIL: Tribe = {
       element: 'Spirit',
       flavorText: '"..."',
     },
+    {
+      id: 'veil_009',
+      name: 'Aurelith Echo-Seer',
+      title: 'Fractured Witness',
+      bio: 'Bound to fractured memory, the Echo-Seer perceives echoes of moments that never fully ended.',
+      rarity: 'epic',
+      role: 'mystic',
+      element: 'Spirit',
+      flavorText: '"A consciousness bound to fractured memory. Sees events that never fully ended."',
+    },
+    {
+      id: 'veil_010',
+      name: 'The Whisperbound',
+      title: 'Voice Out of Time',
+      bio: 'An entity whose words arrive displaced from the present, never quite when expected.',
+      rarity: 'legendary',
+      role: 'mystic',
+      element: 'Spirit',
+      flavorText: '"Speaks only in fragments. What it says arrives too late — or too early."',
+    },
+    {
+      id: 'veil_011',
+      name: 'Voidbound Warden',
+      title: 'Keeper of Unstable Zones',
+      bio: 'A guardian who sacrifices stability to preserve the boundaries of echo zones.',
+      rarity: 'rare',
+      role: 'support',
+      element: 'Spirit',
+      flavorText: '"Holds unstable echo zones together through sheer will. Slowly fading."',
+    },
+    {
+      id: 'veil_012',
+      name: 'Lament Weaver',
+      title: 'Grief Made Manifest',
+      bio: 'Transforms sorrow into endurance, growing stronger in prolonged stillness.',
+      rarity: 'epic',
+      role: 'support',
+      element: 'Spirit',
+      flavorText: '"Turns grief into persistence. The longer the silence, the stronger it becomes."',
+    },
+    {
+      id: 'veil_013',
+      name: 'Pale Remnant',
+      title: 'Residue of Intent',
+      bio: 'What remains when identity fades but purpose lingers, drifting between existence.',
+      rarity: 'common',
+      role: 'warrior',
+      element: 'Spirit',
+      flavorText: '"Once human. Now a residue of intent and regret drifting between states."',
+    },
+    {
+      id: 'veil_014',
+      name: 'Fracture Medium',
+      title: 'Conduit of Traces',
+      bio: 'A vessel for lingering Continuum energy, paying with fragments of self.',
+      rarity: 'rare',
+      role: 'mystic',
+      element: 'Spirit',
+      flavorText: '"Channels lingering Continuum traces. Each use erases something else."',
+    },
   ],
 
   gameplayMechanics: [
@@ -193,8 +253,62 @@ export const TRIBE_VEIL: Tribe = {
   ],
 };
 
+export interface TribeLightCanon {
+  id: string;
+  name: string;
+  shortName: string;
+  belief: string;
+  gameplayIdentity: string;
+  element: string;
+  color: string;
+  accentColor: string;
+  symbol: string;
+}
+
+export const TRIBE_FRACTURE_VANGUARD: TribeLightCanon = {
+  id: 'fracture-vanguard',
+  name: 'Fracture Vanguard',
+  shortName: 'The Vanguard',
+  belief: 'Strength and order are the only defenses against collapse.',
+  gameplayIdentity: 'Frontline pressure, durability, direct confrontation.',
+  element: 'Force',
+  color: 'red',
+  accentColor: '#EF4444',
+  symbol: '⚔',
+};
+
+export const TRIBE_WARDENS: TribeLightCanon = {
+  id: 'wardens-of-the-fracture',
+  name: 'Wardens of the Fracture',
+  shortName: 'The Wardens',
+  belief: 'The world must be stabilized, even if freedom is sacrificed.',
+  gameplayIdentity: 'Defense, protection, control of space and allies.',
+  element: 'Order',
+  color: 'blue',
+  accentColor: '#3B82F6',
+  symbol: '🛡',
+};
+
+export const TRIBE_IRONBOUND: TribeLightCanon = {
+  id: 'ironbound-legion',
+  name: 'Ironbound Legion',
+  shortName: 'The Ironbound',
+  belief: 'Survival is forged, not granted. Adaptation through force and endurance.',
+  gameplayIdentity: 'Relentless offense, momentum, sustained aggression.',
+  element: 'Iron',
+  color: 'orange',
+  accentColor: '#F97316',
+  symbol: '⚙',
+};
+
 export const ALL_TRIBES: Tribe[] = [
   TRIBE_VEIL,
+];
+
+export const ALL_TRIBE_CANON: TribeLightCanon[] = [
+  TRIBE_FRACTURE_VANGUARD,
+  TRIBE_WARDENS,
+  TRIBE_IRONBOUND,
 ];
 
 export function getTribeById(id: string): Tribe | undefined {
@@ -203,4 +317,67 @@ export function getTribeById(id: string): Tribe | undefined {
 
 export function getTribeByElement(element: string): Tribe | undefined {
   return ALL_TRIBES.find(t => t.element.toLowerCase() === element.toLowerCase());
+}
+
+export function getTribeCanonById(id: string): TribeLightCanon | undefined {
+  return ALL_TRIBE_CANON.find(t => t.id === id);
+}
+
+export interface TimelineFragment {
+  id: string;
+  order: number;
+  title: string;
+  text: string;
+  season: string;
+  unlocked: boolean;
+}
+
+export const SEASON_1_FRAGMENTS: TimelineFragment[] = [
+  {
+    id: 'fragment_s1_001',
+    order: 1,
+    title: 'Before Silence',
+    text: 'The Continuum regulated what could not be trusted to choice.',
+    season: 'Season 1: Echoes of the Fracture',
+    unlocked: false,
+  },
+  {
+    id: 'fragment_s1_002',
+    order: 2,
+    title: 'The Shattering',
+    text: 'Reality failed all at once. No warnings survived.',
+    season: 'Season 1: Echoes of the Fracture',
+    unlocked: false,
+  },
+  {
+    id: 'fragment_s1_003',
+    order: 3,
+    title: 'The Lost Anchors',
+    text: 'Some never returned fully. Others returned changed.',
+    season: 'Season 1: Echoes of the Fracture',
+    unlocked: false,
+  },
+  {
+    id: 'fragment_s1_004',
+    order: 4,
+    title: 'The First Echoes',
+    text: 'Memory lingered where matter could not.',
+    season: 'Season 1: Echoes of the Fracture',
+    unlocked: false,
+  },
+  {
+    id: 'fragment_s1_005',
+    order: 5,
+    title: 'The Veil Emerges',
+    text: 'Those who listened to the silence learned it listened back.',
+    season: 'Season 1: Echoes of the Fracture',
+    unlocked: false,
+  },
+];
+
+export function getSeasonFragments(season: string): TimelineFragment[] {
+  if (season === 'Season 1: Echoes of the Fracture') {
+    return SEASON_1_FRAGMENTS;
+  }
+  return [];
 }
