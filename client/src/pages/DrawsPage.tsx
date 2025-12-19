@@ -14,8 +14,14 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { formatDistanceToNow, format } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
 import { Link } from "wouter";
 import { CrystalSigil } from "@/components/CrystalSigil";
+
+function formatDrawTime(dateStr: string): string {
+  const date = new Date(dateStr);
+  return formatInTimeZone(date, 'UTC', 'MMM d, yyyy h:mm a');
+}
 
 interface Draw {
   id: string;
@@ -401,11 +407,11 @@ function DrawSection({
               <div className="text-xs text-gray-400 flex flex-wrap gap-x-3 gap-y-1">
                 <span>
                   <Calendar className="h-3 w-3 inline mr-1" />
-                  Opens: {format(new Date(draw.startAt), 'MMM d, yyyy h:mm a')}
+                  Opens: {formatDrawTime(draw.startAt)} UTC
                 </span>
                 <span>
                   <Trophy className="h-3 w-3 inline mr-1" />
-                  Draw: {format(new Date(draw.drawAt), 'MMM d, yyyy h:mm a')}
+                  Draw: {formatDrawTime(draw.drawAt)} UTC
                 </span>
               </div>
             )}
