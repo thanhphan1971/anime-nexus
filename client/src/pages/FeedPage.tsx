@@ -4,7 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Heart, MessageCircle, Share2, MoreHorizontal, Sparkles, Loader2, Trophy, Clock, Gift, ChevronRight, X, Play, ChevronDown, Info, Star, Coins } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { usePosts, useLikePost, useFreeGachaStatus, useFreeSummon } from "@/lib/api";
+import { usePosts, useLikePost, useFreeGachaStatus, useFreeSummon, useSiteSettings } from "@/lib/api";
 import { useLocation } from "wouter";
 import { formatDistanceToNow, differenceInSeconds, format } from "date-fns";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -38,6 +38,9 @@ export default function FeedPage() {
   });
 
   const { data: freeStatus, refetch: refetchFreeStatus } = useFreeGachaStatus();
+  const { data: siteSettings } = useSiteSettings();
+
+  const gameplayEnabled = siteSettings?.gameplayEnabled === 'true' || siteSettings?.gameplayEnabled === true;
 
   const freeSummonMutation = useFreeSummon();
 
@@ -448,7 +451,7 @@ export default function FeedPage() {
       </motion.div>
 
       {/* Game Play Banner */}
-      <GamePlayBanner />
+      {gameplayEnabled && <GamePlayBanner />}
 
       {/* Portal Animation Dialog */}
       <Dialog open={showPortal} onOpenChange={() => {}}>

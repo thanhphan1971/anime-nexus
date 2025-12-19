@@ -45,6 +45,9 @@ export default function GamePlayBanner({ variant = 'default' }: GamePlayBannerPr
   const userTokens = user?.tokens || 0;
 
   const getStatusMessage = () => {
+    if (eventActive) {
+      return "⚡ World Event Live Now!";
+    }
     if (hasNeverPlayed) {
       return "New! Play short games to earn your first tokens.";
     }
