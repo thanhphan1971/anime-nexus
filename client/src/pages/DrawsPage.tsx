@@ -339,7 +339,7 @@ export default function DrawsPage() {
           {user && (
             <Badge variant="outline" className="text-cyan-400 border-cyan-400/50">
               <Ticket className="h-3 w-3 mr-1" />
-              {myEntries.length} Entries
+              {myEntries.reduce((sum: number, e: any) => sum + (e.tickets || 1), 0)} Entries
             </Badge>
           )}
         </div>
