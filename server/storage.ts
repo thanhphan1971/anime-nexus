@@ -159,6 +159,7 @@ export interface IStorage {
   createDraw(draw: InsertDraw): Promise<Draw>;
   updateDraw(id: string, updates: Partial<Draw>): Promise<Draw | undefined>;
   overrideDraw(id: string, adminId: string, reason: string, updates: Partial<Draw>): Promise<Draw | undefined>;
+  getPreviousExecutedDraw(cadence: string, currentDrawAt: Date): Promise<Draw | undefined>;
   
   // Draw entry operations
   getDrawEntries(drawId: string): Promise<Array<DrawEntry & { user: User }>>;
@@ -824,6 +825,22 @@ export class DbStorage implements IStorage {
       })
       .where(eq(draws.id, id))
       .returning();
+    return result[0];
+  }
+
+  async getPreviousExecutedDraw(cadence: string, currentDrawAt: Date): Promise<Draw | undefined> {
+    const result = await db
+      .select()
+      .from(draws)
+      .where(
+        and(
+          eq(draws.cadence, cadence),
+          sql`${draws.status} IN ('executed', 'completed')`,
+          lt(draws.drawAt, currentDrawAt)
+        )
+      )
+      .orderBy(desc(draws.drawAt))
+      .limit(1);
     return result[0];
   }
 

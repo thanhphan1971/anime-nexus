@@ -213,34 +213,63 @@ export async function seedDatabase() {
 
   await db.insert(prizes).values(prizeData);
 
-  // Seed sample draws
-  // Set draw times to 7:00 AM UTC
+  // Seed sample draws - Friday 7:00 PM draws
   const now = new Date();
-  const todayAt7AM = new Date(now);
-  todayAt7AM.setUTCHours(7, 0, 0, 0);
   
-  // Weekly draw: runs every Sunday at 7 AM, next draw opens Monday at 7 AM
-  const nextSunday = new Date(todayAt7AM);
-  nextSunday.setUTCDate(todayAt7AM.getUTCDate() + (7 - todayAt7AM.getUTCDay()));
+  // Helper to get next Friday at 7 PM (local time)
+  function getNextFriday7PM(fromDate: Date = new Date()): Date {
+    const result = new Date(fromDate);
+    const dayOfWeek = result.getDay();
+    const daysUntilFriday = dayOfWeek <= 5 ? (5 - dayOfWeek) : (5 + 7 - dayOfWeek);
+    
+    if (daysUntilFriday === 0 && result.getHours() >= 19) {
+      result.setDate(result.getDate() + 7);
+    } else if (daysUntilFriday > 0) {
+      result.setDate(result.getDate() + daysUntilFriday);
+    }
+    
+    result.setHours(19, 0, 0, 0);
+    return result;
+  }
   
-  // Monthly draw: runs on 14th of each month at 7 AM, next draw opens 15th at 7 AM  
-  const nextMonth14th = new Date(todayAt7AM);
-  nextMonth14th.setUTCMonth(todayAt7AM.getUTCMonth() + 1);
-  nextMonth14th.setUTCDate(14);
+  // Helper to get last Friday of month at 7 PM
+  function getLastFridayOfMonth(year: number, month: number): Date {
+    const lastDay = new Date(year, month + 1, 0);
+    const dayOfWeek = lastDay.getDay();
+    const daysToSubtract = dayOfWeek >= 5 ? dayOfWeek - 5 : dayOfWeek + 2;
+    const lastFriday = new Date(lastDay);
+    lastFriday.setDate(lastDay.getDate() - daysToSubtract);
+    lastFriday.setHours(19, 0, 0, 0);
+    return lastFriday;
+  }
   
-  const oneWeekFromNow = nextSunday;
-  const twoWeeksFromNow = new Date(nextSunday.getTime() + 7 * 24 * 60 * 60 * 1000);
-  const oneMonthFromNow = nextMonth14th;
+  // Weekly: next Friday at 7 PM
+  const nextFriday = getNextFriday7PM(now);
+  const weeklyOpenDate = new Date(nextFriday.getTime() - 7 * 24 * 60 * 60 * 1000);
+  weeklyOpenDate.setHours(19, 0, 0, 0);
+  
+  // Monthly: last Friday of current month at 7 PM
+  let lastFridayThisMonth = getLastFridayOfMonth(now.getFullYear(), now.getMonth());
+  if (now >= lastFridayThisMonth) {
+    const nextMonth = now.getMonth() === 11 ? 0 : now.getMonth() + 1;
+    const nextYear = now.getMonth() === 11 ? now.getFullYear() + 1 : now.getFullYear();
+    lastFridayThisMonth = getLastFridayOfMonth(nextYear, nextMonth);
+  }
+  
+  // Generate cycle IDs
+  const weeklyCycleId = `weekly-${nextFriday.getFullYear()}-${String(nextFriday.getMonth() + 1).padStart(2, '0')}-${String(nextFriday.getDate()).padStart(2, '0')}`;
+  const monthlyCycleId = `monthly-${lastFridayThisMonth.getFullYear()}-${String(lastFridayThisMonth.getMonth() + 1).padStart(2, '0')}`;
 
   const drawData = [
     {
       name: "Weekly Token Jackpot",
-      description: "Win up to 5,000 tokens every week! All members can enter once per day.",
+      description: "Win up to 5,000 tokens every Friday at 7 PM! All members can enter.",
       cadence: "weekly",
+      cycleId: weeklyCycleId,
       status: "open",
-      startAt: now,
-      endAt: oneWeekFromNow,
-      drawAt: oneWeekFromNow,
+      startAt: weeklyOpenDate > now ? weeklyOpenDate : now,
+      endAt: nextFriday,
+      drawAt: nextFriday,
       prizePool: [
         { name: "5,000 Tokens", type: "tokens", value: 5000, quantity: 1 },
         { name: "2,000 Tokens", type: "tokens", value: 2000, quantity: 3 },
@@ -253,12 +282,13 @@ export async function seedDatabase() {
     },
     {
       name: "Monthly Card Giveaway",
-      description: "S-Class exclusive! Win a guaranteed Legendary or Mythic card pack.",
+      description: "S-Class exclusive! Win legendary and mythic cards on the last Friday of each month.",
       cadence: "monthly",
+      cycleId: monthlyCycleId,
       status: "open",
       startAt: now,
-      endAt: oneMonthFromNow,
-      drawAt: oneMonthFromNow,
+      endAt: lastFridayThisMonth,
+      drawAt: lastFridayThisMonth,
       prizePool: [
         { name: "Mythic Card Pack", type: "card", rarity: "mythic", quantity: 1 },
         { name: "Legendary Card Pack", type: "card", rarity: "legendary", quantity: 3 },

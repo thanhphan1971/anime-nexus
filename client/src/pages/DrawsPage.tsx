@@ -22,14 +22,92 @@ interface Draw {
   name: string;
   description: string;
   cadence: string;
+  cycleId?: string;
   status: string;
   startAt: string;
   endAt: string;
   drawAt: string;
+  executedAt?: string;
   prizePool: any[];
   entryRules: any;
   bannerImage?: string;
   isFeatured: boolean;
+  maxEntriesPerUser: number;
+  premiumEntriesPerUser: number;
+}
+
+type DrawButtonState = 'cooldown' | 'open' | 'entered' | 'max_entries' | 'locked' | 'next_cycle' | 'premium_only';
+
+function getDrawButtonState(
+  draw: Draw | null,
+  entriesUsed: number,
+  maxEntries: number,
+  isPremium: boolean,
+  isMonthly: boolean
+): { state: DrawButtonState; cooldownEndTime?: Date } {
+  if (!draw) return { state: 'open' };
+  
+  const now = new Date();
+  const drawTime = new Date(draw.drawAt);
+  const lockTime = new Date(drawTime.getTime() - 60000);
+  
+  if (isMonthly && !isPremium) {
+    return { state: 'premium_only' };
+  }
+  
+  if (draw.status === 'executed' || draw.status === 'completed') {
+    if (draw.executedAt) {
+      const cooldownEnd = new Date(new Date(draw.executedAt).getTime() + 24 * 60 * 60 * 1000);
+      if (now < cooldownEnd) {
+        return { state: 'cooldown', cooldownEndTime: cooldownEnd };
+      }
+    }
+    return { state: 'next_cycle' };
+  }
+  
+  if (draw.status === 'locked' || now >= lockTime) {
+    return { state: 'locked' };
+  }
+  
+  if (entriesUsed >= maxEntries) {
+    return { state: 'max_entries' };
+  }
+  
+  if (entriesUsed > 0) {
+    return { state: 'entered' };
+  }
+  
+  return { state: 'open' };
+}
+
+function CooldownTimer({ cooldownEndTime }: { cooldownEndTime: Date }) {
+  const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 0, seconds: 0 });
+
+  useEffect(() => {
+    const calculateTimeLeft = () => {
+      const difference = cooldownEndTime.getTime() - new Date().getTime();
+      
+      if (difference > 0) {
+        setTimeLeft({
+          hours: Math.floor(difference / (1000 * 60 * 60)),
+          minutes: Math.floor((difference / 1000 / 60) % 60),
+          seconds: Math.floor((difference / 1000) % 60),
+        });
+      } else {
+        setTimeLeft({ hours: 0, minutes: 0, seconds: 0 });
+      }
+    };
+
+    calculateTimeLeft();
+    const timer = setInterval(calculateTimeLeft, 1000);
+    return () => clearInterval(timer);
+  }, [cooldownEndTime]);
+
+  return (
+    <span>
+      Re-entry in: {timeLeft.hours.toString().padStart(2, '0')}:{timeLeft.minutes.toString().padStart(2, '0')}:{timeLeft.seconds.toString().padStart(2, '0')}
+    </span>
+  );
 }
 
 interface Winner {
@@ -147,12 +225,109 @@ function DrawSection({
   ];
 
   const prizes = isWeekly ? weeklyPrizes : monthlyPrizes;
-  const canEnter = draw?.status === 'open' && (isWeekly || isPremium) && !allEntriesUsed;
   const entryNote = isWeekly 
     ? `Free: 1 entry • S-Class: 2 entries`
     : isPremium 
       ? `S-Class: 1 entry` 
       : `S-Class members only`;
+
+  const buttonState = getDrawButtonState(draw, entriesUsed, maxEntries, isPremium, !isWeekly);
+
+  const renderButton = () => {
+    const baseClass = isWeekly 
+      ? 'bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600' 
+      : 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600';
+    
+    switch (buttonState.state) {
+      case 'premium_only':
+        return (
+          <Link href="/sclass">
+            <Button 
+              variant="outline"
+              className="border-yellow-500/50 text-yellow-400 hover:bg-yellow-500/10"
+            >
+              <Crown className="h-4 w-4 mr-2" />
+              Upgrade to S-Class
+            </Button>
+          </Link>
+        );
+      
+      case 'cooldown':
+        return (
+          <Button 
+            disabled
+            className={`${baseClass} text-white font-bold px-6 disabled:opacity-50`}
+            data-testid={`button-enter-${type}-draw`}
+          >
+            <Clock className="h-4 w-4 mr-2" />
+            {buttonState.cooldownEndTime && <CooldownTimer cooldownEndTime={buttonState.cooldownEndTime} />}
+          </Button>
+        );
+      
+      case 'locked':
+        return (
+          <Button 
+            disabled
+            className={`${baseClass} text-white font-bold px-6 disabled:opacity-50`}
+            data-testid={`button-enter-${type}-draw`}
+          >
+            <Clock className="h-4 w-4 mr-2" />
+            Entries Locked
+          </Button>
+        );
+      
+      case 'max_entries':
+        return (
+          <Button 
+            disabled
+            className={`${baseClass} text-white font-bold px-6 disabled:opacity-50`}
+            data-testid={`button-enter-${type}-draw`}
+          >
+            <Ticket className="h-4 w-4 mr-2" />
+            Max Entries Reached
+          </Button>
+        );
+      
+      case 'entered':
+        return (
+          <Button 
+            onClick={onEnter}
+            disabled={isEntering}
+            className={`${baseClass} text-white font-bold px-6`}
+            data-testid={`button-enter-${type}-draw`}
+          >
+            <Ticket className="h-4 w-4 mr-2" />
+            {isEntering ? 'Entering...' : `You're entered ✓ (Add more)`}
+          </Button>
+        );
+      
+      case 'next_cycle':
+        return (
+          <Button 
+            disabled
+            className={`${baseClass} text-white font-bold px-6 disabled:opacity-50`}
+            data-testid={`button-enter-${type}-draw`}
+          >
+            <Calendar className="h-4 w-4 mr-2" />
+            Next Cycle Coming Soon
+          </Button>
+        );
+      
+      case 'open':
+      default:
+        return (
+          <Button 
+            onClick={onEnter}
+            disabled={isEntering}
+            className={`${baseClass} text-white font-bold px-6`}
+            data-testid={`button-enter-${type}-draw`}
+          >
+            <Ticket className="h-4 w-4 mr-2" />
+            {isEntering ? 'Entering...' : 'Enter Draw'}
+          </Button>
+        );
+    }
+  };
 
   return (
     <Card className={`bg-gradient-to-r ${gradientClass} overflow-hidden`}>
@@ -215,7 +390,7 @@ function DrawSection({
               <span className="text-white font-medium">Entry: </span>
               {entryNote}
             </div>
-            {draw?.status === 'open' && (isWeekly || isPremium) && (
+            {draw && buttonState.state !== 'premium_only' && buttonState.state !== 'cooldown' && (
               <div className={`text-xs ${allEntriesUsed ? 'text-red-400' : 'text-green-400'}`} data-testid={`text-entries-${type}`}>
                 {allEntriesUsed 
                   ? `All ${maxEntries} entries used` 
@@ -236,30 +411,7 @@ function DrawSection({
             )}
           </div>
           
-          {draw?.status === 'open' && (isWeekly || isPremium) ? (
-            <Button 
-              onClick={onEnter}
-              disabled={isEntering || allEntriesUsed}
-              className={`${isWeekly 
-                ? 'bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600' 
-                : 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600'
-              } text-white font-bold px-6 disabled:opacity-50 disabled:cursor-not-allowed`}
-              data-testid={`button-enter-${type}-draw`}
-            >
-              <Ticket className="h-4 w-4 mr-2" />
-              {isEntering ? 'Entering...' : allEntriesUsed ? 'Max Entries Reached' : 'Enter Draw'}
-            </Button>
-          ) : !isPremium && !isWeekly ? (
-            <Link href="/sclass">
-              <Button 
-                variant="outline"
-                className="border-yellow-500/50 text-yellow-400 hover:bg-yellow-500/10"
-              >
-                <Crown className="h-4 w-4 mr-2" />
-                Upgrade to S-Class
-              </Button>
-            </Link>
-          ) : null}
+          {renderButton()}
         </div>
       </CardContent>
     </Card>

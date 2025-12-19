@@ -288,10 +288,12 @@ export const draws = pgTable("draws", {
   name: text("name").notNull(),
   description: text("description").notNull(),
   cadence: text("cadence").notNull(), // weekly, monthly, special, one_time
-  status: text("status").notNull().default('scheduled'), // scheduled, open, drawing, completed, cancelled
+  cycleId: text("cycle_id"), // weekly-YYYY-MM-DD or monthly-YYYY-MM for recurring draws
+  status: text("status").notNull().default('scheduled'), // scheduled, open, locked, executed, cancelled
   startAt: timestamp("start_at").notNull(),
   endAt: timestamp("end_at").notNull(),
   drawAt: timestamp("draw_at").notNull(), // when winner is selected
+  executedAt: timestamp("executed_at"), // when draw was actually executed (for 24h cooldown calculation)
   prizePool: jsonb("prize_pool").notNull(), // array of { prizeId, quantity, odds }
   entryRules: jsonb("entry_rules"), // { minLevel, premiumOnly, activityRequired, minAccountAgeDays, requireEmailVerified }
   maxEntries: integer("max_entries"), // null = unlimited total entries

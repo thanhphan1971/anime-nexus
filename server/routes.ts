@@ -9,6 +9,7 @@ import { verifySupabaseToken } from "./lib/supabaseAuth";
 import { sql } from "drizzle-orm";
 import { z } from "zod";
 import { FREE_ODDS, PAID_ODDS, PREMIUM_PAID_ODDS, FREE_SUMMON_LIMITS, PAID_SUMMON_CONFIG, selectRarity, getNextResetTime, needsReset } from "./config/gachaOdds";
+import { getDrawLockTime, getCooldownEndTime, getDrawCycleStatus } from "./drawCycle";
 
 const createProfileSchema = z.object({
   id: z.string().min(1),
@@ -1138,7 +1139,40 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Draw not found" });
       }
       
-      if (draw.status !== 'open') {
+      // Check if draw is executed
+      if (draw.status === 'executed' || draw.status === 'completed') {
+        return res.status(400).json({ error: "Draw has already been executed" });
+      }
+      
+      // Check if entries are locked (1 minute before draw time)
+      const now = new Date();
+      const lockTime = getDrawLockTime(new Date(draw.drawAt));
+      if (now >= lockTime) {
+        return res.status(400).json({ error: "Entries are locked. Results in minutes." });
+      }
+      
+      // Check 24h cooldown from previous draw execution
+      if (draw.drawAt) {
+        const previousDraw = await storage.getPreviousExecutedDraw(draw.cadence, new Date(draw.drawAt));
+        if (previousDraw) {
+          // Fall back to drawAt if executedAt is null (draw was marked executed without timestamp)
+          const executionTime = previousDraw.executedAt 
+            ? new Date(previousDraw.executedAt) 
+            : new Date(previousDraw.drawAt);
+          const cooldownEnd = getCooldownEndTime(executionTime);
+          if (now < cooldownEnd) {
+            const remainingMs = cooldownEnd.getTime() - now.getTime();
+            const hours = Math.floor(remainingMs / (1000 * 60 * 60));
+            const minutes = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
+            return res.status(400).json({ 
+              error: `Re-entry opens in ${hours}h ${minutes}m. Cooldown active after last draw.`,
+              cooldownEndTime: cooldownEnd.toISOString()
+            });
+          }
+        }
+      }
+      
+      if (draw.status !== 'open' && draw.status !== 'scheduled') {
         return res.status(400).json({ error: "Draw is not open for entries" });
       }
       

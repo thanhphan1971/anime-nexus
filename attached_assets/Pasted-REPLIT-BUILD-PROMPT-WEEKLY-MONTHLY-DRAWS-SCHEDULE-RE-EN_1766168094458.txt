@@ -1,0 +1,85 @@
+REPLIT BUILD PROMPT — WEEKLY + MONTHLY DRAWS (SCHEDULE + RE-ENTRY RULES)
+
+Implement a Weekly Draw and a Monthly Draw system for AniRealm with strict scheduling, countdowns, entry locking, and re-entry rules.
+
+GOALS
+1) Weekly Draw runs every Friday at exactly 7:00 PM (user local timezone).
+2) Monthly Draw runs on the LAST Friday of each calendar month at exactly 7:00 PM (user local timezone).
+3) Entry closes at 6:59 PM for each draw and locks the participant list.
+4) Users cannot re-enter the SAME draw once entered or once it has executed.
+5) Users CAN re-enter the NEXT draw cycle exactly 24 hours after the draw executes (cooldown).
+6) If Weekly + Monthly happen on the same day (last Friday): run Weekly first at 7:00 PM, then Monthly immediately after (7:02 PM) with separate animations/results.
+
+DEFINITIONS
+- Weekly Draw Cycle ID: “weekly-YYYY-WW” (ISO week number) OR “weekly-YYYY-MM-DD” where date is that Friday.
+- Monthly Draw Cycle ID: “monthly-YYYY-MM” where month is the month being drawn.
+- Each cycle has: open_time, close_time, draw_time, executed_at, status (OPEN, LOCKED, EXECUTED).
+
+TIMEZONE REQUIREMENTS
+- Use user timezone for countdown display and determining “Friday 7 PM”.
+- For backend scheduling consistency, store all timestamps in UTC, but compute schedule based on user timezone.
+
+ENTRY RULES
+Weekly:
+- Entry window: OPEN after previous weekly draw EXECUTED + 24 hours (cooldown), until Friday 6:59 PM.
+- At entry: create a record {user_id, draw_type=weekly, cycle_id, entered_at}.
+- If user already has an entry for the current weekly cycle_id, block with message “You’re already entered ✓”.
+- At 6:59 PM, lock the cycle (status=LOCKED) and freeze participant list.
+
+Monthly:
+- Entry window: OPEN after previous monthly draw EXECUTED + 24 hours (cooldown), until last Friday 6:59 PM.
+- Same entry record rules as weekly (unique per user per cycle_id).
+- Lock at 6:59 PM on last Friday.
+
+DRAW EXECUTION
+At draw_time:
+- Weekly executes Friday 7:00 PM (local). Select winners from locked participant list using secure randomness.
+- Monthly executes last Friday 7:00 PM (local). Select winners from locked participant list using secure randomness.
+- Store results: winners list, prizes, executed_at, and set status=EXECUTED.
+- After execution, start 24h cooldown before users can enter the next cycle.
+
+LAST FRIDAY LOGIC
+Implement reliable “last Friday of the month” calculation for any month/year in user timezone.
+- Find the last day of the month, walk backward to the most recent Friday.
+
+UI/UX REQUIREMENTS
+Create a “Draws” page or section with two cards: Weekly Draw + Monthly Draw.
+
+Each card shows:
+- Title: “Weekly Draw” / “Monthly Draw”
+- Next draw date + time: “Friday, 7:00 PM” or “Last Friday, 7:00 PM”
+- Countdown timer to next draw_time (live updating)
+- Entry button states:
+  A) If within cooldown: button disabled “Re-entry available in: HH:MM:SS”
+  B) If open and not entered: button enabled “Enter Draw”
+  C) If entered: disabled “You’re entered ✓”
+  D) If locked (6:59–7:00): disabled “Entries locked”
+  E) If executed and not in cooldown: show “Enter next cycle” button (only if cooldown passed)
+
+MESSAGING (COPY)
+- Success: “You’re in. Results drop Friday at 7:00 PM.”
+- Cooldown: “Re-entry opens 24 hours after the draw.”
+- Locked: “Entries are locked. Results in minutes.”
+- Executed: “Draw complete. You can enter the next cycle when re-entry opens.”
+
+DATA MODEL (SUGGESTED)
+Tables:
+1) draw_cycles
+- id, draw_type (weekly/monthly), cycle_id, open_at_utc, close_at_utc, draw_at_utc, executed_at_utc, status
+
+2) draw_entries
+- id, user_id, draw_type, cycle_id, entered_at_utc
+- UNIQUE(user_id, draw_type, cycle_id)
+
+3) draw_results
+- id, draw_type, cycle_id, winners_json, prizes_json, created_at_utc
+
+CRITICAL SAFETY / CONSISTENCY
+- Enforce idempotency: draw execution should only run once per cycle_id even if triggered twice.
+- Use server-side time for locking/executing, not client time.
+- Countdown can be client-side, but decisions must be server-validated.
+
+DELIVERABLE
+- Implement the backend schedule + cycle generation + entry + lock + execution + cooldown.
+- Implement the UI cards with countdown and correct button states.
+- Include tests or clear logs showing: cycle_id generation, lock at 6:59, execute at 7:00, cooldown for 24 hours, then re-entry opens.
