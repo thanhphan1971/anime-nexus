@@ -13,7 +13,7 @@ import {
   Ticket, Award, Zap, Calendar, ChevronRight
 } from "lucide-react";
 import { motion } from "framer-motion";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, format } from "date-fns";
 import { Link } from "wouter";
 import { CrystalSigil } from "@/components/CrystalSigil";
 
@@ -220,6 +220,18 @@ function DrawSection({
                 {allEntriesUsed 
                   ? `All ${maxEntries} entries used` 
                   : `${entriesUsed} / ${maxEntries} entries used (${entriesRemaining} remaining)`}
+              </div>
+            )}
+            {draw && (
+              <div className="text-xs text-gray-400 flex flex-wrap gap-x-3 gap-y-1">
+                <span>
+                  <Calendar className="h-3 w-3 inline mr-1" />
+                  Opens: {format(new Date(draw.startAt), 'MMM d, yyyy')}
+                </span>
+                <span>
+                  <Trophy className="h-3 w-3 inline mr-1" />
+                  Draw: {format(new Date(draw.drawAt), 'MMM d, yyyy')}
+                </span>
               </div>
             )}
           </div>
