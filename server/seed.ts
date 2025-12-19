@@ -214,10 +214,23 @@ export async function seedDatabase() {
   await db.insert(prizes).values(prizeData);
 
   // Seed sample draws
+  // Set draw times to 7:00 AM UTC
   const now = new Date();
-  const oneWeekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-  const twoWeeksFromNow = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
-  const oneMonthFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+  const todayAt7AM = new Date(now);
+  todayAt7AM.setUTCHours(7, 0, 0, 0);
+  
+  // Weekly draw: runs every Sunday at 7 AM, next draw opens Monday at 7 AM
+  const nextSunday = new Date(todayAt7AM);
+  nextSunday.setUTCDate(todayAt7AM.getUTCDate() + (7 - todayAt7AM.getUTCDay()));
+  
+  // Monthly draw: runs on 14th of each month at 7 AM, next draw opens 15th at 7 AM  
+  const nextMonth14th = new Date(todayAt7AM);
+  nextMonth14th.setUTCMonth(todayAt7AM.getUTCMonth() + 1);
+  nextMonth14th.setUTCDate(14);
+  
+  const oneWeekFromNow = nextSunday;
+  const twoWeeksFromNow = new Date(nextSunday.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const oneMonthFromNow = nextMonth14th;
 
   const drawData = [
     {
