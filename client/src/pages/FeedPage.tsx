@@ -16,6 +16,7 @@ import { PortalCharge } from "@/components/PortalRing";
 import { RarityFrame } from "@/components/RarityFrame";
 import { CardReveal } from "@/components/CardReveal";
 import { CrystalSigil } from "@/components/CrystalSigil";
+import GamePlayBanner from "@/components/GamePlayBanner";
 
 export default function FeedPage() {
   const { data: posts, isLoading } = usePosts();
@@ -445,6 +446,9 @@ export default function FeedPage() {
           </CardContent>
         </Card>
       </motion.div>
+
+      {/* Game Play Banner */}
+      <GamePlayBanner />
 
       {/* Portal Animation Dialog */}
       <Dialog open={showPortal} onOpenChange={() => {}}>

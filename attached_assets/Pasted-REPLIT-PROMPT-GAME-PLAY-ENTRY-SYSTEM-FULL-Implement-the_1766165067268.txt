@@ -1,0 +1,191 @@
+REPLIT PROMPT — GAME PLAY ENTRY SYSTEM (FULL)
+
+Implement the following Game Play entry experience across the app.
+
+1️⃣ HOME PAGE — “🎮 GAME PLAY” BANNER
+
+Create a Home Page banner section named “🎮 Game Play”, visually consistent with existing home banners.
+
+Primary Purpose
+
+Tell users clearly: you can play games to earn tokens
+
+Act as the main entry point to AniRealm gameplay
+
+Encourage daily engagement
+
+2️⃣ BANNER COPY — DEFAULT (CONTROL VERSION)
+
+Title:
+🎮 Game Play
+
+Description:
+Play short challenges inside AniRealm to earn tokens, rewards, and influence the world.
+
+Supporting Line (small):
+Daily free plays available. Premium members unlock more runs.
+
+Primary CTA:
+▶ Play Now
+→ Opens the Game Hub
+
+Secondary CTA (optional):
+📅 Events
+→ Opens Scheduled World Events page
+
+3️⃣ BANNER COPY — A/B TEST VARIANTS
+Variant A — Direct & Clear
+
+Description:
+Play games. Earn tokens. Shape the fate of AniRealm.
+
+Variant B — Habit-Focused
+
+Description:
+Jump into daily challenges and earn tokens in under 30 seconds.
+
+Variant C — Lore-Driven
+
+Description:
+Reality is fracturing. Enter trials, stabilize the world, and earn rewards.
+
+Admin-configurable flag to switch copy variant.
+
+4️⃣ DYNAMIC BANNER STATES (REQUIRED)
+
+The banner must adapt to user state.
+
+If rewarded runs are available
+
+Display:
+
+“You have X rewarded runs available today.”
+
+Primary CTA: ▶ Play Now
+
+If no rewarded runs left today
+
+Display:
+
+“No rewarded runs left today — practice mode still available.”
+
+Primary CTA changes to:
+▶ Practice Mode (clearly labeled “No Rewards”)
+
+If a world event is live
+
+Add badge:
+⚡ World Event Live Now!
+
+Secondary CTA becomes highlighted:
+Join Event
+
+5️⃣ EMPTY STATES (IMPORTANT)
+New User (Never Played)
+
+Banner subtext becomes:
+
+“New! Play short games to earn your first tokens.”
+
+CTA remains: ▶ Play Now
+
+User With Zero Tokens
+
+Banner subtext becomes:
+
+“Play games to earn tokens — no purchase required.”
+
+6️⃣ GAME HUB SCREEN (DESTINATION AFTER “PLAY NOW”)
+
+Create a Game Hub screen users land on after clicking the banner.
+
+Layout
+
+Header:
+🎮 AniRealm Games
+
+Subtext:
+Short challenges, real rewards, lasting impact.
+
+Sections
+A) Featured Game Card
+
+The Fracture Trial
+
+Session length: 20–30 seconds
+
+Description:
+Stabilize reality fractures and earn rewards.
+
+Buttons:
+
+▶ Play
+
+🧪 Practice
+
+Display:
+
+Rewarded runs remaining today
+
+Trial types available (Safe / Unstable / Overcharged)
+
+B) Scheduled Events Section
+
+Show:
+
+Upcoming events
+
+Countdown timers
+
+Entries remaining today
+
+Buttons:
+
+Join when live
+
+View schedule
+
+7️⃣ GAME HUB EMPTY STATES
+If gameplay feature disabled
+
+Display:
+
+“Games are temporarily offline. Check back soon.”
+
+If events not yet implemented
+
+Display:
+
+“World Events are coming soon.”
+
+8️⃣ VISUAL STYLE GUIDELINES
+
+Match AniRealm’s cyber-neon anime style
+
+Dark background, glowing accents
+
+Minimal motion (subtle pulse / glow only)
+
+Mobile-first layout
+
+No heavy animations
+
+9️⃣ TECHNICAL REQUIREMENTS
+
+Feature-flag controlled: gameplay_enabled
+
+Reward counts fetched server-side
+
+No client-side reward logic
+
+All CTAs must fail gracefully if caps reached
+
+🎯 SUCCESS CRITERIA
+
+User immediately understands: “I can play games to earn tokens.”
+
+One click from Home → Game Hub → Play
+
+Clear distinction between rewarded vs practice play
+
+No confusion for new users
