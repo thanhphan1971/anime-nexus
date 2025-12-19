@@ -394,7 +394,7 @@ export default function PremiumPage() {
           <Separator className="bg-white/10" />
           <div className="space-y-2">
             <p className="font-semibold text-white">Important Notes:</p>
-            <ul className="list-disc list-inside space-y-1 text-xs">
+            <ul className="list-disc list-inside space-y-1 text-sm">
               <li>Rewards are digital items only with no cash value</li>
               <li>Card pull outcomes are randomized and not guaranteed</li>
               <li>Higher efficiency does not guarantee specific rarities</li>
@@ -477,7 +477,7 @@ export default function PremiumPage() {
 
               <Separator className="bg-white/10" />
 
-              <div className="space-y-1 text-xs text-muted-foreground">
+              <div className="space-y-1 text-sm text-muted-foreground">
                 <p className="font-semibold text-white">Important Notes:</p>
                 <ul className="list-disc list-inside space-y-0.5">
                   <li>Rewards are digital items only</li>
