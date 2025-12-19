@@ -350,7 +350,7 @@ export default function DrawsPage() {
           onEnter={() => weeklyDraw && handleEnterDraw(weeklyDraw.id, 'weekly')}
           isEntering={enterDraw.isPending}
           isPremium={user?.isPremium || false}
-          entriesUsed={weeklyDraw ? myEntries.filter((e: any) => e.drawId === weeklyDraw.id).length : 0}
+          entriesUsed={weeklyDraw ? myEntries.filter((e: any) => e.drawId === weeklyDraw.id).reduce((sum: number, e: any) => sum + (e.tickets || 1), 0) : 0}
         />
 
         <DrawSection 
@@ -359,7 +359,7 @@ export default function DrawsPage() {
           onEnter={() => monthlyDraw && handleEnterDraw(monthlyDraw.id, 'monthly')}
           isEntering={enterDraw.isPending}
           isPremium={user?.isPremium || false}
-          entriesUsed={monthlyDraw ? myEntries.filter((e: any) => e.drawId === monthlyDraw.id).length : 0}
+          entriesUsed={monthlyDraw ? myEntries.filter((e: any) => e.drawId === monthlyDraw.id).reduce((sum: number, e: any) => sum + (e.tickets || 1), 0) : 0}
         />
 
         <div className="bg-white/5 border border-white/10 rounded-lg p-3 text-xs text-muted-foreground">
