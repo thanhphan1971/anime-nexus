@@ -104,13 +104,15 @@ function DrawSection({
   type, 
   onEnter, 
   isEntering,
-  isPremium 
+  isPremium,
+  entriesUsed = 0
 }: { 
   draw: Draw | null; 
   type: 'weekly' | 'monthly';
   onEnter: () => void;
   isEntering: boolean;
   isPremium: boolean;
+  entriesUsed?: number;
 }) {
   const isWeekly = type === 'weekly';
   const gradientClass = isWeekly 
@@ -118,6 +120,12 @@ function DrawSection({
     : 'from-purple-500/10 via-pink-500/10 to-yellow-500/10 border-purple-500/30';
   const accentColor = isWeekly ? 'cyan' : 'purple';
   const Icon = isWeekly ? Calendar : Star;
+  
+  const maxEntries = isWeekly 
+    ? (isPremium ? 3 : 1) 
+    : 2;
+  const entriesRemaining = Math.max(0, maxEntries - entriesUsed);
+  const allEntriesUsed = entriesUsed >= maxEntries;
   
   const getCrystalState = (): "dormant" | "active" | "charged" => {
     if (!draw) return "dormant";
@@ -139,7 +147,7 @@ function DrawSection({
   ];
 
   const prizes = isWeekly ? weeklyPrizes : monthlyPrizes;
-  const canEnter = draw?.status === 'open' && (isWeekly || isPremium);
+  const canEnter = draw?.status === 'open' && (isWeekly || isPremium) && !allEntriesUsed;
   const entryNote = isWeekly 
     ? `Free: 1 entry • S-Class: 3 entries`
     : isPremium 
@@ -202,9 +210,18 @@ function DrawSection({
         </div>
 
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-white/10">
-          <div className="text-sm text-muted-foreground">
-            <span className="text-white font-medium">Entry: </span>
-            {entryNote}
+          <div className="text-sm text-muted-foreground space-y-1">
+            <div>
+              <span className="text-white font-medium">Entry: </span>
+              {entryNote}
+            </div>
+            {draw?.status === 'open' && (isWeekly || isPremium) && (
+              <div className={`text-xs ${allEntriesUsed ? 'text-red-400' : 'text-green-400'}`} data-testid={`text-entries-${type}`}>
+                {allEntriesUsed 
+                  ? `All ${maxEntries} entries used` 
+                  : `${entriesUsed} / ${maxEntries} entries used (${entriesRemaining} remaining)`}
+              </div>
+            )}
           </div>
           
           {canEnter ? (
@@ -333,6 +350,7 @@ export default function DrawsPage() {
           onEnter={() => weeklyDraw && handleEnterDraw(weeklyDraw.id, 'weekly')}
           isEntering={enterDraw.isPending}
           isPremium={user?.isPremium || false}
+          entriesUsed={weeklyDraw ? myEntries.filter((e: any) => e.drawId === weeklyDraw.id).length : 0}
         />
 
         <DrawSection 
@@ -341,6 +359,7 @@ export default function DrawsPage() {
           onEnter={() => monthlyDraw && handleEnterDraw(monthlyDraw.id, 'monthly')}
           isEntering={enterDraw.isPending}
           isPremium={user?.isPremium || false}
+          entriesUsed={monthlyDraw ? myEntries.filter((e: any) => e.drawId === monthlyDraw.id).length : 0}
         />
 
         <div className="bg-white/5 border border-white/10 rounded-lg p-3 text-xs text-muted-foreground">
