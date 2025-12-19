@@ -255,7 +255,7 @@ export default function PremiumPage() {
             ))}
             
             {/* Subscription Terms - Visible on Paywall */}
-            <div className="mt-4 pt-3 border-t border-yellow-500/20 space-y-1.5 text-xs text-white/60">
+            <div className="mt-4 pt-3 border-t border-yellow-500/20 space-y-1.5 text-sm text-white/60">
               <p>Renews {selectedPlan === 'yearly' ? 'yearly at $79.99' : 'monthly at $9.99'} · Cancel anytime in App Store/Play Store</p>
               <p>Rewards are digital items only · No cash value · Outcomes not guaranteed</p>
               {selectedPlan === 'yearly' && (
