@@ -216,37 +216,36 @@ export async function seedDatabase() {
   // Seed sample draws - Friday 7:00 PM draws
   const now = new Date();
   
-  // Helper to get next Friday at 7 PM (local time)
+  // Helper to get next Friday at 7 PM UTC
   function getNextFriday7PM(fromDate: Date = new Date()): Date {
     const result = new Date(fromDate);
-    const dayOfWeek = result.getDay();
+    const dayOfWeek = result.getUTCDay();
     const daysUntilFriday = dayOfWeek <= 5 ? (5 - dayOfWeek) : (5 + 7 - dayOfWeek);
     
-    if (daysUntilFriday === 0 && result.getHours() >= 19) {
-      result.setDate(result.getDate() + 7);
+    if (daysUntilFriday === 0 && result.getUTCHours() >= 19) {
+      result.setUTCDate(result.getUTCDate() + 7);
     } else if (daysUntilFriday > 0) {
-      result.setDate(result.getDate() + daysUntilFriday);
+      result.setUTCDate(result.getUTCDate() + daysUntilFriday);
     }
     
-    result.setHours(19, 0, 0, 0);
+    result.setUTCHours(19, 0, 0, 0);
     return result;
   }
   
-  // Helper to get last Friday of month at 7 PM
+  // Helper to get last Friday of month at 7 PM UTC
   function getLastFridayOfMonth(year: number, month: number): Date {
-    const lastDay = new Date(year, month + 1, 0);
-    const dayOfWeek = lastDay.getDay();
+    const lastDay = new Date(Date.UTC(year, month + 1, 0));
+    const dayOfWeek = lastDay.getUTCDay();
     const daysToSubtract = dayOfWeek >= 5 ? dayOfWeek - 5 : dayOfWeek + 2;
-    const lastFriday = new Date(lastDay);
-    lastFriday.setDate(lastDay.getDate() - daysToSubtract);
-    lastFriday.setHours(19, 0, 0, 0);
-    return lastFriday;
+    lastDay.setUTCDate(lastDay.getUTCDate() - daysToSubtract);
+    lastDay.setUTCHours(19, 0, 0, 0);
+    return lastDay;
   }
   
-  // Weekly: next Friday at 7 PM
+  // Weekly: next Friday at 7 PM UTC
   const nextFriday = getNextFriday7PM(now);
   const weeklyOpenDate = new Date(nextFriday.getTime() - 7 * 24 * 60 * 60 * 1000);
-  weeklyOpenDate.setHours(19, 0, 0, 0);
+  weeklyOpenDate.setUTCHours(19, 0, 0, 0);
   
   // Monthly: last Friday of current month at 7 PM
   let lastFridayThisMonth = getLastFridayOfMonth(now.getFullYear(), now.getMonth());

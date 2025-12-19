@@ -1,29 +1,28 @@
 export function getNextFriday(fromDate: Date = new Date()): Date {
   const result = new Date(fromDate);
-  const dayOfWeek = result.getDay();
+  const dayOfWeek = result.getUTCDay();
   const daysUntilFriday = dayOfWeek <= 5 ? (5 - dayOfWeek) : (5 + 7 - dayOfWeek);
   
   if (daysUntilFriday === 0) {
-    const currentHour = result.getHours();
+    const currentHour = result.getUTCHours();
     if (currentHour >= 19) {
-      result.setDate(result.getDate() + 7);
+      result.setUTCDate(result.getUTCDate() + 7);
     }
   } else {
-    result.setDate(result.getDate() + daysUntilFriday);
+    result.setUTCDate(result.getUTCDate() + daysUntilFriday);
   }
   
-  result.setHours(19, 0, 0, 0);
+  result.setUTCHours(19, 0, 0, 0);
   return result;
 }
 
 export function getLastFridayOfMonth(year: number, month: number): Date {
-  const lastDay = new Date(year, month + 1, 0);
-  const dayOfWeek = lastDay.getDay();
+  const lastDay = new Date(Date.UTC(year, month + 1, 0));
+  const dayOfWeek = lastDay.getUTCDay();
   const daysToSubtract = dayOfWeek >= 5 ? dayOfWeek - 5 : dayOfWeek + 2;
-  const lastFriday = new Date(lastDay);
-  lastFriday.setDate(lastDay.getDate() - daysToSubtract);
-  lastFriday.setHours(19, 0, 0, 0);
-  return lastFriday;
+  lastDay.setUTCDate(lastDay.getUTCDate() - daysToSubtract);
+  lastDay.setUTCHours(19, 0, 0, 0);
+  return lastDay;
 }
 
 export function getNextMonthlyDrawDate(fromDate: Date = new Date()): Date {
@@ -56,8 +55,8 @@ export function generateMonthlyCycleId(drawDate: Date): string {
 
 export function getDrawOpenTime(drawTime: Date): Date {
   const openTime = new Date(drawTime);
-  openTime.setDate(openTime.getDate() - 7);
-  openTime.setHours(19, 0, 0, 0);
+  openTime.setUTCDate(openTime.getUTCDate() - 7);
+  openTime.setUTCHours(19, 0, 0, 0);
   return openTime;
 }
 
