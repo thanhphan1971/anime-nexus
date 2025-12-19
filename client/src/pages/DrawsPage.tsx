@@ -20,7 +20,7 @@ import { CrystalSigil } from "@/components/CrystalSigil";
 
 function formatDrawTime(dateStr: string): string {
   const date = new Date(dateStr);
-  return formatInTimeZone(date, 'UTC', 'MMM d, yyyy h:mm a');
+  return formatInTimeZone(date, 'America/New_York', 'MMM d, yyyy h:mm a');
 }
 
 interface Draw {
@@ -407,11 +407,11 @@ function DrawSection({
               <div className="text-xs text-gray-400 flex flex-wrap gap-x-3 gap-y-1">
                 <span>
                   <Calendar className="h-3 w-3 inline mr-1" />
-                  Opens: {formatDrawTime(draw.startAt)} UTC
+                  Opens: {formatDrawTime(draw.startAt)} ET
                 </span>
                 <span>
                   <Trophy className="h-3 w-3 inline mr-1" />
-                  Draw: {formatDrawTime(draw.drawAt)} UTC
+                  Draw: {formatDrawTime(draw.drawAt)} ET
                 </span>
               </div>
             )}
