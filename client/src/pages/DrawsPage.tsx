@@ -122,8 +122,8 @@ function DrawSection({
   const Icon = isWeekly ? Calendar : Star;
   
   const maxEntries = isWeekly 
-    ? (isPremium ? 3 : 1) 
-    : 2;
+    ? (isPremium ? 2 : 1) 
+    : 1;
   const entriesRemaining = Math.max(0, maxEntries - entriesUsed);
   const allEntriesUsed = entriesUsed >= maxEntries;
   
@@ -149,9 +149,9 @@ function DrawSection({
   const prizes = isWeekly ? weeklyPrizes : monthlyPrizes;
   const canEnter = draw?.status === 'open' && (isWeekly || isPremium) && !allEntriesUsed;
   const entryNote = isWeekly 
-    ? `Free: 1 entry • S-Class: 3 entries`
+    ? `Free: 1 entry • S-Class: 2 entries`
     : isPremium 
-      ? `S-Class: 2 entries` 
+      ? `S-Class: 1 entry` 
       : `S-Class members only`;
 
   return (
