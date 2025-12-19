@@ -226,11 +226,11 @@ function DrawSection({
               <div className="text-xs text-gray-400 flex flex-wrap gap-x-3 gap-y-1">
                 <span>
                   <Calendar className="h-3 w-3 inline mr-1" />
-                  Opens: {format(new Date(draw.startAt), 'MMM d, yyyy')}
+                  Opens: {format(new Date(draw.startAt), 'MMM d, yyyy h:mm a')}
                 </span>
                 <span>
                   <Trophy className="h-3 w-3 inline mr-1" />
-                  Draw: {format(new Date(draw.drawAt), 'MMM d, yyyy')}
+                  Draw: {format(new Date(draw.drawAt), 'MMM d, yyyy h:mm a')}
                 </span>
               </div>
             )}
