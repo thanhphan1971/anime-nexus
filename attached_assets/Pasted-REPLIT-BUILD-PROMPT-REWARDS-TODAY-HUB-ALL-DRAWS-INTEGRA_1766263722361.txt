@@ -1,0 +1,236 @@
+REPLIT BUILD PROMPT — “REWARDS TODAY” HUB + ALL DRAWS INTEGRATION (ANI REALM)
+
+Goal:
+Unify Gacha (Daily Free + Paid Summon) and ALL draws (Weekly, Monthly, Event/Special) into one clean “Rewards Today” module on Home + one unified “Draws” page, with clear eligibility, entries, countdowns, and winner previews.
+
+Non-negotiables:
+- Home must feel designed (not assembled): ONE parent container called “Rewards Today” that stacks reward cards.
+- Keep it fast + mobile-first.
+- No duplicate winner list rendering.
+- No new complicated flows; reuse existing pages/routes if they exist.
+- Everything must be driven by real data from the current system (user balances, eligibility, draw schedules).
+- Free/Paid entry rules must be enforced exactly as previously defined in the app.
+
+------------------------------------------------------------
+A) HOME PAGE: “REWARDS TODAY” STACKED MODULE
+------------------------------------------------------------
+
+On Home, replace separate blocks (“FREE DAILY SUMMON” + “WEEKLY DRAW”) with ONE container:
+
+Section Header (exact copy):
+Title: "🎁 Rewards Today"
+Subtitle: "Claim daily summons and enter live draws."
+
+Inside this container, render stacked cards in this order:
+
+1) Card: DAILY SUMMON (Free)
+Label: "DAILY REWARD"
+Title: "Free Daily Summon"
+Subtitle: "Standard Banner (Permanent Cards)"
+Availability line: "{freeSummonsRemaining} / {freeSummonsDailyLimit} available today"
+Primary CTA: "Claim Free Summon"
+Secondary CTA: "View All Summons"
+Routes:
+- Claim Free Summon -> /cards (auto-focus Summon tab and select “Free” mode)
+- View All Summons -> /cards
+
+If no free summons remaining:
+- Replace primary CTA with disabled button “No Free Summons Left”
+- Show inline micro-upsell (NOT modal):
+  Title: "Want more daily summons?"
+  Body: "S-Class members get extra daily pulls."
+  CTA: "View S-Class"
+  Route: /premium
+
+2) Card: PAID SUMMON (Gacha)
+Label: "GACHA"
+Title: "Paid Summon"
+Subtitle: "High-tier pulls using tokens"
+Show price: "Cost: 100 Tokens" (or use the configured cost)
+Show benefit line: "Guaranteed: 2× S-Class pull" (or whatever is current)
+Primary CTA: "Summon Now"
+Secondary CTA: "How Summoning Works"
+Routes:
+- Summon Now -> /cards (auto-focus Summon tab and select “Paid” mode)
+- How Summoning Works -> scroll to “How Summoning Works” section on /cards
+
+If tokens insufficient:
+- Primary CTA disabled: "Not Enough Tokens"
+- Secondary CTA: "Get Tokens" -> /tokens (or your purchase page)
+
+3) Card: LIVE DRAWS (All draws preview)
+Label: "LIVE EVENTS"
+Title: "Draws"
+Subtitle: "Weekly + Monthly + Special events"
+Show mini-summary row:
+- “Weekly: ends in {countdown}”
+- “Monthly: ends in {countdown}” (last Friday 7pm local)
+- “Event: {eventName} ends in {countdown}” (only if active)
+Primary CTA: "View All Draws"
+Secondary CTA (if user eligible for at least one draw): "Enter Now"
+Routes:
+- View All Draws -> /draws
+- Enter Now -> /draws (auto-scroll to the first eligible draw)
+
+Winner preview in this card:
+- Show latest 3 winners TOTAL across all draws (or latest 3 for weekly only if easier)
+- No duplicates
+- Each row: username — prize — time ago
+- Add small link: “View All Winners” -> /draws?winners=true
+
+IMPORTANT:
+- Remove any existing duplicated weekly winners rendering on Home.
+- If Stories exist, “Rewards Today” must appear right under Stories.
+
+------------------------------------------------------------
+B) CREATE/UPDATE UNIFIED /DRAWS PAGE (ALL DRAWS)
+------------------------------------------------------------
+
+Implement a unified Draws page that lists draw types in this order:
+
+1) Weekly Draw (recurring)
+2) Monthly Draw (recurring; last Friday at 7:00 PM local)
+3) Special/Event Draws (only when active)
+
+Each draw card must include:
+- Title + short description
+- Prize pool (primary prizes)
+- Countdown to end (or next draw time if not currently “live”)
+- Entry rules summary
+- User eligibility + entries remaining
+- Primary CTA: “Enter Draw” (if eligible)
+- If not eligible: show reason (verification not complete, no entries left, etc.)
+- Winners panel:
+  - “Latest Winners” show 5 rows max
+  - Link: “View All Winners”
+
+Entry rules (must match our earlier system):
+- Free users: 1 free weekly entry
+- Paid users (S-Class): 3 free weekly entries + 1 free monthly entry
+- Users can re-enter the next draw cycle 24 hours after the draw ends (cooldown logic)
+- Weekly draw schedule: Friday 7:00 PM local
+- Monthly draw schedule: Last Friday of the month 7:00 PM local
+
+Monthly draw payout rule:
+- If there are secondary winners, cap secondary token prize at 300 tokens max (enforce).
+(Primary prizes can be larger; secondary winners never exceed 300 tokens.)
+
+Dynamic scaling:
+- Draw winner count should scale with user pool (dynamic scaling approach).
+- Implement a simple scaling function driven by total eligible participants:
+  Example (adjustable constants):
+  - Weekly: 1 winner per 2,000 participants (min 3 winners, max 50)
+  - Monthly: 1 winner per 5,000 participants (min 5 winners, max 200)
+Store these constants in config so we can tune later.
+
+------------------------------------------------------------
+C) DATA MODEL REQUIREMENTS (MINIMUM)
+------------------------------------------------------------
+
+Create or ensure these concepts exist in DB:
+
+Tables (or equivalent):
+1) draws
+- id
+- type: weekly | monthly | event
+- status: scheduled | live | ended
+- title
+- description
+- start_at
+- end_at
+- rules_json (entries, limits, eligibility)
+- prize_pool_json (prizes, caps)
+- created_at
+
+2) draw_entries
+- id
+- draw_id
+- user_id
+- entry_count (or one row per entry)
+- source: free_weekly | premium_weekly | premium_monthly | paid_entry | promo
+- created_at
+
+3) draw_winners
+- id
+- draw_id
+- user_id
+- prize_json (type: token/card/premium/badge/frame, amount, rarity)
+- created_at
+
+4) user_rewards_state (or integrate existing)
+- user_id
+- free_daily_summons_used_today
+- free_daily_summons_limit
+- last_weekly_entry_at
+- last_monthly_entry_at
+- verification_status (if used)
+- updated_at
+
+If tables already exist, adapt to current schema—do NOT create duplicates.
+
+------------------------------------------------------------
+D) ELIGIBILITY + ABUSE PREVENTION (CORE)
+------------------------------------------------------------
+
+Before a user is eligible for ANY draw entry:
+- Must have verified account requirements as previously defined:
+  - confirmed email OR verified auth provider
+  - cooldown rules respected
+  - not flagged for abuse
+- Enforce anti-abuse signals:
+  - basic rate limiting on entry creation
+  - prevent multiple entries via same user_id
+  - server-side checks always (client checks are not enough)
+
+Important:
+- All “Enter Draw” actions must be validated on server.
+- Never trust client for entries remaining.
+
+------------------------------------------------------------
+E) ROUTING + UX DETAILS
+------------------------------------------------------------
+
+Routes:
+- Home: /home
+- Cards/Summon: /cards
+- Draws hub: /draws
+- Premium: /premium
+- Tokens: /tokens (or existing purchase page)
+
+On /cards:
+- Add two clear modes:
+  - Free Daily Summon
+  - Paid Summon
+- If user arrives from Home “Claim Free Summon”, auto-focus and scroll to Free Daily Summon section.
+- If user arrives from Home “Summon Now”, auto-focus Paid Summon.
+
+On /draws:
+- Default sort: Weekly, Monthly, Event
+- Auto-scroll to first eligible draw if coming from “Enter Now”.
+
+Toasts (small, non-annoying):
+- After free summon: “Free summon claimed ✅”
+- After entering draw: “Entry confirmed ✅ Good luck.”
+
+------------------------------------------------------------
+F) ACCEPTANCE CHECKLIST
+------------------------------------------------------------
+
+Home:
+- ✅ “Rewards Today” container exists
+- ✅ Stacked cards: Free Summon + Paid Summon + Draws Preview
+- ✅ No duplicate winners list
+- ✅ Clear CTAs that route correctly
+
+Draws page:
+- ✅ Lists Weekly, Monthly, Event
+- ✅ Eligibility + entries remaining shown
+- ✅ Entry action works server-side
+- ✅ Winners display works and capped (monthly secondary ≤ 300 tokens)
+
+System:
+- ✅ Schedules enforced (Friday 7 PM; last Friday 7 PM)
+- ✅ 24h cooldown to re-enter next cycle
+- ✅ Dynamic winner scaling implemented and configurable
+
+Build it now.
