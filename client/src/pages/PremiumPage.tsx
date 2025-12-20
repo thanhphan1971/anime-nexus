@@ -138,6 +138,7 @@ export default function PremiumPage() {
   const isOnTrial = sclassStatus?.isOnTrial ?? user?.isOnTrial;
   const isSClass = user?.isPremium && !isOnTrial;
   const trialDaysRemaining = sclassStatus?.trialDaysRemaining ?? 0;
+  const isAdminGranted = sclassStatus?.accessSource === 'admin_grant';
 
   return (
     <div className="space-y-12 pb-12">
@@ -186,7 +187,7 @@ export default function PremiumPage() {
         {/* Premium Plan */}
         <Card className="bg-black/40 border-yellow-500/50 relative overflow-hidden shadow-[0_0_50px_hsl(45,100%,50%,0.2)]">
           <div className="absolute top-0 right-0 bg-yellow-500 text-black text-xs font-bold px-3 py-1 rounded-bl-lg">
-            {isOnTrial ? "TRIAL ACTIVE" : "RECOMMENDED"}
+            {isAdminGranted ? "GRANTED ACCESS" : isOnTrial ? "TRIAL ACTIVE" : isSClass ? "ACTIVE" : "RECOMMENDED"}
           </div>
           <CardHeader className="text-center">
             <CardTitle className="text-2xl font-bold text-yellow-400 flex items-center justify-center gap-2">
@@ -214,7 +215,35 @@ export default function PremiumPage() {
             
             </CardContent>
           <CardFooter className="flex flex-col gap-3">
-            {isSClass ? (
+            {isSClass && isAdminGranted ? (
+              <>
+                <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/50 text-base px-4 py-1">
+                  S-Class Access (Granted)
+                </Badge>
+                <p className="text-sm text-yellow-400/80">
+                  Access valid until: {sclassStatus?.accessExpiresAt ? formatInTimeZone(new Date(sclassStatus.accessExpiresAt), 'UTC', 'MMMM d, yyyy') : 'N/A'}
+                </p>
+                <Separator className="bg-yellow-500/20 my-2" />
+                <p className="text-xs text-muted-foreground text-center">
+                  Your paid subscription will begin after your granted access ends.
+                </p>
+                <Button 
+                  className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold h-12 text-lg shadow-[0_0_20px_hsl(45,100%,50%,0.4)]"
+                  onClick={() => setLocation('/checkout?plan=monthly')}
+                  data-testid="button-subscribe-monthly-granted"
+                >
+                  Subscribe Monthly — $9.99
+                </Button>
+                <Button 
+                  className="w-full bg-yellow-500/80 hover:bg-yellow-400 text-black font-bold h-12 text-lg"
+                  onClick={() => setLocation('/checkout?plan=yearly')}
+                  data-testid="button-subscribe-yearly-granted"
+                >
+                  Subscribe Yearly — $79.99
+                </Button>
+                <p className="text-sm text-yellow-400 text-center font-semibold">★ Best value — Save 33%</p>
+              </>
+            ) : isSClass ? (
               <>
                 <p className="text-sm text-yellow-400 font-semibold">
                   Current Plan: {sclassStatus?.subscriptionType === 'yearly' ? 'Yearly' : 'Monthly'}

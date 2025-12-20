@@ -64,6 +64,9 @@ export const users = pgTable("users", {
   // Admin-granted S-Class access (separate from paid subscriptions)
   accessSource: text("access_source"), // 'admin_grant' or 'subscription' or null
   accessExpiresAt: timestamp("access_expires_at"), // When admin-granted access expires
+  // Stripe integration fields
+  stripeCustomerId: text("stripe_customer_id"), // Stripe customer ID for billing
+  stripeSubscriptionId: text("stripe_subscription_id"), // Active Stripe subscription ID
 });
 
 // Posts table

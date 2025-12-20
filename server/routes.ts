@@ -1030,6 +1030,103 @@ export async function registerRoutes(
     }
   });
 
+  // Grant admin S-Class access (separate from paid subscriptions)
+  app.post("/api/admin/users/:id/grant-access", verifySupabaseToken, async (req, res) => {
+    try {
+      if (!req.dbUser || !req.dbUser.isAdmin) {
+        return res.status(403).json({ error: "Not authorized" });
+      }
+      
+      const { expiresAt, forceOverwrite } = req.body;
+      if (!expiresAt) {
+        return res.status(400).json({ error: "expiresAt is required for admin grants" });
+      }
+      
+      const expirationDate = new Date(expiresAt);
+      if (isNaN(expirationDate.getTime())) {
+        return res.status(400).json({ error: "Invalid expiration date" });
+      }
+      
+      // Get current user to check existing state
+      const targetUser = await storage.getUser(req.params.id);
+      if (!targetUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Check if user already has an active subscription - warn admin but allow
+      const hasActiveSubscription = targetUser.subscriptionStatus === 'active' || targetUser.subscriptionStatus === 'canceled_pending_expiry';
+      const hasExistingGrant = targetUser.accessSource === 'admin_grant';
+      
+      // If user has existing grant or subscription and forceOverwrite not set, return warning
+      if ((hasActiveSubscription || hasExistingGrant) && !forceOverwrite) {
+        return res.status(409).json({ 
+          error: "User already has S-Class access",
+          details: {
+            hasActiveSubscription,
+            hasExistingGrant,
+            existingAccessExpiresAt: targetUser.accessExpiresAt,
+            subscriptionStatus: targetUser.subscriptionStatus
+          },
+          message: "Set forceOverwrite: true to override existing access"
+        });
+      }
+      
+      const user = await storage.updateUser(req.params.id, { 
+        isPremium: true,
+        accessSource: 'admin_grant',
+        accessExpiresAt: expirationDate
+      });
+      
+      res.json({
+        ...user,
+        warning: hasActiveSubscription ? "User also has an active paid subscription that will continue after admin grant expires" : undefined
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Revoke admin-granted S-Class access
+  app.post("/api/admin/users/:id/revoke-grant", verifySupabaseToken, async (req, res) => {
+    try {
+      if (!req.dbUser || !req.dbUser.isAdmin) {
+        return res.status(403).json({ error: "Not authorized" });
+      }
+      
+      const user = await storage.getUser(req.params.id);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Only revoke if access was admin-granted
+      if (user.accessSource !== 'admin_grant') {
+        return res.status(400).json({ error: "User does not have admin-granted access" });
+      }
+      
+      // Check if user has an active paid subscription to fall back to
+      // subscriptionStatus 'active' means ongoing subscription (premiumEndDate may be null for auto-renewing)
+      // 'canceled_pending_expiry' means they canceled but still have access until premiumEndDate
+      const now = new Date();
+      const hasPaidSubscription = user.subscriptionStatus === 'active' || 
+        (user.subscriptionStatus === 'canceled_pending_expiry' && user.premiumEndDate && new Date(user.premiumEndDate) > now);
+      
+      const updates: any = {
+        accessSource: null,
+        accessExpiresAt: null
+      };
+      
+      // If no paid subscription, revoke premium entirely
+      if (!hasPaidSubscription) {
+        updates.isPremium = false;
+      }
+      
+      const updatedUser = await storage.updateUser(req.params.id, updates);
+      res.json(updatedUser);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Prize routes
   app.get("/api/prizes", async (req, res) => {
     try {
@@ -2887,6 +2984,40 @@ export async function registerRoutes(
         }
       }
 
+      // Check if admin-granted access expired
+      if (user.accessSource === 'admin_grant' && user.accessExpiresAt) {
+        const now = new Date();
+        if (now > new Date(user.accessExpiresAt)) {
+          // Admin grant expired, check if user has paid subscription to fall back to
+          // subscriptionStatus 'active' means ongoing subscription (premiumEndDate may be null for auto-renewing)
+          // 'canceled_pending_expiry' means they canceled but still have access until premiumEndDate
+          const hasPaidSubscription = user.subscriptionStatus === 'active' || 
+            (user.subscriptionStatus === 'canceled_pending_expiry' && user.premiumEndDate && new Date(user.premiumEndDate) > now);
+          
+          const updatedUser = await storage.updateUser(user.id, {
+            accessSource: null,
+            accessExpiresAt: null,
+            isPremium: hasPaidSubscription ? true : false,
+          });
+
+          console.log(`[Analytics] admin_grant_expired`, {
+            userId: user.id,
+            fallbackToSubscription: hasPaidSubscription,
+          });
+
+          if (!hasPaidSubscription) {
+            return res.json({
+              status: 'free',
+              adminGrantExpired: true,
+              canStartTrial: !user.trialUsed,
+            });
+          }
+          
+          // Use updated user data for the rest of the response
+          Object.assign(user, updatedUser);
+        }
+      }
+
       // Check if premium subscription expired (for canceled_pending_expiry state)
       if (user.isPremium && user.premiumEndDate && user.subscriptionStatus === 'canceled_pending_expiry') {
         const now = new Date();
@@ -2934,6 +3065,8 @@ export async function registerRoutes(
         subscriptionCanceledAt: user.subscriptionCanceledAt,
         premiumEndDate: user.premiumEndDate,
         retentionSaveBonusAvailable: user.isPremium && !user.retentionSaveBonusUsed,
+        accessSource: user.accessSource,
+        accessExpiresAt: user.accessExpiresAt,
       });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
