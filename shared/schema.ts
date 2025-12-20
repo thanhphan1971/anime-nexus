@@ -61,6 +61,9 @@ export const users = pgTable("users", {
   subscriptionCanceledAt: timestamp("subscription_canceled_at"), // When user canceled (access continues until premiumEndDate)
   lastReactivateDate: timestamp("last_reactivate_date"), // When user last reactivated after canceling
   retentionSaveBonusUsed: boolean("retention_save_bonus_used").notNull().default(false), // One-time retention bonus claimed
+  // Admin-granted S-Class access (separate from paid subscriptions)
+  accessSource: text("access_source"), // 'admin_grant' or 'subscription' or null
+  accessExpiresAt: timestamp("access_expires_at"), // When admin-granted access expires
 });
 
 // Posts table
