@@ -316,6 +316,64 @@ export async function registerRoutes(
     }
   });
 
+  // Preset avatars whitelist (security: only allow these IDs)
+  const PRESET_AVATARS = [
+    'preset_001', 'preset_002', 'preset_003', 'preset_004',
+    'preset_005', 'preset_006', 'preset_007', 'preset_008',
+    'preset_009', 'preset_010', 'preset_011', 'preset_012',
+  ];
+
+  // Update user avatar
+  app.patch("/api/users/:id/avatar", verifySupabaseToken, async (req, res) => {
+    try {
+      if (!req.dbUser) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      if (req.dbUser.id !== req.params.id) {
+        return res.status(403).json({ error: "Not authorized" });
+      }
+      
+      const { avatarId } = req.body;
+      if (!avatarId || typeof avatarId !== 'string') {
+        return res.status(400).json({ error: "avatarId is required" });
+      }
+      
+      // Validate against whitelist
+      if (!PRESET_AVATARS.includes(avatarId)) {
+        return res.status(400).json({ error: "Invalid avatar selection" });
+      }
+      
+      const avatarUrl = `/avatars/${avatarId}.svg`;
+      
+      const updatedUser = await storage.updateUser(req.params.id, {
+        avatar: avatarUrl,
+        avatarType: 'preset',
+        avatarId: avatarId,
+        avatarUpdatedAt: new Date(),
+      });
+      
+      if (!updatedUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      const { password, ...userWithoutPassword } = updatedUser;
+      res.json(userWithoutPassword);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get available preset avatars
+  app.get("/api/avatars/presets", (req, res) => {
+    const presets = PRESET_AVATARS.map(id => ({
+      id,
+      url: `/avatars/${id}.svg`,
+      name: `Avatar ${id.split('_')[1]}`
+    }));
+    res.json(presets);
+  });
+
   // Reserved words that cannot be used as handles (all lowercase for comparison)
   const RESERVED_HANDLES = [
     // Routes

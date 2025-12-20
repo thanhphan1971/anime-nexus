@@ -137,6 +137,28 @@ export function useUpdateHandle() {
   });
 }
 
+// Avatar API
+export function usePresetAvatars() {
+  return useQuery({
+    queryKey: ["presetAvatars"],
+    queryFn: () => apiCall("/api/avatars/presets"),
+  });
+}
+
+export function useUpdateAvatar() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ userId, avatarId }: { userId: string; avatarId: string }) =>
+      apiCall(`/api/users/${userId}/avatar`, {
+        method: "PATCH",
+        body: JSON.stringify({ avatarId }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+    },
+  });
+}
+
 // Cards API
 export function useCards() {
   return useQuery({

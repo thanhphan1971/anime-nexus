@@ -1,0 +1,72 @@
+REPLIT BUILD PROMPT — AVATAR SYSTEM V1 (PRESET NOW, AI LATER)
+
+Goal:
+Implement a simple, safe Avatar system on the Profile page:
+- Users can choose from preset avatars now (no AI needed).
+- The data model and UI are future-proof so we can later add AI avatar generation without rewriting everything.
+
+Core Rules (V1):
+1) Every user has an avatar.
+2) Users can change avatar by selecting from a preset gallery.
+3) No uploads, no animations, no AI generation yet.
+4) Store avatar selection in the database so it persists across sessions.
+5) Keep it minimal, fast, and safe for launch.
+
+Database / Schema:
+- Add columns to user profile table (or the table used for profile):
+  - avatar_type: 'preset' (string, default 'preset')
+  - avatar_id: string (default 'preset_001')
+  - avatar_url: text (nullable; for V1 can be derived from avatar_id OR stored directly)
+  - avatar_updated_at: timestamp
+- If you prefer normalization, create a table:
+  avatars_presets (
+    id text primary key,        -- e.g. preset_001
+    name text,
+    image_url text,
+    is_active boolean default true,
+    sort_order int
+  )
+  and store avatar_id in profile.
+
+Preset Library:
+- Create 12–24 preset avatars in /public/avatars/ (or equivalent) and register them in code or in avatars_presets table.
+- Use simple fantasy/anime-neutral icons (no copyrighted characters).
+- Example IDs: preset_001 ... preset_024
+
+Profile UI:
+1) On the Profile page:
+   - Show current avatar (circle)
+   - Add button: "Change Avatar"
+2) Clicking opens a modal/drawer:
+   - Grid gallery of preset avatars
+   - Selecting one highlights it
+   - Button: "Save"
+3) On Save:
+   - Update avatar_type='preset', avatar_id, avatar_updated_at
+   - Immediately update UI (optimistic update ok)
+4) Add small note:
+   "AI Avatars: Coming later. Presets only for now."
+
+API / Logic:
+- Add endpoint or server action:
+  updateAvatar({ avatarId })
+  - Validate avatarId is in allowed preset list (security)
+  - Update user record
+  - Return updated profile
+
+Permissions / Security:
+- Only authenticated user can update their own avatar.
+- Validate avatarId against whitelist (do not accept arbitrary URLs).
+- RLS (if using Supabase) must prevent users from writing other users’ avatar fields.
+
+Acceptance Criteria:
+- All users display a default avatar immediately.
+- Avatar changes persist after refresh/login.
+- UI is clean and consistent with AniRealm styling.
+- The architecture clearly supports a future "avatar_type='ai'" without breaking V1.
+
+Future Hook (do not implement yet):
+- Add a disabled button: "Generate AI Avatar (Soon)"
+- When clicked, show tooltip: "Not available yet."
+- Keep code structured so later we can add an AI generation flow that writes:
+  avatar_type='ai' and avatar_url to an AI-generated image.

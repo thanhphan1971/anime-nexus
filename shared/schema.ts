@@ -11,7 +11,10 @@ export const users = pgTable("users", {
   password: text("password").default(''),
   name: text("name").notNull(),
   handle: text("handle").notNull().unique(),
-  avatar: text("avatar").notNull().default('https://api.dicebear.com/7.x/avataaars/svg?seed=default'),
+  avatar: text("avatar").notNull().default('/avatars/preset_001.svg'),
+  avatarType: text("avatar_type").notNull().default('preset'), // 'preset' or 'ai' (future)
+  avatarId: text("avatar_id").notNull().default('preset_001'), // e.g. preset_001, preset_002
+  avatarUpdatedAt: timestamp("avatar_updated_at"),
   bio: text("bio").default(''),
   level: integer("level").notNull().default(1),
   followers: integer("followers").notNull().default(0),

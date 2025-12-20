@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Slider } from "@/components/ui/slider";
 import { Settings, MapPin, Link as LinkIcon, Calendar, Loader2, Crown, Upload, Sparkles, Globe, ZoomIn, Check, X, Copy, ExternalLink } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { usePosts, useUpdateUser, useUserByHandle, useUser } from "@/lib/api";
+import { usePosts, useUpdateUser, useUserByHandle, useUser, usePresetAvatars, useUpdateAvatar } from "@/lib/api";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import Cropper from "react-easy-crop";
@@ -61,6 +61,8 @@ export default function ProfilePage() {
   const { user: currentUser, refreshUser } = useAuth();
   const { data: allPosts, isLoading: postsLoading } = usePosts();
   const updateUser = useUpdateUser();
+  const { data: presetAvatars } = usePresetAvatars();
+  const updateAvatar = useUpdateAvatar();
   
   // Fetch user by handle if username param is provided
   const { data: userByHandle, isLoading: handleLoading, error: handleError } = useUserByHandle(username);
@@ -299,6 +301,36 @@ export default function ProfilePage() {
               <p className="text-xs text-muted-foreground text-center">
                 Upload your own image (max 2MB) or generate a unique avatar
               </p>
+              
+              {/* Preset Avatar Picker */}
+              <div className="w-full mt-4 pt-4 border-t border-white/10">
+                <p className="text-sm font-medium mb-3 text-center">Or choose a preset avatar:</p>
+                <div className="grid grid-cols-6 gap-2">
+                  {presetAvatars?.map((preset: { id: string; url: string; name: string }) => (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => setEditForm({ ...editForm, avatar: preset.url })}
+                      className={`relative h-10 w-10 rounded-full overflow-hidden border-2 transition-all hover:scale-110 ${
+                        editForm.avatar === preset.url 
+                          ? 'border-primary ring-2 ring-primary/50' 
+                          : 'border-white/20 hover:border-white/50'
+                      }`}
+                      data-testid={`button-preset-avatar-${preset.id}`}
+                    >
+                      <img src={preset.url} alt={preset.name} className="h-full w-full object-cover" />
+                      {editForm.avatar === preset.url && (
+                        <div className="absolute inset-0 bg-primary/30 flex items-center justify-center">
+                          <Check className="h-4 w-4 text-white" />
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground text-center mt-3">
+                  AI Avatars: Coming later. Presets only for now.
+                </p>
+              </div>
             </div>
 
             {/* Form Fields */}
