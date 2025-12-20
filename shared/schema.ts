@@ -67,6 +67,8 @@ export const users = pgTable("users", {
   // Stripe integration fields
   stripeCustomerId: text("stripe_customer_id"), // Stripe customer ID for billing
   stripeSubscriptionId: text("stripe_subscription_id"), // Active Stripe subscription ID
+  // Handle change tracking (for cooldown)
+  handleChangedAt: timestamp("handle_changed_at"), // When handle was last changed (30-day cooldown)
 });
 
 // Posts table
