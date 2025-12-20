@@ -1972,13 +1972,13 @@ export async function registerRoutes(
   });
 
   // Watchlist CRUD endpoints
-  app.get("/api/watchlist", async (req, res) => {
+  app.get("/api/watchlist", verifySupabaseToken, async (req, res) => {
     try {
-      if (!req.session.userId) {
+      if (!req.dbUser) {
         return res.status(401).json({ error: "Not authenticated" });
       }
 
-      const items = await storage.getUserWatchlist(req.session.userId);
+      const items = await storage.getUserWatchlist(req.dbUser.id);
       
       // Get cached anime data for all items
       const anilistIds = items.map(i => i.anilistId);
@@ -1997,9 +1997,9 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/watchlist", async (req, res) => {
+  app.post("/api/watchlist", verifySupabaseToken, async (req, res) => {
     try {
-      if (!req.session.userId) {
+      if (!req.dbUser) {
         return res.status(401).json({ error: "Not authenticated" });
       }
 
@@ -2009,7 +2009,7 @@ export async function registerRoutes(
       }
 
       // Check if already in watchlist
-      const existing = await storage.getWatchlistItemByAnime(req.session.userId, anilistId);
+      const existing = await storage.getWatchlistItemByAnime(req.dbUser.id, anilistId);
       if (existing) {
         return res.status(400).json({ error: "Anime already in watchlist" });
       }
@@ -2020,7 +2020,7 @@ export async function registerRoutes(
       }
 
       const item = await storage.createWatchlistItem({
-        userId: req.session.userId,
+        userId: req.dbUser.id,
         anilistId,
         status,
       });
@@ -2031,9 +2031,9 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/watchlist/:id", async (req, res) => {
+  app.patch("/api/watchlist/:id", verifySupabaseToken, async (req, res) => {
     try {
-      if (!req.session.userId) {
+      if (!req.dbUser) {
         return res.status(401).json({ error: "Not authenticated" });
       }
 
@@ -2042,7 +2042,7 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Watchlist item not found" });
       }
 
-      if (item.userId !== req.session.userId) {
+      if (item.userId !== req.dbUser.id) {
         return res.status(403).json({ error: "Not authorized" });
       }
 
@@ -2082,9 +2082,9 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/watchlist/:id", async (req, res) => {
+  app.delete("/api/watchlist/:id", verifySupabaseToken, async (req, res) => {
     try {
-      if (!req.session.userId) {
+      if (!req.dbUser) {
         return res.status(401).json({ error: "Not authenticated" });
       }
 
@@ -2093,7 +2093,7 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Watchlist item not found" });
       }
 
-      if (item.userId !== req.session.userId) {
+      if (item.userId !== req.dbUser.id) {
         return res.status(403).json({ error: "Not authorized" });
       }
 
@@ -2168,13 +2168,13 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/stories", async (req, res) => {
+  app.post("/api/stories", verifySupabaseToken, async (req, res) => {
     try {
-      if (!req.session.userId) {
+      if (!req.dbUser) {
         return res.status(401).json({ error: "Not authenticated" });
       }
 
-      const user = await storage.getUser(req.session.userId);
+      const user = req.dbUser;
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
@@ -2221,7 +2221,7 @@ export async function registerRoutes(
       }
 
       // Check daily story limit
-      const storyCount = await storage.getUserStoryCountIn24h(req.session.userId);
+      const storyCount = await storage.getUserStoryCountIn24h(req.dbUser.id);
       const maxStories = user.isPremium ? 10 : 3;
       
       if (storyCount >= maxStories) {
@@ -2234,7 +2234,7 @@ export async function registerRoutes(
       const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
       
       const story = await storage.createStory({
-        userId: req.session.userId,
+        userId: req.dbUser.id,
         mediaUrl,
         mediaType,
         caption: caption || null,
@@ -2247,9 +2247,9 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/stories/:id", async (req, res) => {
+  app.delete("/api/stories/:id", verifySupabaseToken, async (req, res) => {
     try {
-      if (!req.session.userId) {
+      if (!req.dbUser) {
         return res.status(401).json({ error: "Not authenticated" });
       }
 
@@ -2261,18 +2261,15 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/stories/limits", async (req, res) => {
+  app.get("/api/stories/limits", verifySupabaseToken, async (req, res) => {
     try {
-      if (!req.session.userId) {
+      if (!req.dbUser) {
         return res.status(401).json({ error: "Not authenticated" });
       }
 
-      const user = await storage.getUser(req.session.userId);
-      if (!user) {
-        return res.status(404).json({ error: "User not found" });
-      }
+      const user = req.dbUser;
 
-      const storyCount = await storage.getUserStoryCountIn24h(req.session.userId);
+      const storyCount = await storage.getUserStoryCountIn24h(req.dbUser.id);
       const maxStories = user.isPremium ? 10 : 3;
 
       res.json({
