@@ -9,26 +9,29 @@ export function WorldHookSection() {
 
   return (
     <>
-      <div className="text-center space-y-3">
-        <h2 className="text-xl md:text-2xl font-semibold text-transparent bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400 bg-clip-text">
+      <div className="text-center space-y-6 py-4">
+        <h1 className="text-2xl md:text-3xl font-semibold leading-tight text-transparent bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400 bg-clip-text">
           {worldHook.title}
-        </h2>
-        <p className="text-lg font-normal text-white/80 max-w-sm mx-auto leading-relaxed">
-          {worldHook.subtitle}
+        </h1>
+        
+        <p className="text-base md:text-lg font-normal text-white/90 max-w-[40rem] mx-auto leading-relaxed">
+          A fractured anime universe<br className="hidden sm:inline" />
+          {" "}where cards, events, and community shape your legend.
         </p>
-        <div className="flex items-center justify-center gap-2 pt-1">
-          <p className="text-sm text-muted-foreground">
+        
+        <div className="space-y-4">
+          <p className="text-sm font-normal text-muted-foreground">
             {worldHook.microline}
           </p>
           <Button
-            variant="link"
+            variant="outline"
             size="sm"
-            className="text-xs text-cyan-400 hover:text-cyan-300 p-0 h-auto"
+            className="text-sm font-medium text-cyan-400 border-cyan-500/50 hover:bg-cyan-500/10 hover:text-cyan-300"
             onClick={() => setShowLoreModal(true)}
             data-testid="button-learn-world"
           >
             Learn the World
-            <ChevronRight className="h-3 w-3 ml-0.5" />
+            <ChevronRight className="h-4 w-4 ml-1" />
           </Button>
         </div>
       </div>

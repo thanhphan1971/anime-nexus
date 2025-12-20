@@ -134,18 +134,15 @@ export default function FeedPage() {
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
-      {/* Page Header with Crystal Sigil */}
-      <div className="text-center pb-2">
-        <div className="flex justify-center mb-3">
-          <CrystalSigil 
-            size={56} 
-            state={getCrystalState()} 
-          />
-        </div>
-        <h1 className="text-2xl font-display font-bold neon-text">HOME</h1>
+      {/* Crystal Sigil - decorative only */}
+      <div className="flex justify-center pt-2">
+        <CrystalSigil 
+          size={48} 
+          state={getCrystalState()} 
+        />
       </div>
 
-      {/* World Hook Section */}
+      {/* World Hook Section - main headline area */}
       <WorldHookSection />
 
       {/* Stories / Status Bar */}
