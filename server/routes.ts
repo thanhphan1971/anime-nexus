@@ -315,6 +315,140 @@ export async function registerRoutes(
       res.status(500).json({ error: error.message });
     }
   });
+
+  // Reserved words that cannot be used as handles
+  const RESERVED_HANDLES = [
+    'cards', 'events', 'summons', 'admin', 'login', 'signup', 'api', 
+    'profile', 'settings', 'home', 'help', 'support', 'about', 'terms',
+    'privacy', 'contact', 'feeds', 'friends', 'communities', 'community',
+    'draws', 'tokens', 'sclass', 'premium', 'benefits', 'game', 'universe',
+    'checkout', 'gacha', 'market', 'watchlist', 'create', 'parent', 'mod',
+    'moderator', 'staff', 'official', 'anirealm', 'system', 'bot', 'null',
+    'undefined', 'test', 'demo', 'example', 'user', 'users', 'anonymous'
+  ];
+
+  // Handle validation schema
+  const handleSchema = z.string()
+    .min(3, "Handle must be at least 3 characters")
+    .max(20, "Handle must be 20 characters or less")
+    .regex(/^[a-zA-Z][a-zA-Z0-9_]*$/, "Handle must start with a letter and contain only letters, numbers, and underscores");
+
+  // Get user by handle (public endpoint for /@username routes)
+  app.get("/api/users/by-handle/:handle", async (req, res) => {
+    try {
+      let handle = req.params.handle;
+      // Normalize handle - add @ prefix if not present
+      if (!handle.startsWith('@')) {
+        handle = '@' + handle;
+      }
+      
+      const user = await storage.getUserByHandle(handle.toLowerCase());
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      const { password, ...userWithoutPassword } = user;
+      res.json(userWithoutPassword);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Check if handle is available
+  app.get("/api/handles/check/:handle", async (req, res) => {
+    try {
+      let handle = req.params.handle.toLowerCase();
+      
+      // Validate format
+      const validation = handleSchema.safeParse(handle);
+      if (!validation.success) {
+        return res.json({ available: false, reason: validation.error.errors[0]?.message });
+      }
+      
+      // Check reserved words
+      if (RESERVED_HANDLES.includes(handle.toLowerCase())) {
+        return res.json({ available: false, reason: "This handle is reserved" });
+      }
+      
+      // Check if already taken (add @ prefix for database lookup)
+      const existingUser = await storage.getUserByHandle('@' + handle);
+      if (existingUser) {
+        return res.json({ available: false, reason: "Handle already taken" });
+      }
+      
+      res.json({ available: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Update user's handle
+  app.patch("/api/users/:id/handle", verifySupabaseToken, async (req, res) => {
+    try {
+      if (!req.dbUser) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      if (req.dbUser.id !== req.params.id) {
+        return res.status(403).json({ error: "Not authorized" });
+      }
+      
+      const { handle: newHandle } = req.body;
+      if (!newHandle) {
+        return res.status(400).json({ error: "Handle is required" });
+      }
+      
+      // Normalize to lowercase without @ prefix for validation
+      const handleWithoutAt = newHandle.replace(/^@/, '').toLowerCase();
+      
+      // Validate format
+      const validation = handleSchema.safeParse(handleWithoutAt);
+      if (!validation.success) {
+        return res.status(400).json({ error: validation.error.errors[0]?.message });
+      }
+      
+      // Check reserved words
+      if (RESERVED_HANDLES.includes(handleWithoutAt)) {
+        return res.status(400).json({ error: "This handle is reserved" });
+      }
+      
+      // Check cooldown (30 days)
+      const user = await storage.getUser(req.params.id);
+      if (user?.handleChangedAt) {
+        const daysSinceChange = (Date.now() - new Date(user.handleChangedAt).getTime()) / (1000 * 60 * 60 * 24);
+        if (daysSinceChange < 30) {
+          const daysRemaining = Math.ceil(30 - daysSinceChange);
+          return res.status(400).json({ 
+            error: `You can change your handle again in ${daysRemaining} days`,
+            cooldownRemaining: daysRemaining
+          });
+        }
+      }
+      
+      // Normalize handle with @ prefix
+      const normalizedHandle = '@' + handleWithoutAt;
+      
+      // Check if already taken (case-insensitive)
+      const existingUser = await storage.getUserByHandle(normalizedHandle);
+      if (existingUser && existingUser.id !== req.params.id) {
+        return res.status(400).json({ error: "Handle already taken" });
+      }
+      
+      // Update handle and set change timestamp
+      const updatedUser = await storage.updateUser(req.params.id, {
+        handle: normalizedHandle,
+        handleChangedAt: new Date(),
+      });
+      
+      if (!updatedUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      const { password, ...userWithoutPassword } = updatedUser;
+      res.json(userWithoutPassword);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
   
   // Post routes
   app.get("/api/posts", verifySupabaseToken, async (req, res) => {
