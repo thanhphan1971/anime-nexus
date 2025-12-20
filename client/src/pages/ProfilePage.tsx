@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useParams, Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -9,11 +9,50 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Settings, MapPin, Link as LinkIcon, Calendar, Loader2, Crown, Upload, Sparkles, Camera, Globe } from "lucide-react";
+import { Slider } from "@/components/ui/slider";
+import { Settings, MapPin, Link as LinkIcon, Calendar, Loader2, Crown, Upload, Sparkles, Camera, Globe, ZoomIn, Check, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { usePosts, useUpdateUser } from "@/lib/api";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
+import Cropper from "react-easy-crop";
+import type { Area } from "react-easy-crop";
+
+const createImage = (url: string): Promise<HTMLImageElement> =>
+  new Promise((resolve, reject) => {
+    const image = new Image();
+    image.addEventListener("load", () => resolve(image));
+    image.addEventListener("error", (error) => reject(error));
+    image.crossOrigin = "anonymous";
+    image.src = url;
+  });
+
+async function getCroppedImg(imageSrc: string, pixelCrop: Area): Promise<string> {
+  const image = await createImage(imageSrc);
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+
+  if (!ctx) {
+    throw new Error("No 2d context");
+  }
+
+  canvas.width = pixelCrop.width;
+  canvas.height = pixelCrop.height;
+
+  ctx.drawImage(
+    image,
+    pixelCrop.x,
+    pixelCrop.y,
+    pixelCrop.width,
+    pixelCrop.height,
+    0,
+    0,
+    pixelCrop.width,
+    pixelCrop.height
+  );
+
+  return canvas.toDataURL("image/jpeg", 0.9);
+}
 
 export default function ProfilePage() {
   const { id } = useParams();
@@ -27,6 +66,16 @@ export default function ProfilePage() {
     bio: "",
     avatar: "",
   });
+  
+  const [cropperOpen, setCropperOpen] = useState(false);
+  const [imageToCrop, setImageToCrop] = useState<string | null>(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
+
+  const onCropComplete = useCallback((croppedArea: Area, croppedAreaPixels: Area) => {
+    setCroppedAreaPixels(croppedAreaPixels);
+  }, []);
   
   const isOwnProfile = !id || id === currentUser?.id || id === 'me';
   const profileUser = isOwnProfile ? currentUser : currentUser;
@@ -73,22 +122,47 @@ export default function ProfilePage() {
       return;
     }
     
-    setIsUploading(true);
     const reader = new FileReader();
     
     reader.onload = () => {
       const result = reader.result as string;
-      setEditForm(prev => ({ ...prev, avatar: result }));
-      setIsUploading(false);
-      toast.success("Image uploaded successfully!");
+      setImageToCrop(result);
+      setCrop({ x: 0, y: 0 });
+      setZoom(1);
+      setCropperOpen(true);
     };
     
     reader.onerror = () => {
-      setIsUploading(false);
       toast.error("Failed to read image file");
     };
     
     reader.readAsDataURL(file);
+    
+    e.target.value = '';
+  };
+
+  const handleCropConfirm = async () => {
+    if (!imageToCrop || !croppedAreaPixels) return;
+    
+    setIsUploading(true);
+    try {
+      const croppedImage = await getCroppedImg(imageToCrop, croppedAreaPixels);
+      setEditForm(prev => ({ ...prev, avatar: croppedImage }));
+      setCropperOpen(false);
+      setImageToCrop(null);
+      toast.success("Image cropped successfully!");
+    } catch (error) {
+      toast.error("Failed to crop image");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleCropCancel = () => {
+    setCropperOpen(false);
+    setImageToCrop(null);
+    setCrop({ x: 0, y: 0 });
+    setZoom(1);
   };
 
   const handleSaveProfile = async () => {
@@ -220,6 +294,69 @@ export default function ProfilePage() {
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
               ) : null}
               Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Image Cropper Dialog */}
+      <Dialog open={cropperOpen} onOpenChange={(open) => !open && handleCropCancel()}>
+        <DialogContent className="bg-card border-white/10 max-w-lg p-0 overflow-hidden">
+          <DialogHeader className="p-4 pb-0">
+            <DialogTitle className="text-xl font-display">Adjust Your Photo</DialogTitle>
+          </DialogHeader>
+          
+          <div className="p-4 space-y-4">
+            <div className="relative h-72 w-full bg-black rounded-lg overflow-hidden">
+              {imageToCrop && (
+                <Cropper
+                  image={imageToCrop}
+                  crop={crop}
+                  zoom={zoom}
+                  aspect={1}
+                  cropShape="round"
+                  showGrid={false}
+                  onCropChange={setCrop}
+                  onCropComplete={onCropComplete}
+                  onZoomChange={setZoom}
+                />
+              )}
+            </div>
+            
+            <div className="flex items-center gap-4 px-2">
+              <ZoomIn className="h-4 w-4 text-muted-foreground" />
+              <Slider
+                value={[zoom]}
+                min={1}
+                max={3}
+                step={0.1}
+                onValueChange={(value) => setZoom(value[0])}
+                className="flex-1"
+                data-testid="slider-crop-zoom"
+              />
+            </div>
+            
+            <p className="text-xs text-muted-foreground text-center">
+              Drag to move • Use slider to zoom in/out
+            </p>
+          </div>
+          
+          <DialogFooter className="p-4 pt-0">
+            <Button variant="ghost" onClick={handleCropCancel} data-testid="button-crop-cancel">
+              <X className="h-4 w-4 mr-2" />
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleCropConfirm}
+              disabled={isUploading}
+              data-testid="button-crop-confirm"
+            >
+              {isUploading ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Check className="h-4 w-4 mr-2" />
+              )}
+              Apply
             </Button>
           </DialogFooter>
         </DialogContent>
