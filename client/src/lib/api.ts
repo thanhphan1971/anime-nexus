@@ -105,6 +105,38 @@ export function useUpdateUser() {
   });
 }
 
+export function useUserByHandle(handle: string | undefined) {
+  return useQuery({
+    queryKey: ["userByHandle", handle],
+    queryFn: () => apiCall(`/api/users/by-handle/${handle}`),
+    enabled: !!handle,
+    retry: false,
+  });
+}
+
+export function useCheckHandle(handle: string | undefined) {
+  return useQuery({
+    queryKey: ["checkHandle", handle],
+    queryFn: () => apiCall(`/api/handles/check/${handle}`),
+    enabled: !!handle && handle.length >= 3,
+  });
+}
+
+export function useUpdateHandle() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ userId, handle }: { userId: string; handle: string }) =>
+      apiCall(`/api/users/${userId}/handle`, {
+        method: "PATCH",
+        body: JSON.stringify({ handle }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      queryClient.invalidateQueries({ queryKey: ["userByHandle"] });
+    },
+  });
+}
+
 // Cards API
 export function useCards() {
   return useQuery({

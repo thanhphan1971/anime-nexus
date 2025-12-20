@@ -10,9 +10,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Slider } from "@/components/ui/slider";
-import { Settings, MapPin, Link as LinkIcon, Calendar, Loader2, Crown, Upload, Sparkles, Camera, Globe, ZoomIn, Check, X } from "lucide-react";
+import { Settings, MapPin, Link as LinkIcon, Calendar, Loader2, Crown, Upload, Sparkles, Globe, ZoomIn, Check, X, Copy, ExternalLink } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { usePosts, useUpdateUser } from "@/lib/api";
+import { usePosts, useUpdateUser, useUserByHandle, useUser } from "@/lib/api";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import Cropper from "react-easy-crop";
@@ -55,10 +55,20 @@ async function getCroppedImg(imageSrc: string, pixelCrop: Area): Promise<string>
 }
 
 export default function ProfilePage() {
-  const { id } = useParams();
+  const params = useParams();
+  const id = params.id;
+  const username = params.username;
   const { user: currentUser, refreshUser } = useAuth();
   const { data: allPosts, isLoading: postsLoading } = usePosts();
   const updateUser = useUpdateUser();
+  
+  // Fetch user by handle if username param is provided
+  const { data: userByHandle, isLoading: handleLoading, error: handleError } = useUserByHandle(username);
+  
+  // Fetch user by ID if id param is provided and it's not the current user
+  const { data: userById, isLoading: idLoading } = useUser(
+    id && id !== currentUser?.id && id !== 'me' ? id : undefined
+  );
   
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -77,11 +87,27 @@ export default function ProfilePage() {
     setCroppedAreaPixels(croppedAreaPixels);
   }, []);
   
-  const isOwnProfile = !id || id === currentUser?.id || id === 'me';
-  const profileUser = isOwnProfile ? currentUser : currentUser;
+  // Determine which user to display
+  const isOwnProfile = !id && !username || id === currentUser?.id || id === 'me' || 
+    (username && userByHandle?.id === currentUser?.id);
   
-  const profileId = isOwnProfile ? currentUser?.id : id;
+  // Priority: username lookup > id lookup > current user
+  const profileUser = username ? userByHandle : (id && id !== currentUser?.id && id !== 'me' ? userById : currentUser);
+  
+  const profileId = profileUser?.id || currentUser?.id;
   const userPosts = allPosts?.filter((post: any) => post.userId === profileId) || [];
+  
+  // Get shareable profile URL
+  const getShareableUrl = () => {
+    const handle = profileUser?.handle?.replace('@', '') || '';
+    return `anirealm.net/@${handle}`;
+  };
+  
+  const copyProfileLink = () => {
+    const url = `https://${getShareableUrl()}`;
+    navigator.clipboard.writeText(url);
+    toast.success("Profile link copied!");
+  };
 
   const openEditDialog = () => {
     if (currentUser) {
@@ -184,6 +210,28 @@ export default function ProfilePage() {
       toast.error(error.message || "Failed to update profile");
     }
   };
+
+  // Loading state
+  if (handleLoading || idLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // 404 - user not found by handle
+  if (username && handleError) {
+    return (
+      <div className="flex flex-col justify-center items-center min-h-[400px] text-center">
+        <h1 className="text-4xl font-display mb-4">User Not Found</h1>
+        <p className="text-muted-foreground mb-6">The profile @{username} doesn't exist.</p>
+        <Link href="/">
+          <Button>Go Home</Button>
+        </Link>
+      </div>
+    );
+  }
 
   if (!profileUser) {
     return (
@@ -424,8 +472,12 @@ export default function ProfilePage() {
                  <div className="flex items-center gap-2">
                    <MapPin className="h-4 w-4" /> Neo Tokyo, Sector 7
                  </div>
-                 <div className="flex items-center gap-2">
-                   <LinkIcon className="h-4 w-4" /> anirealm.net/{profileUser.handle?.replace('@', '')}
+                 <div className="flex items-center gap-2 group">
+                   <LinkIcon className="h-4 w-4" />
+                   <span className="text-primary cursor-pointer hover:underline" onClick={copyProfileLink} data-testid="link-shareable-url">
+                     {getShareableUrl()}
+                   </span>
+                   <Copy className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-muted-foreground hover:text-primary" onClick={copyProfileLink} />
                  </div>
                  <div className="flex items-center gap-2">
                    <Calendar className="h-4 w-4" /> Joined {profileUser.createdAt ? formatDistanceToNow(new Date(profileUser.createdAt), { addSuffix: true }) : 'recently'}

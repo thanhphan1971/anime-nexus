@@ -25,6 +25,7 @@ interface Profile {
   trialUsed?: boolean;
   sclassWelcomeRewardClaimed?: boolean;
   sclassJoinedAt?: string;
+  handleChangedAt?: string;
 }
 
 interface AuthContextType {

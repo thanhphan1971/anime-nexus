@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import NotFound from "@/pages/not-found";
 import FeedPage from "@/pages/FeedPage";
 import ProfilePage from "@/pages/ProfilePage";
+import SettingsPage from "@/pages/SettingsPage";
 import FriendsPage from "@/pages/FriendsPage";
 import AuthPage from "@/pages/AuthPage";
 import CommunitiesPage from "@/pages/CommunitiesPage";
@@ -77,6 +78,8 @@ function Router() {
         <Route path="/" component={FeedPage} />
         <Route path="/profile" component={ProfilePage} />
         <Route path="/profile/:id" component={ProfilePage} />
+        <Route path="/@:username" component={ProfilePage} />
+        <Route path="/settings" component={SettingsPage} />
         <Route path="/friends" component={FriendsPage} />
         <Route path="/communities" component={CommunitiesPage} />
         <Route path="/community/:id" component={CommunityDetailPage} />
