@@ -255,29 +255,23 @@ export default function PremiumPage() {
                           data-testid="button-switch-yearly"
                         >
                           Switch to Yearly — $79.99/year
-                          <Badge className="ml-2 bg-yellow-600 text-black border-0 text-xs">★ Best value — Save 33%</Badge>
                         </Button>
+                        <p className="text-sm text-yellow-400 text-center font-semibold">★ Best value — Save 33%</p>
                         <p className="text-xs text-muted-foreground text-center">Changes apply at next renewal</p>
                       </>
                     ) : (
                       <>
+                        <Button className="w-full bg-yellow-500/30 text-yellow-400 border border-yellow-500/50" disabled data-testid="button-current-monthly-disabled">
+                          Monthly — $9.99/month
+                        </Button>
                         <Button 
                           className="w-full bg-yellow-500/30 text-yellow-400 border border-yellow-500/50" 
                           disabled 
                           data-testid="button-current-yearly"
                         >
                           Current Plan — $79.99/year
-                          <Badge className="ml-2 bg-yellow-600/50 text-black/70 border-0 text-xs">★ Best value — Save 33%</Badge>
                         </Button>
-                        <Button 
-                          className="w-full bg-white/10 hover:bg-white/20 text-white/70 font-bold h-12 text-lg"
-                          onClick={() => setLocation('/checkout?plan=monthly')}
-                          disabled
-                          title="Switch to monthly at renewal"
-                          data-testid="button-switch-monthly"
-                        >
-                          Monthly — $9.99/month
-                        </Button>
+                        <p className="text-sm text-yellow-400 text-center font-semibold">★ Best value — Save 33%</p>
                         <p className="text-xs text-muted-foreground text-center">You're on the best value plan</p>
                       </>
                     )}
@@ -310,8 +304,8 @@ export default function PremiumPage() {
                   data-testid="button-convert-trial-yearly"
                 >
                   Subscribe Yearly — $79.99
-                  <Badge className="ml-2 bg-yellow-600 text-black border-0 text-xs">★ Best value — Save 33%</Badge>
                 </Button>
+                <p className="text-sm text-yellow-400 text-center font-semibold">★ Best value — Save 33%</p>
                 <Button 
                   variant="outline"
                   className="w-full border-white/20 text-muted-foreground hover:bg-white/5"
@@ -337,8 +331,8 @@ export default function PremiumPage() {
                   data-testid="button-subscribe-yearly"
                 >
                   Subscribe Yearly — $79.99
-                  <Badge className="ml-2 bg-yellow-600 text-black border-0 text-xs">★ Best value — Save 33%</Badge>
                 </Button>
+                <p className="text-sm text-yellow-400 text-center font-semibold">★ Best value — Save 33%</p>
                 {isEligibleForTrial && (
                   <Button 
                     variant="outline" 
@@ -353,9 +347,8 @@ export default function PremiumPage() {
             )}
           </CardFooter>
 
-          {/* Subscription Terms - Under S-Class Column */}
-          {!isSClass && (
-            <div className="px-6 pb-6 space-y-4">
+          {/* Subscription Terms - Under S-Class Column (visible to all users) */}
+          <div className="px-6 pb-6 space-y-4">
               <div className="border border-yellow-500/20 rounded-lg p-4 bg-black/20">
                 <h4 className="font-semibold text-yellow-400 mb-2 flex items-center gap-2">
                   <Info className="h-4 w-4" /> Subscription Terms
@@ -384,7 +377,6 @@ export default function PremiumPage() {
                 </p>
               </div>
             </div>
-          )}
 
           {/* Background Effects */}
           <div className="absolute inset-0 bg-gradient-to-t from-yellow-500/10 via-transparent to-transparent pointer-events-none" />
