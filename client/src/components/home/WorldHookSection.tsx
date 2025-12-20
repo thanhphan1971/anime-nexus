@@ -9,15 +9,15 @@ export function WorldHookSection() {
 
   return (
     <>
-      <div className="text-center space-y-2">
-        <h2 className="text-xl font-display font-bold text-transparent bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400 bg-clip-text">
+      <div className="text-center space-y-3">
+        <h2 className="text-xl md:text-2xl font-semibold text-transparent bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400 bg-clip-text">
           {worldHook.title}
         </h2>
-        <p className="text-sm text-white/80 max-w-md mx-auto">
+        <p className="text-lg font-normal text-white/80 max-w-sm mx-auto leading-relaxed">
           {worldHook.subtitle}
         </p>
         <div className="flex items-center justify-center gap-2 pt-1">
-          <p className="text-xs text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             {worldHook.microline}
           </p>
           <Button
