@@ -14,7 +14,7 @@ import { CancellationSaveModal } from "@/components/CancellationSaveModal";
 import { DowngradeEmpathyModal } from "@/components/DowngradeEmpathyModal";
 import { getSupabase } from "@/lib/supabaseClient";
 import { toast } from "sonner";
-import { format } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
 
 export default function PremiumPage() {
   const { user, refreshUser } = useAuth();
@@ -222,7 +222,7 @@ export default function PremiumPage() {
                 {sclassStatus?.subscriptionStatus === 'canceled_pending_expiry' ? (
                   <div className="w-full text-center space-y-3">
                     <p className="text-sm text-yellow-400/80">
-                      S-Class active until {sclassStatus?.premiumEndDate ? format(new Date(sclassStatus.premiumEndDate), 'MMMM d, yyyy') : 'end of billing period'}
+                      S-Class active until {sclassStatus?.premiumEndDate ? formatInTimeZone(new Date(sclassStatus.premiumEndDate), 'UTC', 'MMMM d, yyyy') : 'end of billing period'}
                     </p>
                     <Button 
                       className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold h-12"
@@ -492,7 +492,7 @@ export default function PremiumPage() {
       <DowngradeEmpathyModal
         open={showDowngradeModal}
         onOpenChange={setShowDowngradeModal}
-        activeUntilDate={sclassStatus?.premiumEndDate ? format(new Date(sclassStatus.premiumEndDate), 'MMMM d, yyyy') : undefined}
+        activeUntilDate={sclassStatus?.premiumEndDate ? formatInTimeZone(new Date(sclassStatus.premiumEndDate), 'UTC', 'MMMM d, yyyy') : undefined}
       />
     </div>
   );
