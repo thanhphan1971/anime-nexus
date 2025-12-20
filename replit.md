@@ -153,6 +153,15 @@ Preferred communication style: Simple, everyday language.
 - Auto-downgrade to `expired` when billing period ends
 - lastReactivateDate tracked for analytics
 
+**Admin-Granted S-Class Access**
+- Separate from paid subscriptions, tracked via `accessSource` and `accessExpiresAt` fields
+- Admin endpoints: `POST /api/admin/users/:id/grant-access` (requires `expiresAt`, optional `forceOverwrite`)
+- Revoke endpoint: `POST /api/admin/users/:id/revoke-grant`
+- UI shows "S-Class Access (Granted)" with expiration date, not "Current Plan"
+- Subscription buttons remain visible with note about access starting after grant ends
+- On expiry: Falls back to paid subscription if exists, otherwise downgrades to free
+- Admin grants coexist with paid subscriptions without affecting billing state
+
 **HARD LOCK RULES (Non-Negotiable)**
 S-Class will NEVER:
 1. Guarantee rare or legendary drops
