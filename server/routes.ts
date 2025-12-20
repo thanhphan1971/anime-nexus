@@ -295,10 +295,14 @@ export async function registerRoutes(
     }
   });
   
-  app.patch("/api/users/:id", async (req, res) => {
+  app.patch("/api/users/:id", verifySupabaseToken, async (req, res) => {
     try {
-      if (!req.session.userId) {
+      if (!req.dbUser) {
         return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      if (req.dbUser.id !== req.params.id && !req.dbUser.isAdmin) {
+        return res.status(403).json({ error: "Not authorized to update this user" });
       }
       
       const user = await storage.updateUser(req.params.id, req.body);
