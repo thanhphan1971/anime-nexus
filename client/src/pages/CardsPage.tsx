@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,14 @@ import { format } from "date-fns";
 
 const RARITY_FILTERS = ["All", "Common", "Rare", "Epic", "Legendary", "Mythic"] as const;
 
+function getInitialMode(): string {
+  if (typeof window === 'undefined') return 'summon';
+  const params = new URLSearchParams(window.location.search);
+  const mode = params.get('mode');
+  if (mode === 'paid' || mode === 'free') return 'summon';
+  return 'summon';
+}
+
 export default function CardsPage() {
   const { user, refreshUser } = useAuth();
   const { data: userCards, isLoading: cardsLoading } = useUserCards(user?.id);
@@ -24,6 +32,21 @@ export default function CardsPage() {
   const [reward, setReward] = useState<any>(null);
   const [rarityFilter, setRarityFilter] = useState<string>("All");
   const [isFreeLoading, setIsFreeLoading] = useState(false);
+  const paidSummonRef = useRef<HTMLDivElement>(null);
+  const freeSummonRef = useRef<HTMLDivElement>(null);
+  
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const mode = params.get('mode');
+    const scrollTimeout = setTimeout(() => {
+      if (mode === 'paid' && paidSummonRef.current) {
+        paidSummonRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } else if (mode === 'free' && freeSummonRef.current) {
+        freeSummonRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 500);
+    return () => clearTimeout(scrollTimeout);
+  }, []);
 
   const { data: freeStatus, refetch: refetchFreeStatus } = useFreeGachaStatus();
   const freeSummonMutation = useFreeSummon();
@@ -184,7 +207,7 @@ export default function CardsPage() {
             {!reward && !summonCards.isPending && !isFreeLoading && (
               <div className="text-center space-y-6 w-full max-w-2xl">
                 <div className="grid md:grid-cols-2 gap-6">
-                  <div className="relative bg-gradient-to-br from-green-500/10 to-emerald-500/5 border-2 border-green-500/30 rounded-xl p-6 flex flex-col items-center">
+                  <div ref={freeSummonRef} className="relative bg-gradient-to-br from-green-500/10 to-emerald-500/5 border-2 border-green-500/30 rounded-xl p-6 flex flex-col items-center">
                     <Gift className="h-12 w-12 mb-4 text-green-400" />
                     <p className="font-display font-bold text-xl text-green-400">FREE SUMMON</p>
                     <p className="text-xs text-muted-foreground mt-2">Standard Banner</p>
@@ -218,7 +241,7 @@ export default function CardsPage() {
                     )}
                   </div>
 
-                  <div className="relative bg-gradient-to-br from-yellow-500/10 to-amber-500/5 border-2 border-yellow-500/30 rounded-xl p-6 flex flex-col items-center">
+                  <div ref={paidSummonRef} className="relative bg-gradient-to-br from-yellow-500/10 to-amber-500/5 border-2 border-yellow-500/30 rounded-xl p-6 flex flex-col items-center">
                     <Coins className="h-12 w-12 mb-4 text-yellow-400" />
                     <p className="font-display font-bold text-xl text-yellow-400">PAID SUMMON</p>
                     <p className="text-xs text-muted-foreground mt-2">Cost: 100 Tokens</p>

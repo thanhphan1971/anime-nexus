@@ -192,21 +192,26 @@ function DrawSection({
   entriesUsed = 0
 }: { 
   draw: Draw | null; 
-  type: 'weekly' | 'monthly';
+  type: 'weekly' | 'monthly' | 'event';
   onEnter: () => void;
   isEntering: boolean;
   isPremium: boolean;
   entriesUsed?: number;
 }) {
   const isWeekly = type === 'weekly';
+  const isEvent = type === 'event';
   const gradientClass = isWeekly 
     ? 'from-cyan-500/10 via-blue-500/10 to-cyan-500/10 border-cyan-500/30' 
+    : isEvent
+    ? 'from-pink-500/10 via-rose-500/10 to-orange-500/10 border-pink-500/30'
     : 'from-purple-500/10 via-pink-500/10 to-yellow-500/10 border-purple-500/30';
-  const accentColor = isWeekly ? 'cyan' : 'purple';
+  const accentColor = isWeekly ? 'cyan' : isEvent ? 'pink' : 'purple';
   const Icon = isWeekly ? Calendar : Star;
   
   const maxEntries = isWeekly 
     ? (isPremium ? 2 : 1) 
+    : isEvent
+    ? (draw?.maxEntriesPerUser || 1)
     : 1;
   const entriesRemaining = Math.max(0, maxEntries - entriesUsed);
   const allEntriesUsed = entriesUsed >= maxEntries;
@@ -230,18 +235,32 @@ function DrawSection({
     { name: '30 Days S-Class', type: 'premium', icon: <Crown className="h-4 w-4" />, qty: '2 Winners' },
   ];
 
-  const prizes = isWeekly ? weeklyPrizes : monthlyPrizes;
+  const eventPrizes = (draw?.prizePool && Array.isArray(draw.prizePool) && draw.prizePool.length > 0)
+    ? draw.prizePool.map((p: any) => ({
+        name: p.name || 'Special Prize',
+        type: p.type || 'special',
+        icon: <Sparkles className="h-4 w-4" />,
+        qty: `${p.quantity || 1} Winner${(p.quantity || 1) > 1 ? 's' : ''}`,
+        rarity: p.rarity
+      }))
+    : [{ name: 'Special Event Prize', type: 'special', icon: <Sparkles className="h-4 w-4" />, qty: '1 Winner' }];
+
+  const prizes = isWeekly ? weeklyPrizes : isEvent ? eventPrizes : monthlyPrizes;
   const entryNote = isWeekly 
     ? `Free: 1 entry • S-Class: 2 entries`
+    : isEvent
+    ? `All users: ${draw?.maxEntriesPerUser || 1} ${(draw?.maxEntriesPerUser || 1) > 1 ? 'entries' : 'entry'}`
     : isPremium 
       ? `S-Class: 1 entry` 
       : `S-Class members only`;
 
-  const buttonState = getDrawButtonState(draw, entriesUsed, maxEntries, isPremium, !isWeekly);
+  const buttonState = getDrawButtonState(draw, entriesUsed, maxEntries, isPremium, type === 'monthly');
 
   const renderButton = () => {
     const baseClass = isWeekly 
       ? 'bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600' 
+      : isEvent
+      ? 'bg-gradient-to-r from-pink-500 to-orange-500 hover:from-pink-600 hover:to-orange-600'
       : 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600';
     
     switch (buttonState.state) {
@@ -342,14 +361,19 @@ function DrawSection({
           <div>
             <CardTitle className={`flex items-center gap-2 text-xl text-${accentColor}-400`}>
               <CrystalSigil size={28} state={getCrystalState()} />
-              {isWeekly ? 'Weekly Token Jackpot' : 'Monthly Card Giveaway'}
+              {isWeekly ? 'Weekly Token Jackpot' : isEvent ? (draw?.name || 'Special Event Draw') : 'Monthly Card Giveaway'}
               {draw?.status === 'open' && (
                 <Badge className="ml-2 bg-green-500/20 text-green-400 text-xs">OPEN</Badge>
+              )}
+              {isEvent && (
+                <Badge className="ml-2 bg-pink-500/20 text-pink-400 text-xs">LIMITED</Badge>
               )}
             </CardTitle>
             <p className="text-sm text-muted-foreground mt-1">
               {isWeekly 
                 ? 'Win tokens every week! All members can enter.' 
+                : isEvent
+                ? (draw?.description || 'Special limited-time event with exclusive prizes!')
                 : 'S-Class exclusive! Win legendary and mythic cards.'}
             </p>
           </div>
@@ -436,6 +460,7 @@ export default function DrawsPage() {
 
   const weeklyDraw = activeDraws.find((d: Draw) => d.cadence === 'weekly') || null;
   const monthlyDraw = activeDraws.find((d: Draw) => d.cadence === 'monthly') || null;
+  const eventDraws = activeDraws.filter((d: Draw) => d.cadence === 'special' || d.cadence === 'one_time');
 
   const MOCK_WINNERS: Winner[] = [
     {
@@ -531,6 +556,18 @@ export default function DrawsPage() {
           isPremium={user?.isPremium || false}
           entriesUsed={monthlyDraw ? myEntries.filter((e: any) => e.drawId === monthlyDraw.id).reduce((sum: number, e: any) => sum + (e.tickets || 1), 0) : 0}
         />
+
+        {eventDraws.map((eventDraw: Draw) => (
+          <DrawSection 
+            key={eventDraw.id}
+            draw={eventDraw}
+            type="event"
+            onEnter={() => handleEnterDraw(eventDraw.id, 'event')}
+            isEntering={enterDraw.isPending}
+            isPremium={user?.isPremium || false}
+            entriesUsed={myEntries.filter((e: any) => e.drawId === eventDraw.id).reduce((sum: number, e: any) => sum + (e.tickets || 1), 0)}
+          />
+        ))}
 
         <div className="bg-white/5 border border-white/10 rounded-lg p-3 text-xs text-muted-foreground">
           <strong className="text-white">Eligibility:</strong> To win, your account must be at least 24 hours old. One win per account per draw period.
