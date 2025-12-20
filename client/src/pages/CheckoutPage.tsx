@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
-import { Crown, Check, ArrowLeft, Loader2, Shield, CreditCard, Globe } from "lucide-react";
+import { Crown, Check, ArrowLeft, Loader2, Shield, CreditCard, Globe, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/context/AuthContext";
 import { apiCall } from "@/lib/api";
 import { toast } from "sonner";
@@ -32,6 +33,7 @@ export default function CheckoutPage() {
   const [product, setProduct] = useState<Product | null>(null);
   const [prices, setPrices] = useState<Price[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('monthly');
+  const [termsAcknowledged, setTermsAcknowledged] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -234,10 +236,42 @@ export default function CheckoutPage() {
             <span>Taxes calculated at checkout based on your location</span>
           </div>
 
+          <Separator className="bg-white/10" />
+
+          <div className="border border-yellow-500/20 rounded-lg p-4 bg-black/20">
+            <h4 className="font-semibold text-yellow-400 mb-3 flex items-center gap-2">
+              <AlertCircle className="h-4 w-4" /> Cancellation & Refund Policy
+            </h4>
+            <ul className="text-sm text-white/70 space-y-1.5 mb-4">
+              <li>• Cancel anytime from Account → Subscription</li>
+              <li>• After you cancel, S-Class stays active until the end of your current billing period</li>
+              <li>• Your plan will not renew after the end date</li>
+              <li>• No partial refunds or prorated refunds for unused time</li>
+              <li>• Yearly subscriptions are not partially refunded once started</li>
+              <li>• Refunds are only available for duplicate charges or billing errors</li>
+            </ul>
+            
+            <div className="flex items-start gap-3 p-3 bg-yellow-500/10 rounded-lg border border-yellow-500/30">
+              <Checkbox 
+                id="terms-checkbox"
+                checked={termsAcknowledged}
+                onCheckedChange={(checked) => setTermsAcknowledged(checked === true)}
+                className="mt-0.5 border-yellow-500/50 data-[state=checked]:bg-yellow-500 data-[state=checked]:border-yellow-500"
+                data-testid="checkbox-terms"
+              />
+              <label 
+                htmlFor="terms-checkbox" 
+                className="text-sm text-white cursor-pointer leading-relaxed"
+              >
+                I understand: cancel anytime, no partial refunds, access until end of term.
+              </label>
+            </div>
+          </div>
+
           <Button 
-            className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold h-12 text-lg shadow-[0_0_20px_hsl(45,100%,50%,0.4)]"
+            className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold h-12 text-lg shadow-[0_0_20px_hsl(45,100%,50%,0.4)] disabled:opacity-50 disabled:cursor-not-allowed"
             onClick={handleCheckout}
-            disabled={!selectedPrice || !!checkoutLoading}
+            disabled={!selectedPrice || !!checkoutLoading || !termsAcknowledged}
             data-testid="button-checkout"
           >
             {checkoutLoading ? (
@@ -252,6 +286,12 @@ export default function CheckoutPage() {
               </>
             )}
           </Button>
+
+          {!termsAcknowledged && (
+            <p className="text-xs text-center text-yellow-400/70">
+              Please acknowledge the cancellation policy to continue
+            </p>
+          )}
 
           <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
             <div className="flex items-center gap-1">
@@ -296,9 +336,8 @@ export default function CheckoutPage() {
 
           <Separator className="my-4 bg-white/10" />
 
-          <p className="text-xs text-muted-foreground">
-            By continuing, you agree to our subscription terms. Subscriptions auto-renew until canceled. 
-            No refunds for partial billing periods. Rewards are digital items with no cash value.
+          <p className="text-xs text-muted-foreground italic">
+            By subscribing, you acknowledge these terms. Rewards are digital items with no cash value.
           </p>
         </CardContent>
       </Card>

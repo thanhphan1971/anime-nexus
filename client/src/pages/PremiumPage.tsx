@@ -8,8 +8,7 @@ import { useAuth } from "@/context/AuthContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useSClassStatus, useStartSClassTrial, useConvertSClassTrial, useCancelSClassTrial, useSubscribeSClass, useCancelSubscription, useReactivateSubscription } from "@/lib/api";
+import { useSClassStatus, useStartSClassTrial, useCancelSClassTrial, useCancelSubscription, useReactivateSubscription } from "@/lib/api";
 import { SClassWelcomeModal } from "@/components/SClassWelcomeModal";
 import { CancellationSaveModal } from "@/components/CancellationSaveModal";
 import { DowngradeEmpathyModal } from "@/components/DowngradeEmpathyModal";
@@ -20,19 +19,15 @@ import { format } from "date-fns";
 export default function PremiumPage() {
   const { user, refreshUser } = useAuth();
   const [, setLocation] = useLocation();
-  const [showSubscribeModal, setShowSubscribeModal] = useState(false);
   const [showTrialModal, setShowTrialModal] = useState(false);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [showCancelSaveModal, setShowCancelSaveModal] = useState(false);
   const [showDowngradeModal, setShowDowngradeModal] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('monthly');
   const [accessToken, setAccessToken] = useState<string>('');
   
   const { data: sclassStatus } = useSClassStatus();
   const startTrial = useStartSClassTrial();
-  const convertTrial = useConvertSClassTrial();
   const cancelTrial = useCancelSClassTrial();
-  const subscribeSClass = useSubscribeSClass();
   const cancelSubscription = useCancelSubscription();
   const reactivateSubscription = useReactivateSubscription();
   
@@ -76,30 +71,9 @@ export default function PremiumPage() {
     }
   };
   
-  const handleSubscribe = async () => {
-    try {
-      await convertTrial.mutateAsync();
-      setShowSubscribeModal(false);
-      refreshUser();
-    } catch (error: any) {
-      toast.error(error.message || "Failed to subscribe");
-    }
-  };
-  
   const handleWelcomeComplete = () => {
     setShowWelcomeModal(false);
     refreshUser();
-  };
-  
-  const handleSubscribeWithPlan = async () => {
-    try {
-      await subscribeSClass.mutateAsync(selectedPlan);
-      setShowSubscribeModal(false);
-      toast.success(`Subscribed to S-Class ${selectedPlan === 'yearly' ? 'Yearly' : 'Monthly'}!`);
-      refreshUser();
-    } catch (error: any) {
-      toast.error(error.message || "Failed to subscribe");
-    }
   };
   
   const handleCancelConfirmed = async () => {
@@ -219,35 +193,6 @@ export default function PremiumPage() {
               <Crown className="fill-current" /> S-Class Membership
             </CardTitle>
             <CardDescription>Premium Access to AniRealm</CardDescription>
-            
-            {!isSClass && !isOnTrial && (
-              <Tabs value={selectedPlan} onValueChange={(v) => setSelectedPlan(v as 'monthly' | 'yearly')} className="mt-4">
-                <TabsList className="grid w-full grid-cols-2 bg-black/40">
-                  <TabsTrigger value="monthly" className="data-[state=active]:bg-yellow-500/20 data-[state=active]:text-yellow-400">
-                    Monthly
-                  </TabsTrigger>
-                  <TabsTrigger value="yearly" className="data-[state=active]:bg-yellow-500/20 data-[state=active]:text-yellow-400">
-                    Yearly
-                    <Badge className="ml-2 bg-green-500/20 text-green-400 border-green-500/50 text-xs">
-                      Save 33%
-                    </Badge>
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
-            )}
-            
-            <div className="mt-4 text-4xl font-display font-bold text-yellow-400">
-              {selectedPlan === 'yearly' ? (
-                <>
-                  $79.99 <span className="text-lg text-muted-foreground font-sans font-normal">/ year</span>
-                  <p className="text-sm text-green-400 font-sans font-normal mt-1">
-                    $6.67/mo · Save $39.89 vs monthly
-                  </p>
-                </>
-              ) : (
-                <>$9.99 <span className="text-lg text-muted-foreground font-sans font-normal">/ month</span></>
-              )}
-            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             {features.map((feature, i) => (
@@ -267,17 +212,7 @@ export default function PremiumPage() {
               </Link>
             ))}
             
-            {/* Subscription Terms - Visible on Paywall */}
-            <div className="mt-4 pt-3 border-t border-yellow-500/20 space-y-1.5 text-sm text-white/60">
-              <p>Renews {selectedPlan === 'yearly' ? 'yearly at $79.99' : 'monthly at $9.99'} · Cancel anytime in App Store/Play Store</p>
-              <p>Rewards are digital items only · No cash value · Outcomes not guaranteed</p>
-              {selectedPlan === 'yearly' && (
-                <p className="text-yellow-400/80 font-medium">
-                  Yearly subscriptions are non-refundable. If canceled, your S-Class benefits remain active until your subscription expires.
-                </p>
-              )}
-            </div>
-          </CardContent>
+            </CardContent>
           <CardFooter className="flex flex-col gap-3">
             {isSClass ? (
               <>
@@ -330,10 +265,18 @@ export default function PremiumPage() {
                 </Badge>
                 <Button 
                   className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold h-12 text-lg shadow-[0_0_20px_hsl(45,100%,50%,0.4)]"
-                  onClick={() => setLocation(`/checkout?plan=${selectedPlan}`)}
+                  onClick={() => setLocation('/checkout?plan=monthly')}
                   data-testid="button-convert-trial"
                 >
-                  Upgrade to Full S-Class
+                  Subscribe Monthly — $9.99
+                </Button>
+                <Button 
+                  className="w-full bg-yellow-500/80 hover:bg-yellow-400 text-black font-bold h-12 text-lg"
+                  onClick={() => setLocation('/checkout?plan=yearly')}
+                  data-testid="button-convert-trial-yearly"
+                >
+                  Subscribe Yearly — $79.99
+                  <Badge className="ml-2 bg-green-600 text-white border-0 text-xs">Best value — save ~33%</Badge>
                 </Button>
                 <Button 
                   variant="outline"
@@ -342,20 +285,25 @@ export default function PremiumPage() {
                   disabled={cancelTrial.isPending}
                   data-testid="button-cancel-trial-inline"
                 >
-                  {cancelTrial.isPending ? "Ending..." : "End Play Early"}
+                  {cancelTrial.isPending ? "Ending..." : "End Trial Early"}
                 </Button>
-                <p className="text-xs text-center text-muted-foreground">
-                  Subscribe now to continue your S-Class benefits
-                </p>
               </>
             ) : (
               <>
                 <Button 
                   className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold h-12 text-lg shadow-[0_0_20px_hsl(45,100%,50%,0.4)]"
-                  onClick={() => setLocation(`/checkout?plan=${selectedPlan}`)}
-                  data-testid="button-subscribe"
+                  onClick={() => setLocation('/checkout?plan=monthly')}
+                  data-testid="button-subscribe-monthly"
                 >
-                  Subscribe to S-Class
+                  Subscribe Monthly — $9.99
+                </Button>
+                <Button 
+                  className="w-full bg-yellow-500/80 hover:bg-yellow-400 text-black font-bold h-12 text-lg"
+                  onClick={() => setLocation('/checkout?plan=yearly')}
+                  data-testid="button-subscribe-yearly"
+                >
+                  Subscribe Yearly — $79.99
+                  <Badge className="ml-2 bg-green-600 text-white border-0 text-xs">Best value — save ~33%</Badge>
                 </Button>
                 {isEligibleForTrial && (
                   <Button 
@@ -371,154 +319,44 @@ export default function PremiumPage() {
             )}
           </CardFooter>
 
+          {/* Subscription Terms - Under S-Class Column */}
+          {!isSClass && (
+            <div className="px-6 pb-6 space-y-4">
+              <div className="border border-yellow-500/20 rounded-lg p-4 bg-black/20">
+                <h4 className="font-semibold text-yellow-400 mb-2 flex items-center gap-2">
+                  <Info className="h-4 w-4" /> Subscription Terms
+                </h4>
+                <ul className="text-sm text-white/70 space-y-1.5">
+                  <li>• Subscription renews automatically unless canceled</li>
+                  <li>• Taxes calculated based on your location</li>
+                  <li>• Rewards are digital items only with no cash value</li>
+                </ul>
+              </div>
+              
+              <div className="border border-yellow-500/20 rounded-lg p-4 bg-black/20">
+                <h4 className="font-semibold text-yellow-400 mb-2 flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4" /> Cancellation & Refund Policy
+                </h4>
+                <ul className="text-sm text-white/70 space-y-1.5">
+                  <li>• Cancel anytime from Account → Subscription</li>
+                  <li>• After you cancel, S-Class stays active until the end of your current billing period</li>
+                  <li>• Your plan will not renew after the end date</li>
+                  <li>• No partial refunds or prorated refunds for unused time</li>
+                  <li>• Yearly subscriptions are not partially refunded once started</li>
+                  <li>• Refunds are only available for duplicate charges or billing errors</li>
+                </ul>
+                <p className="text-xs text-yellow-400/70 mt-3 italic">
+                  By subscribing, you acknowledge these terms.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Background Effects */}
           <div className="absolute inset-0 bg-gradient-to-t from-yellow-500/10 via-transparent to-transparent pointer-events-none" />
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-yellow-400 to-transparent" />
         </Card>
       </div>
-
-      {/* Subscription Terms - Always Visible */}
-      <Card className="max-w-3xl mx-auto bg-card/30 border-white/10">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Info className="h-5 w-5" /> Subscription Terms
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4 text-sm text-muted-foreground">
-          <div className="space-y-2">
-            <p className="flex items-start gap-2">
-              <Check className="h-4 w-4 mt-0.5 text-green-400 shrink-0" />
-              Subscription renews automatically unless canceled
-            </p>
-            <p className="flex items-start gap-2">
-              <Check className="h-4 w-4 mt-0.5 text-green-400 shrink-0" />
-              Manage or cancel anytime from your account
-            </p>
-            <p className="flex items-start gap-2">
-              <Check className="h-4 w-4 mt-0.5 text-green-400 shrink-0" />
-              Taxes calculated based on your location
-            </p>
-            <p className="flex items-start gap-2">
-              <AlertCircle className="h-4 w-4 mt-0.5 text-yellow-400 shrink-0" />
-              No refunds for partial billing periods
-            </p>
-          </div>
-          <Separator className="bg-white/10" />
-          <div className="space-y-2">
-            <p className="font-semibold text-white">Important Notes:</p>
-            <ul className="list-disc list-inside space-y-1 text-sm">
-              <li>Rewards are digital items only with no cash value</li>
-              <li>Card pull outcomes are randomized and not guaranteed</li>
-              <li>Higher efficiency does not guarantee specific rarities</li>
-              <li>Subscription does not guarantee prizes in draws</li>
-            </ul>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Subscription Confirmation Modal */}
-      <Dialog open={showSubscribeModal} onOpenChange={setShowSubscribeModal}>
-        <DialogContent className="max-w-md bg-gradient-to-b from-gray-900 to-black border-yellow-500/30">
-          <DialogHeader>
-            <DialogTitle className="text-2xl text-yellow-400 flex items-center gap-2">
-              <Crown className="h-6 w-6" /> S-Class Membership
-            </DialogTitle>
-            <DialogDescription>Premium Access</DialogDescription>
-          </DialogHeader>
-          <ScrollArea className="max-h-[60vh]">
-            <div className="space-y-4 p-1">
-              <div className="text-center py-4">
-                {selectedPlan === 'yearly' ? (
-                  <>
-                    <div className="text-3xl font-bold text-yellow-400">$79.99/year</div>
-                    <p className="text-sm text-muted-foreground mt-1">Billed annually · $6.67/mo</p>
-                    <Badge className="mt-2 bg-green-500/20 text-green-400 border-green-500/50">
-                      Save 33% ($39.89/year)
-                    </Badge>
-                  </>
-                ) : (
-                  <>
-                    <div className="text-3xl font-bold text-yellow-400">$9.99/month</div>
-                    <p className="text-sm text-muted-foreground mt-1">Billed monthly</p>
-                  </>
-                )}
-              </div>
-
-              <div className="space-y-3 text-sm">
-                <p className="font-semibold text-white">Benefits include:</p>
-                <ul className="space-y-2">
-                  <li className="flex items-start gap-2">
-                    <Check className="h-4 w-4 mt-0.5 text-green-400" />
-                    <span>Additional daily game entries (6 vs 3)</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <Check className="h-4 w-4 mt-0.5 text-green-400" />
-                    <span>Extra weekly and monthly draw entries</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <Check className="h-4 w-4 mt-0.5 text-green-400" />
-                    <span>Higher card pull efficiency (no guaranteed rarity)</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <Check className="h-4 w-4 mt-0.5 text-green-400" />
-                    <span>Cosmetic perks and progression boosts</span>
-                  </li>
-                </ul>
-              </div>
-
-              <Separator className="bg-white/10" />
-
-              <div className="space-y-2 text-xs text-muted-foreground">
-                <p className="flex items-start gap-2">
-                  <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
-                  Subscription renews {selectedPlan === 'yearly' ? 'annually' : 'monthly'} unless canceled
-                </p>
-                <p className="flex items-start gap-2">
-                  <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
-                  Cancel anytime in App Store / Play Store settings
-                </p>
-                <p className="flex items-start gap-2">
-                  <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
-                  Payment charged to your account upon confirmation
-                </p>
-                <p className="flex items-start gap-2">
-                  <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
-                  No refunds for partial periods
-                </p>
-              </div>
-
-              <Separator className="bg-white/10" />
-
-              <div className="space-y-1 text-sm text-muted-foreground">
-                <p className="font-semibold text-white">Important Notes:</p>
-                <ul className="list-disc list-inside space-y-0.5">
-                  <li>Rewards are digital items only</li>
-                  <li>No cash value</li>
-                  <li>Outcomes are randomized and not guaranteed</li>
-                  <li>Subscription does not guarantee prizes</li>
-                </ul>
-              </div>
-
-              <Button 
-                className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold h-12 mt-4"
-                onClick={isOnTrial ? handleSubscribe : handleSubscribeWithPlan}
-                disabled={subscribeSClass.isPending || convertTrial.isPending}
-                data-testid="button-confirm-subscribe"
-              >
-                {(subscribeSClass.isPending || convertTrial.isPending) ? "Processing..." : `Subscribe ${selectedPlan === 'yearly' ? 'Yearly' : 'Monthly'}`}
-              </Button>
-              <Button 
-                variant="ghost" 
-                className="w-full text-muted-foreground"
-                onClick={() => setShowSubscribeModal(false)}
-                data-testid="button-cancel-subscribe"
-              >
-                Cancel
-              </Button>
-            </div>
-          </ScrollArea>
-        </DialogContent>
-      </Dialog>
 
       {/* Trial Confirmation Modal */}
       <Dialog open={showTrialModal} onOpenChange={setShowTrialModal}>

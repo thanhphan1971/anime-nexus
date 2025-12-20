@@ -1,0 +1,79 @@
+REPLIT BUILD PROMPT — S-CLASS CANCELLATION RULES (VISIBLE TWICE) + MONTHLY/YEARLY + STRIPE CHECKOUT
+
+Goal
+Make the S-Class subscription pricing and cancellation rules impossible to miss.
+Rules must appear:
+1) On the S-Class pricing page, aligned under the S-Class column (below the “Subscription Terms” section).
+2) On the payment page (Stripe checkout page/our pre-checkout page), clearly displayed BEFORE the user clicks the final payment/confirm button.
+
+Pricing UI Requirements (S-Class page)
+1) In the S-Class column, show:
+- $9.99/month button
+- $79.99/year button (directly below the monthly price/button)
+- Add small badge next to yearly: “Best value — save ~33%”
+
+2) Under the S-Class column ONLY (not under Free), show two aligned sections:
+A) “Subscription Terms”
+B) “Cancellation & Refund Policy”
+These two sections must be visually aligned under S-Class column content, not centered across the whole page.
+
+Cancellation & Refund Policy (exact rules to display)
+Display the following bullets in plain language:
+
+Cancellation & Refund Policy
+- Cancel anytime from Account → Subscription.
+- After you cancel, S-Class stays active until the end of your current billing period (monthly or yearly).
+- Your plan will not renew after the end date.
+- No partial refunds or prorated refunds for unused time.
+- Yearly subscriptions are not partially refunded once started.
+- Refunds are only available for duplicate charges or billing errors (if any).
+
+Also add a short line:
+“By subscribing, you acknowledge these terms.”
+
+Flow Requirements
+1) User clicks either:
+- “Subscribe Monthly — $9.99”
+OR
+- “Subscribe Yearly — $79.99”
+2) Immediately redirect them to the payment page (no intermediate plan-selection page).
+
+Payment Page Requirements (pre-checkout confirmation)
+IMPORTANT: Users must see cancellation rules again before paying.
+Implement ONE of these (choose the best fit with current codebase):
+
+Option A (Preferred): Pre-checkout page we control
+- Create a page like /checkout?plan=sclass_monthly or /checkout?plan=sclass_yearly
+- This page shows:
+  - Selected plan summary (Monthly or Yearly)
+  - The same “Cancellation & Refund Policy” block above the final “Continue to Payment” button
+  - A required checkbox: “I understand: cancel anytime, no partial refunds, access until end of term.”
+  - Only enable the “Continue to Payment” button after checkbox is checked
+- Clicking “Continue to Payment” creates the Stripe Checkout Session and redirects to Stripe.
+
+Option B: If Stripe Checkout is already fully hosted and cannot be modified
+- Add the pre-checkout page described above anyway.
+- Then redirect to Stripe after acknowledgment.
+(This ensures there is no way to pay without seeing rules.)
+
+Plan Handling
+- Add plan identifiers:
+  - sclass_monthly
+  - sclass_yearly
+- Ensure correct Stripe price IDs are used:
+  - STRIPE_PRICE_SCLASS_MONTHLY
+  - STRIPE_PRICE_SCLASS_YEARLY
+- Pass selected plan via query param (?plan=...)
+
+Implementation Notes
+- Keep copy short and readable on mobile.
+- Use a light bordered box for the policy blocks.
+- Ensure “Cancellation & Refund Policy” appears under the S-Class column on the S-Class page and above the “Continue to Payment” button on the checkout page.
+- The policy text must match backend behavior (access until end date, non-renewal after cancel, no prorated refunds).
+
+Acceptance Tests
+1) On S-Class page, I see $9.99/mo and $79.99/yr (yearly directly under monthly).
+2) Under S-Class column, I see “Subscription Terms” and “Cancellation & Refund Policy” aligned to that column.
+3) Clicking Monthly or Yearly goes straight to payment flow.
+4) Before any payment is possible, the checkout page shows the cancellation policy again AND requires acknowledgment checkbox.
+5) Stripe checkout uses the correct plan price ID.
