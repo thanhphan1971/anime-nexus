@@ -1,0 +1,85 @@
+REPLIT BUILD PROMPT — LOCK SUBSCRIPTION SWITCHING RULES + BLOCK SUBSCRIBE DURING ADMIN-GRANTED ACCESS + CLEAR UI COPY
+
+Goal
+Implement clear, simple subscription rules:
+1) Paid users cannot switch plans mid-cycle (monthly↔yearly changes only at renewal/end of current period).
+2) Admin-granted (complimentary) S-Class access cannot be converted into a paid subscription while active. Users can only subscribe after the granted access ends.
+3) The UI must clearly explain this under the plan buttons so users understand exactly what will happen.
+
+Definitions
+We have 3 membership sources:
+A) Paid subscription (Stripe): monthly OR yearly
+B) Admin-granted S-Class access (complimentary) with an expiration date
+C) No S-Class access (free)
+
+Business Rules (must implement)
+1) No mid-cycle plan switching for paid users
+- If user is on Monthly: they cannot switch to Yearly until the current monthly period ends.
+- If user is on Yearly: they cannot switch to Monthly until the yearly term ends.
+- No prorated credits. No partial refunds.
+
+2) No subscribing while admin-granted access is active
+- If user has S-Class access_source = "admin_grant" and access_expires_at is in the future:
+  - Hide or disable the “Subscribe Monthly” and “Subscribe Yearly” buttons.
+  - Show a clear message explaining they can subscribe after the free access ends.
+- Do NOT start Stripe checkout while admin-granted access is active.
+
+3) After admin-granted access expires
+- User returns to Free (unless they already have a paid subscription scheduled/exists).
+- Then they can subscribe to Monthly or Yearly normally.
+
+UI Requirements (S-Class membership page)
+A) Show plan area with two rows:
+- Monthly — $9.99/month
+- Yearly — $79.99/year  ★ Best value — Save 33%
+
+B) Button state logic
+
+STATE 1: Paid Monthly active
+- Show: “Current Plan: Monthly”
+- Monthly button: disabled label “Current Plan”
+- Yearly button: disabled label “Switch available at renewal”
+- Helper text under buttons:
+  “Plan changes apply at the end of your current billing period. No prorated refunds.”
+
+STATE 2: Paid Yearly active
+- Show: “Current Plan: Yearly”
+- Yearly button: disabled label “Current Plan”
+- Monthly button: disabled label “Switch available at renewal”
+- Helper text:
+  “Plan changes apply at the end of your current billing period. No prorated refunds.”
+
+STATE 3: Admin-granted S-Class access active
+- Replace “Current Plan” with:
+  “S-Class Access (Granted)”
+- Show:
+  “Access valid until: [access_expires_at formatted date]”
+- Disable BOTH subscribe buttons (or hide them, but disabling is preferred so user sees options).
+- Helper text under buttons:
+  “You currently have complimentary S-Class access. You can subscribe after this access ends.”
+
+STATE 4: No S-Class access
+- Show both buttons enabled:
+  “Subscribe Monthly”
+  “Subscribe Yearly”
+- Clicking starts Stripe checkout with correct price ID.
+
+Cancel Subscription Button Rules
+- Show “Cancel Subscription” ONLY for paid Stripe subscriptions.
+- Do NOT show cancel for admin-granted access (since there is no billing/cancellation).
+- If canceled, show “Active until: [period_end]” and keep benefits until that date.
+
+Backend / Data Rules
+- Ensure the app can determine:
+  - access_source: "paid" | "admin_grant" | "none"
+  - current_plan: "monthly" | "yearly" | null
+  - access_expires_at (for admin_grant)
+  - current_period_end (for paid)
+- Stripe checkout must be blocked when access_source="admin_grant" and access_expires_at is in the future.
+
+Acceptance Tests
+1) Paid Monthly: cannot click yearly; sees “Switch available at renewal” + helper text.
+2) Paid Yearly: cannot click monthly; sees “Switch available at renewal” + helper text.
+3) Admin-granted: cannot click subscribe; sees “complimentary access until [date]”.
+4) Free user: can click monthly or yearly and go to Stripe checkout.
+5) Cancel button only appears for paid subscriptions, not admin grants.

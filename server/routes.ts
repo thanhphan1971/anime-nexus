@@ -3863,6 +3863,16 @@ export async function registerRoutes(
         return res.status(401).json({ error: "User not found" });
       }
 
+      // Block checkout for users with active admin-granted access
+      if (user.accessSource === 'admin_grant' && user.accessExpiresAt) {
+        const expiresAt = new Date(user.accessExpiresAt);
+        if (expiresAt > new Date()) {
+          return res.status(403).json({ 
+            error: "You have complimentary S-Class access until " + expiresAt.toLocaleDateString() + ". You can subscribe after this access ends." 
+          });
+        }
+      }
+
       const { priceId } = req.body;
       if (!priceId) {
         return res.status(400).json({ error: "Price ID required" });

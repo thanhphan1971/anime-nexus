@@ -225,18 +225,18 @@ export default function PremiumPage() {
                 </p>
                 <Separator className="bg-yellow-500/30 my-3" />
                 <p className="text-sm text-white/70 text-center">
-                  Subscribe now — your subscription starts after your granted access ends.
+                  You have complimentary access until {sclassStatus?.accessExpiresAt ? formatInTimeZone(new Date(sclassStatus.accessExpiresAt), 'UTC', 'MMMM d, yyyy') : 'N/A'}. You can subscribe after this access ends.
                 </p>
                 <Button 
-                  className="w-full bg-yellow-500 hover:bg-yellow-300 text-black font-black h-14 text-xl shadow-[0_0_30px_hsl(45,100%,50%,0.5)] border-2 border-yellow-300"
-                  onClick={() => setLocation('/checkout?plan=monthly')}
+                  className="w-full bg-yellow-500/40 text-yellow-300 border-2 border-yellow-500/60 h-14 text-xl font-bold cursor-not-allowed"
+                  disabled
                   data-testid="button-subscribe-monthly-granted"
                 >
                   Subscribe Monthly — $9.99/mo
                 </Button>
                 <Button 
-                  className="w-full bg-yellow-400 hover:bg-yellow-300 text-black font-black h-14 text-xl shadow-[0_0_25px_hsl(45,100%,50%,0.4)] border-2 border-yellow-200"
-                  onClick={() => setLocation('/checkout?plan=yearly')}
+                  className="w-full bg-yellow-400/40 text-yellow-300 border-2 border-yellow-400/60 h-14 text-xl font-bold cursor-not-allowed"
+                  disabled
                   data-testid="button-subscribe-yearly-granted"
                 >
                   Subscribe Yearly — $79.99/yr
@@ -282,23 +282,23 @@ export default function PremiumPage() {
                           Current Plan — $9.99/month
                         </Button>
                         <Button 
-                          className="w-full bg-yellow-500 hover:bg-yellow-300 text-black font-black h-14 text-xl shadow-[0_0_30px_hsl(45,100%,50%,0.5)] border-2 border-yellow-300"
-                          onClick={() => setLocation('/checkout?plan=yearly')}
+                          className="w-full bg-yellow-400/40 text-yellow-300 border-2 border-yellow-400/60 h-14 text-xl font-bold cursor-not-allowed"
+                          disabled
                           data-testid="button-switch-yearly"
                         >
-                          Switch to Yearly — $79.99/year
+                          Yearly — $79.99/year
                         </Button>
-                        <p className="text-base text-yellow-400 text-center font-bold">★ Best value — Save 33%</p>
-                        <p className="text-sm text-white/70 text-center">Changes apply at next renewal</p>
+                        <p className="text-sm text-white/70 text-center">Switch available at renewal</p>
                       </>
                     ) : (
                       <>
                         <p className="text-base text-yellow-400 font-semibold mb-2">
                           S-Class active until {sclassStatus?.premiumEndDate ? formatInTimeZone(new Date(sclassStatus.premiumEndDate), 'UTC', 'MMMM d, yyyy') : 'renewal date'}
                         </p>
-                        <Button className="w-full bg-yellow-500/40 text-yellow-300 border-2 border-yellow-500/60 h-12 text-lg font-bold" disabled data-testid="button-current-monthly-disabled">
+                        <Button className="w-full bg-yellow-500/40 text-yellow-300 border-2 border-yellow-500/60 h-12 text-lg font-bold cursor-not-allowed" disabled data-testid="button-current-monthly-disabled">
                           Monthly — $9.99/month
                         </Button>
+                        <p className="text-sm text-white/70 text-center -mt-1 mb-1">Switch available at renewal</p>
                         <Button 
                           className="w-full bg-yellow-500/50 text-yellow-300 border-2 border-yellow-400 h-14 text-xl font-bold" 
                           disabled 
@@ -307,7 +307,6 @@ export default function PremiumPage() {
                           Current Plan — $79.99/year
                         </Button>
                         <p className="text-base text-yellow-400 text-center font-bold">★ Best value — Save 33%</p>
-                        <p className="text-sm text-white/70 text-center">You're on the best value plan</p>
                       </>
                     )}
                     <Button 
