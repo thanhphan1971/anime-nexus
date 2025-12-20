@@ -217,31 +217,31 @@ export default function PremiumPage() {
           <CardFooter className="flex flex-col gap-3">
             {isSClass && isAdminGranted ? (
               <>
-                <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/50 text-base px-4 py-1">
-                  S-Class Access (Granted)
+                <Badge className="bg-yellow-500/30 text-yellow-300 border-yellow-400 text-base px-4 py-2 font-bold">
+                  Access Granted by Administrator
                 </Badge>
-                <p className="text-sm text-yellow-400/80">
-                  Access valid until: {sclassStatus?.accessExpiresAt ? formatInTimeZone(new Date(sclassStatus.accessExpiresAt), 'UTC', 'MMMM d, yyyy') : 'N/A'}
+                <p className="text-base text-yellow-400 font-semibold">
+                  S-Class active until {sclassStatus?.accessExpiresAt ? formatInTimeZone(new Date(sclassStatus.accessExpiresAt), 'UTC', 'MMMM d, yyyy') : 'N/A'}
                 </p>
-                <Separator className="bg-yellow-500/20 my-2" />
-                <p className="text-xs text-muted-foreground text-center">
-                  Your paid subscription will begin after your granted access ends.
+                <Separator className="bg-yellow-500/30 my-3" />
+                <p className="text-sm text-white/70 text-center">
+                  Subscribe now — your subscription starts after your granted access ends.
                 </p>
                 <Button 
-                  className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold h-12 text-lg shadow-[0_0_20px_hsl(45,100%,50%,0.4)]"
+                  className="w-full bg-yellow-500 hover:bg-yellow-300 text-black font-black h-14 text-xl shadow-[0_0_30px_hsl(45,100%,50%,0.5)] border-2 border-yellow-300"
                   onClick={() => setLocation('/checkout?plan=monthly')}
                   data-testid="button-subscribe-monthly-granted"
                 >
-                  Subscribe Monthly — $9.99
+                  Subscribe Monthly — $9.99/mo
                 </Button>
                 <Button 
-                  className="w-full bg-yellow-500/80 hover:bg-yellow-400 text-black font-bold h-12 text-lg"
+                  className="w-full bg-yellow-400 hover:bg-yellow-300 text-black font-black h-14 text-xl shadow-[0_0_25px_hsl(45,100%,50%,0.4)] border-2 border-yellow-200"
                   onClick={() => setLocation('/checkout?plan=yearly')}
                   data-testid="button-subscribe-yearly-granted"
                 >
-                  Subscribe Yearly — $79.99
+                  Subscribe Yearly — $79.99/yr
                 </Button>
-                <p className="text-sm text-yellow-400 text-center font-semibold">★ Best value — Save 33%</p>
+                <p className="text-base text-yellow-400 text-center font-bold">★ Best value — Save 33%</p>
               </>
             ) : isSClass ? (
               <>
@@ -275,33 +275,39 @@ export default function PremiumPage() {
                   <>
                     {sclassStatus?.subscriptionType === 'monthly' ? (
                       <>
-                        <Button className="w-full bg-yellow-500/30 text-yellow-400 border border-yellow-500/50" disabled data-testid="button-current-monthly">
+                        <p className="text-base text-yellow-400 font-semibold mb-2">
+                          S-Class active until {sclassStatus?.premiumEndDate ? formatInTimeZone(new Date(sclassStatus.premiumEndDate), 'UTC', 'MMMM d, yyyy') : 'renewal date'}
+                        </p>
+                        <Button className="w-full bg-yellow-500/40 text-yellow-300 border-2 border-yellow-500/60 h-12 text-lg font-bold" disabled data-testid="button-current-monthly">
                           Current Plan — $9.99/month
                         </Button>
                         <Button 
-                          className="w-full bg-yellow-500/80 hover:bg-yellow-400 text-black font-bold h-12 text-lg"
+                          className="w-full bg-yellow-500 hover:bg-yellow-300 text-black font-black h-14 text-xl shadow-[0_0_30px_hsl(45,100%,50%,0.5)] border-2 border-yellow-300"
                           onClick={() => setLocation('/checkout?plan=yearly')}
                           data-testid="button-switch-yearly"
                         >
                           Switch to Yearly — $79.99/year
                         </Button>
-                        <p className="text-sm text-yellow-400 text-center font-semibold">★ Best value — Save 33%</p>
-                        <p className="text-xs text-muted-foreground text-center">Changes apply at next renewal</p>
+                        <p className="text-base text-yellow-400 text-center font-bold">★ Best value — Save 33%</p>
+                        <p className="text-sm text-white/70 text-center">Changes apply at next renewal</p>
                       </>
                     ) : (
                       <>
-                        <Button className="w-full bg-yellow-500/30 text-yellow-400 border border-yellow-500/50" disabled data-testid="button-current-monthly-disabled">
+                        <p className="text-base text-yellow-400 font-semibold mb-2">
+                          S-Class active until {sclassStatus?.premiumEndDate ? formatInTimeZone(new Date(sclassStatus.premiumEndDate), 'UTC', 'MMMM d, yyyy') : 'renewal date'}
+                        </p>
+                        <Button className="w-full bg-yellow-500/40 text-yellow-300 border-2 border-yellow-500/60 h-12 text-lg font-bold" disabled data-testid="button-current-monthly-disabled">
                           Monthly — $9.99/month
                         </Button>
                         <Button 
-                          className="w-full bg-yellow-500/30 text-yellow-400 border border-yellow-500/50" 
+                          className="w-full bg-yellow-500/50 text-yellow-300 border-2 border-yellow-400 h-14 text-xl font-bold" 
                           disabled 
                           data-testid="button-current-yearly"
                         >
                           Current Plan — $79.99/year
                         </Button>
-                        <p className="text-sm text-yellow-400 text-center font-semibold">★ Best value — Save 33%</p>
-                        <p className="text-xs text-muted-foreground text-center">You're on the best value plan</p>
+                        <p className="text-base text-yellow-400 text-center font-bold">★ Best value — Save 33%</p>
+                        <p className="text-sm text-white/70 text-center">You're on the best value plan</p>
                       </>
                     )}
                     <Button 
@@ -317,27 +323,27 @@ export default function PremiumPage() {
               </>
             ) : isOnTrial ? (
               <>
-                <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/50">
+                <Badge className="bg-yellow-500/30 text-yellow-300 border-yellow-400 text-base px-4 py-2 font-bold">
                   Trial: {trialDaysRemaining} day{trialDaysRemaining !== 1 ? 's' : ''} remaining
                 </Badge>
                 <Button 
-                  className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold h-12 text-lg shadow-[0_0_20px_hsl(45,100%,50%,0.4)]"
+                  className="w-full bg-yellow-500 hover:bg-yellow-300 text-black font-black h-14 text-xl shadow-[0_0_30px_hsl(45,100%,50%,0.5)] border-2 border-yellow-300"
                   onClick={() => setLocation('/checkout?plan=monthly')}
                   data-testid="button-convert-trial"
                 >
-                  Subscribe Monthly — $9.99
+                  Subscribe Monthly — $9.99/mo
                 </Button>
                 <Button 
-                  className="w-full bg-yellow-500/80 hover:bg-yellow-400 text-black font-bold h-12 text-lg"
+                  className="w-full bg-yellow-400 hover:bg-yellow-300 text-black font-black h-14 text-xl shadow-[0_0_25px_hsl(45,100%,50%,0.4)] border-2 border-yellow-200"
                   onClick={() => setLocation('/checkout?plan=yearly')}
                   data-testid="button-convert-trial-yearly"
                 >
-                  Subscribe Yearly — $79.99
+                  Subscribe Yearly — $79.99/yr
                 </Button>
-                <p className="text-sm text-yellow-400 text-center font-semibold">★ Best value — Save 33%</p>
+                <p className="text-base text-yellow-400 text-center font-bold">★ Best value — Save 33%</p>
                 <Button 
                   variant="outline"
-                  className="w-full border-white/20 text-muted-foreground hover:bg-white/5"
+                  className="w-full border-white/30 text-white/70 hover:bg-white/10"
                   onClick={handleCancelTrial}
                   disabled={cancelTrial.isPending}
                   data-testid="button-cancel-trial-inline"
@@ -348,24 +354,24 @@ export default function PremiumPage() {
             ) : (
               <>
                 <Button 
-                  className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold h-12 text-lg shadow-[0_0_20px_hsl(45,100%,50%,0.4)]"
+                  className="w-full bg-yellow-500 hover:bg-yellow-300 text-black font-black h-14 text-xl shadow-[0_0_30px_hsl(45,100%,50%,0.5)] border-2 border-yellow-300"
                   onClick={() => setLocation('/checkout?plan=monthly')}
                   data-testid="button-subscribe-monthly"
                 >
-                  Subscribe Monthly — $9.99
+                  Subscribe Monthly — $9.99/mo
                 </Button>
                 <Button 
-                  className="w-full bg-yellow-500/80 hover:bg-yellow-400 text-black font-bold h-12 text-lg"
+                  className="w-full bg-yellow-400 hover:bg-yellow-300 text-black font-black h-14 text-xl shadow-[0_0_25px_hsl(45,100%,50%,0.4)] border-2 border-yellow-200"
                   onClick={() => setLocation('/checkout?plan=yearly')}
                   data-testid="button-subscribe-yearly"
                 >
-                  Subscribe Yearly — $79.99
+                  Subscribe Yearly — $79.99/yr
                 </Button>
-                <p className="text-sm text-yellow-400 text-center font-semibold">★ Best value — Save 33%</p>
+                <p className="text-base text-yellow-400 text-center font-bold">★ Best value — Save 33%</p>
                 {isEligibleForTrial && (
                   <Button 
                     variant="outline" 
-                    className="w-full border-yellow-500/50 text-yellow-400 hover:bg-yellow-500/10"
+                    className="w-full border-yellow-400 text-yellow-300 hover:bg-yellow-500/20 font-bold"
                     onClick={() => setShowTrialModal(true)}
                     data-testid="button-start-trial"
                   >
