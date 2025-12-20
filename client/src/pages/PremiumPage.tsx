@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Check, X, Crown, Sparkles, Zap, Star, AlertCircle, Info, Shield, ExternalLink, Calendar } from "lucide-react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +19,7 @@ import { format } from "date-fns";
 
 export default function PremiumPage() {
   const { user, refreshUser } = useAuth();
+  const [, setLocation] = useLocation();
   const [showSubscribeModal, setShowSubscribeModal] = useState(false);
   const [showTrialModal, setShowTrialModal] = useState(false);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
@@ -51,6 +52,18 @@ export default function PremiumPage() {
       setShowWelcomeModal(true);
     }
   }, [sclassStatus?.welcomeRewardPending]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('success') === 'true') {
+      toast.success("Welcome to S-Class! Your subscription is now active.");
+      refreshUser();
+      window.history.replaceState({}, '', '/premium');
+    } else if (params.get('canceled') === 'true') {
+      toast.info("Checkout was canceled. You can try again anytime.");
+      window.history.replaceState({}, '', '/premium');
+    }
+  }, [refreshUser]);
   
   const handleStartTrial = async () => {
     try {
@@ -317,11 +330,10 @@ export default function PremiumPage() {
                 </Badge>
                 <Button 
                   className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold h-12 text-lg shadow-[0_0_20px_hsl(45,100%,50%,0.4)]"
-                  onClick={() => setShowSubscribeModal(true)}
-                  disabled={convertTrial.isPending}
+                  onClick={() => setLocation(`/checkout?plan=${selectedPlan}`)}
                   data-testid="button-convert-trial"
                 >
-                  {convertTrial.isPending ? "Processing..." : "Upgrade to Full S-Class"}
+                  Upgrade to Full S-Class
                 </Button>
                 <Button 
                   variant="outline"
@@ -333,14 +345,14 @@ export default function PremiumPage() {
                   {cancelTrial.isPending ? "Ending..." : "End Play Early"}
                 </Button>
                 <p className="text-xs text-center text-muted-foreground">
-                  Auto-converts to $9.99/month if not canceled
+                  Subscribe now to continue your S-Class benefits
                 </p>
               </>
             ) : (
               <>
                 <Button 
                   className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold h-12 text-lg shadow-[0_0_20px_hsl(45,100%,50%,0.4)]"
-                  onClick={() => setShowSubscribeModal(true)}
+                  onClick={() => setLocation(`/checkout?plan=${selectedPlan}`)}
                   data-testid="button-subscribe"
                 >
                   Subscribe to S-Class
@@ -376,15 +388,15 @@ export default function PremiumPage() {
           <div className="space-y-2">
             <p className="flex items-start gap-2">
               <Check className="h-4 w-4 mt-0.5 text-green-400 shrink-0" />
-              Subscription renews monthly at $9.99 unless canceled
+              Subscription renews automatically unless canceled
             </p>
             <p className="flex items-start gap-2">
               <Check className="h-4 w-4 mt-0.5 text-green-400 shrink-0" />
-              Cancel anytime in App Store / Play Store settings
+              Manage or cancel anytime from your account
             </p>
             <p className="flex items-start gap-2">
               <Check className="h-4 w-4 mt-0.5 text-green-400 shrink-0" />
-              Payment is charged to your account upon confirmation
+              Taxes calculated based on your location
             </p>
             <p className="flex items-start gap-2">
               <AlertCircle className="h-4 w-4 mt-0.5 text-yellow-400 shrink-0" />
