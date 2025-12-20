@@ -1,0 +1,247 @@
+REPLIT BUILD PROMPT — ANI REALM HOME PAGE UPGRADE (V1)
+
+Goal:
+Make Home feel like an entry portal to AniRealm (world + direction + emotion), WITHOUT cluttering the UI.
+Implement 3 “meaning layers”:
+(A) World Hook copy
+(B) “What can I do today?” quick actions strip
+(C) Micro-Lore teaser (rotating)
+
+Also deliver:
+1) Exact copy for each new micro-section (English only, short)
+2) Home content hierarchy (above fold vs below fold)
+3) Home → Action funnels (Summon → Draw → Post → Subscribe)
+
+Constraints:
+- Keep existing features (Stories, Free Daily Summon, Weekly Draw, Feed)
+- Add minimal UI components (small cards/strip + 1 teaser line)
+- Do not add new pages; route to existing pages only
+- Must remain fast-loading and clean on mobile
+- Reduce duplicated winner rows (currently repeated)
+
+------------------------------------------------------------
+1) EXACT COPY — NEW MICRO-SECTIONS
+------------------------------------------------------------
+
+1A) WORLD HOOK (place under "Crystal Sigil" and above current generic line)
+
+Title:
+"Welcome to AniRealm"
+
+Subtitle (one line, punchy):
+"A fractured anime universe where cards, events, and community shape your legend."
+
+Optional micro-line (smaller text, if space allows):
+"Claim rewards, enter live draws, and post your story inside Aurelith."
+
+Replace/override the old generic line:
+Old: "Share your thoughts, discover posts, and connect with the anime community"
+New: Use the World Hook above instead.
+
+CTA (small text button on the right, optional):
+"Learn the World"
+Route: /world (if exists) OR /lore (if exists) OR fallback /about
+If none exist, create a simple modal (not a new page) with 4 bullet points:
+- "Summon cards daily"
+- "Win rewards in weekly/monthly draws"
+- "Post stories & fan art"
+- "Level up your identity badge"
+(Keep it short, no scroll if possible.)
+
+------------------------------------------------------------
+
+1B) “WHAT CAN I DO TODAY?” STRIP (place between Free Daily Summon block and Weekly Draw block)
+
+Section Header:
+"Today’s Actions"
+
+Subheader (tiny):
+"3 fast ways to earn, win, or create."
+
+Implement as 3 compact tappable cards (horizontal scroll on mobile, 3 columns on desktop):
+
+Card 1:
+Icon: 🎁
+Title: "Claim Daily Summon"
+Body: "Free pulls reset every day."
+CTA label: "Summon"
+Route: /cards (scroll to Summon section OR focus Summon tab)
+
+Card 2:
+Icon: 🎲
+Title: "Enter Live Draws"
+Body: "Weekly + monthly winners."
+CTA label: "Enter"
+Route: /draws (or existing Draw page). If weekly draw is a section on Home, route to that screen/anchor.
+
+Card 3:
+Icon: ✍️
+Title: "Create a Post"
+Body: "Share a moment in Aurelith."
+CTA label: "Post"
+Route: /create (or existing CreatePost page)
+
+Optional 4th card ONLY if you already have Avatar feature live:
+Icon: 🧬
+Title: "AI Avatar"
+Body: "Generate your anime identity."
+CTA label: "Generate"
+Route: /avatar (or existing feature route)
+
+If Avatar feature is not ready, do NOT show this 4th card.
+
+------------------------------------------------------------
+
+1C) MICRO-LORE TEASER (place just above the feed header “Create & Share” or above first feed item)
+
+Label (small caps):
+"FIELD REPORT"
+
+Rotating single-line teaser (rotate daily OR per app launch; keep it deterministic if no backend):
+Pick one at random from this list:
+
+1) "Continuum fractures are surging near the Void Sector. Citizens report unstable echoes."
+2) "Aurelith’s relic signals spiked overnight. Summons feel unusually volatile."
+3) "Wardens issued a caution: ‘Do not approach blue-cracked crystals without a stabilizer.’"
+4) "The Ironbound Legion marched again. Their armor hums with sealed Continuum residue."
+5) "A new anomaly appeared above the Wells. Some claim it’s a message."
+
+Optional tiny CTA:
+"Read more"
+Route: same as Learn the World above (modal or /lore if exists)
+
+------------------------------------------------------------
+2) HOME PAGE CONTENT HIERARCHY (ABOVE THE FOLD VS BELOW)
+------------------------------------------------------------
+
+ABOVE THE FOLD (first screen on mobile):
+1) Crystal Sigil + HOME title
+2) World Hook (Welcome to AniRealm + subtitle)
+3) Stories row (Add Story / Story previews)
+4) Free Daily Summon module (with “Claim Free Summon” primary CTA)
+5) Today’s Actions strip (3 cards)
+
+BELOW THE FOLD:
+6) Weekly Draw module (countdown + latest winners + “View All”)
+7) Micro-lore teaser (Field Report line)
+8) Create & Share module (short pitch + Create Now CTA)
+9) Feed list
+
+Important: ensure the user sees a primary CTA within the first screen:
+- “Claim Free Summon” stays the strongest
+- “Today’s Actions” adds direction without competing
+
+------------------------------------------------------------
+3) FIX WINNERS LIST DUPLICATION
+------------------------------------------------------------
+
+Currently winners appear duplicated (same block repeated).
+Change weekly draw winners preview to:
+- Show only latest 3–5 winners (max 5)
+- Each entry: username + prize + relative time
+- Add a single "View All Winners" link/button at bottom
+No duplicates.
+
+------------------------------------------------------------
+4) HOME → ACTION FUNNELS (ROUTING + NUDGES)
+------------------------------------------------------------
+
+Define 4 core funnels. Implement subtle nudges (not popups) and smart defaults.
+
+Funnel A: SUMMON → (optional) SUBSCRIBE
+Entry points:
+- "Claim Free Summon" button
+- Today’s Actions card 1
+
+On /cards (Summon section):
+- If user has free summons available: highlight “Free Summon” button
+- If user has 0 free summons: show a small inline upsell panel (NOT modal):
+  Title: "Want more daily summons?"
+  Body: "S-Class members get extra daily pulls + boosted perks."
+  CTA: "View S-Class"
+  Route: /premium (or subscription page)
+
+Funnel B: DRAW → SUBSCRIBE
+Entry points:
+- Weekly Draw module “View All”
+- Today’s Actions card 2
+
+On /draws:
+- Show user’s free entries remaining (free vs premium)
+- If user is free tier and used free entry: show inline upsell:
+  Title: "Increase your chances"
+  Body: "S-Class gets extra entries every week + monthly entry."
+  CTA: "Upgrade to S-Class"
+  Route: /premium
+
+Funnel C: POST → (social loop) → SUMMON
+Entry points:
+- Create & Share “Create Now”
+- Today’s Actions card 3
+
+After a successful post:
+- Show success toast:
+  "Posted to Aurelith ✅"
+  Secondary nudge:
+  "Claim your daily summon"
+  CTA button: "Go to Summon"
+  Route: /cards
+
+Funnel D: STORY → FEED ENGAGEMENT
+Entry points:
+- Add Story
+
+After uploading a Story:
+- Show success toast:
+  "Story added ✅ Expires in 24h"
+  Secondary nudge:
+  "Enter the Weekly Draw"
+  CTA: "Go to Draws"
+  Route: /draws
+
+------------------------------------------------------------
+5) IMPLEMENTATION NOTES (DO THIS IN CODE)
+------------------------------------------------------------
+
+A) Create new components (or sections) in Home:
+- WorldHookSection
+- TodayActionsStrip
+- FieldReportTeaser
+
+B) Keep copy in a central place:
+Create file:
+client/src/content/homeCopy.ts
+Export:
+- worldHookTitle, worldHookSubtitle, worldHookMicroline
+- todayActions header/subheader + actions array (with title/body/route/icon)
+- fieldReport label + teaser array
+
+C) Rotation logic for Field Report:
+- If no backend: rotate by day using local date:
+  index = (YYYYMMDD % teasers.length)
+So every user sees same teaser for that day.
+
+D) Reduce winners list:
+- Ensure weekly winners preview slices array to max 5
+- Remove any duplicated rendering block
+
+E) Visual style:
+- Use existing card styles
+- Keep spacing tight but premium
+- Use subtle dividers and consistent headers
+- Ensure "Claim Free Summon" remains primary CTA (most prominent button)
+
+------------------------------------------------------------
+6) ACCEPTANCE CHECKLIST
+------------------------------------------------------------
+
+Home now contains:
+- ✅ World Hook (new copy)
+- ✅ Today’s Actions strip (3 cards)
+- ✅ Field Report teaser (rotating line)
+- ✅ Weekly winners list not duplicated (max 5)
+- ✅ Above-the-fold contains a clear CTA + quick actions
+- ✅ Funnels implemented with inline nudges + success toasts (no modal spam)
+
+Done means:
+- Home feels more alive and guided, while still clean and fast.
