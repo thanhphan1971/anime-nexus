@@ -30,19 +30,30 @@ export default function HelpPage() {
   const faqs = [
     {
       question: "How do I get more Daily Tokens?",
-      answer: "You receive 1 Free Token every day at midnight (UTC). S-Class members receive 5 Tokens daily. You can also earn tokens by completing community challenges or trading cards in the Marketplace."
+      answer: (
+        <div className="space-y-2">
+          <p>Tokens are earned by playing AniRealm games and completing official in-app activities (events, challenges, and reward runs).</p>
+          <p className="font-semibold">Important:</p>
+          <ul className="list-disc list-inside space-y-1 ml-2">
+            <li>Tokens are not granted automatically at midnight or by timezone resets.</li>
+            <li>Tokens cannot be earned through card trading or a marketplace.</li>
+            <li>Daily token earning limits apply and reset every day.</li>
+            <li>S-Class increases your daily earning limits and provides extra entries into certain activities.</li>
+          </ul>
+        </div>
+      )
     },
     {
       question: "What are the benefits of S-Class?",
-      answer: "S-Class Elite members get 2x Daily Summons, higher luck for rare cards, animated profile avatars, exclusive access to VIP chat rooms, and the ability to see who liked their profile in Find Nakama."
+      answer: "S-Class Elite members get 2x Daily Summons, higher luck for rare cards, animated profile avatars, exclusive access to VIP chat rooms, increased daily token earning limits, and the ability to see who liked their profile in Find Nakama."
     },
     {
       question: "How does the 'Find Nakama' matching work?",
       answer: "Our algorithm matches you based on your favorite anime genres, viewing history, and activity tags. The 'Compatibility Score' shows how likely you are to get along!"
     },
     {
-      question: "Can I trade cards with friends?",
-      answer: "Yes! Go to the 'Cards' hub and select the 'Offers' tab to view or send trade requests. You can also list cards for sale or trade in the Market."
+      question: "How does the card collection work?",
+      answer: "Collect cards through summons using your tokens. Cards come in different rarities from Common to Mythic. Build your collection and showcase your favorite cards on your profile!"
     },
     {
       question: "How do I report bad behavior?",

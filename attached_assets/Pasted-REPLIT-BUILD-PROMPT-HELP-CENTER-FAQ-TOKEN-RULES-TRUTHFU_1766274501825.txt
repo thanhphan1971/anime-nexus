@@ -1,0 +1,43 @@
+REPLIT BUILD PROMPT — HELP CENTER FAQ TOKEN RULES (TRUTHFUL + FUTURE-PROOF)
+
+Goal:
+Update AniRealm Help Center FAQ content so token earning rules are accurate, consistent with the app, and do NOT promise unshipped features.
+
+Requirements:
+1) Replace the existing FAQ answer for:
+   "How do I get more Daily Tokens?"
+   with the exact copy below.
+
+2) The new policy MUST explicitly state:
+   - Tokens are earned ONLY from gameplay and official in-app activities.
+   - There are NO automatic midnight/UTC token grants.
+   - There is NO earning tokens from card trading or any marketplace.
+   - Token earning limits/caps exist and reset daily (do not mention a timezone).
+   - S-Class increases earning limits/entries (do not claim “X tokens per day” unless there is a real guaranteed grant coded).
+
+3) Use the exact text below (word-for-word) in the Help Center UI.
+
+FINAL COPY TO DISPLAY:
+
+FAQ — How do I get more Daily Tokens?
+Tokens are earned by playing AniRealm games and completing official in-app activities (events, challenges, and reward runs).
+
+Important:
+• Tokens are not granted automatically at midnight or by timezone resets.
+• Tokens cannot be earned through card trading or a marketplace.
+• Daily token earning limits apply and reset every day.
+• S-Class increases your daily earning limits and provides extra entries into certain activities.
+
+4) Ensure formatting looks clean in the Help Center:
+- Keep "Important:" on its own line
+- Use bullet points exactly as shown
+- No additional claims, no extra features, no “coming soon” marketing.
+
+5) Confirm any other FAQ entries that mention token grants, marketplace, or trading are also removed or rewritten to match the above truth:
+- Search the Help Center page/components for keywords: "midnight", "UTC", "free token", "grant", "marketplace", "trade", "trading"
+- Replace any misleading token-earning statements with the same core rules: tokens earned only via games + official in-app activities.
+
+Acceptance Criteria:
+- The Help Center FAQ answer displays exactly as written above.
+- No other Help Center text claims token earning via midnight grants, marketplace, or trading.
+- The Help Center remains visually consistent with the current UI.

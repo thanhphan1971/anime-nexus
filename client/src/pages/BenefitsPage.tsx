@@ -17,7 +17,7 @@ export default function BenefitsPage() {
         value: "3 Rewarded Runs / Day",
         details: [
           "Each run earns tokens based on performance",
-          "Runs reset daily at midnight UTC",
+          "Runs reset every day",
           "Additional runs available but won't earn tokens"
         ]
       },
@@ -26,7 +26,7 @@ export default function BenefitsPage() {
         details: [
           "Double the rewarded runs vs free tier",
           "Each run earns tokens based on performance",
-          "Runs reset daily at midnight UTC"
+          "Runs reset every day"
         ]
       }
     },
@@ -42,7 +42,7 @@ export default function BenefitsPage() {
           "Tokens are earned by playing The Fracture Trial",
           "Performance determines tokens per run (15-35 tokens)",
           "Once you hit the cap, additional runs won't earn tokens",
-          "Cap resets daily at midnight UTC"
+          "Cap resets every day"
         ]
       },
       premium: {
@@ -51,7 +51,7 @@ export default function BenefitsPage() {
           "More than double the daily earning potential",
           "Tokens are earned by playing The Fracture Trial",
           "Performance determines tokens per run (15-35 tokens)",
-          "Cap resets daily at midnight UTC"
+          "Cap resets every day"
         ]
       }
     },
@@ -257,7 +257,7 @@ export default function BenefitsPage() {
             <li>Use tokens to pull cards from the gacha system</li>
           </ol>
           <p className="text-muted-foreground">
-            Both rewarded runs and daily token caps reset at midnight UTC.
+            Both rewarded runs and daily token caps reset every day.
           </p>
         </CardContent>
       </Card>

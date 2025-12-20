@@ -183,7 +183,7 @@ export default function CardsPage() {
               </div>
             </div>
             <div className="mt-3 pt-3 border-t border-white/10 text-xs text-muted-foreground">
-              <strong className="text-white">What can you do with cards?</strong> Collect them, trade with other players in the Market, or sell for tokens. Rare cards are worth more!
+              <strong className="text-white">What can you do with cards?</strong> Collect them and showcase your favorites on your profile. Build your deck and complete your collection!
             </div>
             
             {/* Free Summon Rules */}
