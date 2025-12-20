@@ -61,7 +61,13 @@ export default function CreatePostPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/stories"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stories/limits"] });
-      toast.success("Story posted!");
+      toast.success("Story added! Expires in 24h", {
+        description: "Enter the Weekly Draw for a chance to win!",
+        action: {
+          label: "Go to Draws",
+          onClick: () => setLocation("/draws"),
+        },
+      });
       setStoryFile(null);
       setStoryPreview(null);
       setStoryCaption("");
@@ -154,7 +160,13 @@ export default function CreatePostPage() {
         image: selectedImage || undefined,
       });
       
-      toast.success("Post created!");
+      toast.success("Posted to Aurelith!", {
+        description: "Claim your daily summon",
+        action: {
+          label: "Go to Summon",
+          onClick: () => setLocation("/cards"),
+        },
+      });
       setLocation("/"); // Redirect to feed
     } catch (error: any) {
       toast.error(error.message || "Failed to create post");

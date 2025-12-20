@@ -42,6 +42,7 @@ export function TodayActionsStrip() {
                   size="sm" 
                   variant="ghost" 
                   className="h-6 px-2 text-[10px] text-cyan-400 hover:bg-cyan-500/20 group-hover:text-cyan-300"
+                  data-testid={`button-action-${action.icon}`}
                 >
                   {action.ctaLabel}
                   <ChevronRight className="h-3 w-3 ml-0.5" />
