@@ -1,0 +1,91 @@
+REPLIT BUILD PROMPT — S-CLASS PRICING BUTTONS + YEARLY “BEST VALUE” BADGE + FULL RULES UNDER COLUMN
+
+Goal
+Fix the S-Class Membership UI so users clearly see Monthly and Yearly subscription options, understand the value difference, and see all membership + cancellation rules directly under the S-Class column.
+
+1) Pricing Buttons (S-Class column)
+
+At the top of the S-Class Membership card/column, display:
+
+Title:
+S-Class Membership
+
+Then show TWO stacked subscription buttons with pricing visible beside each button:
+
+[ Subscribe Monthly ]     $9.99 / month
+
+[ Subscribe Yearly ]      $79.99 / year
+                           ★ Best value — Save 33%
+
+Rules:
+- Buttons must be visually equal size.
+- The Yearly button must include a visible badge or label:
+  “Best value — Save 33%”
+- Badge should be subtle but noticeable (gold accent preferred, not aggressive red).
+- Price must be readable without clicking anything.
+
+2) Current Plan State
+
+If the user already has an active S-Class subscription:
+- Show text above buttons:
+  “Current Plan: Monthly” OR “Current Plan: Yearly”
+- Disable the button for the active plan and replace label with:
+  “Current Plan”
+- For the non-active plan:
+  - Either disable with tooltip “Changes apply at renewal”
+  - Or allow selection for next renewal (no prorating).
+  Choose the simpler option if unsure.
+
+3) Membership Benefits (directly under pricing, same column)
+
+Add section header:
+Premium Access to AniRealm
+
+Display the following clearly (feature → value format):
+
+- Daily Game Entries: 6 Rewarded Runs / Day
+- Daily Token Cap: Earn up to 210 Tokens / Day (via game)
+- Weekly & Monthly Draws: Extra Weekly & Monthly Entries
+- Card Pull Efficiency: Higher Pull Efficiency (no guaranteed rarity)
+- Identity Badge: Exclusive “S-Class” Golden Badge
+
+4) Membership & Cancellation Rules (must be visible, same column)
+
+Add section header:
+Membership & Cancellation Rules
+
+Display these rules clearly:
+
+- Cancel anytime from Account → Subscription.
+- After cancellation, S-Class remains active until the end of the current billing period.
+- Subscription will not renew after the end date.
+- No partial or prorated refunds for unused time.
+- Yearly subscriptions are not partially refunded once started.
+- Refunds are only provided for duplicate charges or billing errors (if applicable).
+
+Add a small acknowledgment line:
+“By subscribing, you agree to these terms.”
+
+5) Checkout Behavior (Stripe)
+
+- Clicking “Subscribe Monthly” must start Stripe Checkout using:
+  STRIPE_PRICE_SCLASS_MONTHLY
+- Clicking “Subscribe Yearly” must start Stripe Checkout using:
+  STRIPE_PRICE_SCLASS_YEARLY
+- Pass selected plan type (monthly/yearly) to backend.
+
+6) Layout & UX Notes
+
+- All pricing, benefits, and rules MUST stay inside the S-Class column/card.
+- Do NOT move rules to the bottom of the page.
+- On mobile:
+  - Buttons full width
+  - Badge appears below the yearly price or aligned right
+- Use subtle dividers between sections for readability.
+
+Acceptance Tests
+1) Yearly option clearly shows “Best value — Save 33%”.
+2) Users immediately understand Monthly vs Yearly without scrolling.
+3) Membership benefits and cancellation rules are visible without leaving the page.
+4) Active plan is clearly marked as “Current Plan”.
+5) Stripe checkout launches with correct price ID.

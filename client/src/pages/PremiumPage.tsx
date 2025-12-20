@@ -216,9 +216,9 @@ export default function PremiumPage() {
           <CardFooter className="flex flex-col gap-3">
             {isSClass ? (
               <>
-                <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/50">
-                  {sclassStatus?.subscriptionType === 'yearly' ? 'Yearly' : 'Monthly'} Plan
-                </Badge>
+                <p className="text-sm text-yellow-400 font-semibold">
+                  Current Plan: {sclassStatus?.subscriptionType === 'yearly' ? 'Yearly' : 'Monthly'}
+                </p>
                 {sclassStatus?.subscriptionStatus === 'canceled_pending_expiry' ? (
                   <div className="w-full text-center space-y-3">
                     <p className="text-sm text-yellow-400/80">
@@ -244,9 +244,43 @@ export default function PremiumPage() {
                   </div>
                 ) : (
                   <>
-                    <Button className="w-full bg-yellow-500/30 text-yellow-400 border border-yellow-500/50" disabled>
-                      Current Plan
-                    </Button>
+                    {sclassStatus?.subscriptionType === 'monthly' ? (
+                      <>
+                        <Button className="w-full bg-yellow-500/30 text-yellow-400 border border-yellow-500/50" disabled data-testid="button-current-monthly">
+                          Current Plan — $9.99/month
+                        </Button>
+                        <Button 
+                          className="w-full bg-yellow-500/80 hover:bg-yellow-400 text-black font-bold h-12 text-lg"
+                          onClick={() => setLocation('/checkout?plan=yearly')}
+                          data-testid="button-switch-yearly"
+                        >
+                          Switch to Yearly — $79.99/year
+                          <Badge className="ml-2 bg-yellow-600 text-black border-0 text-xs">★ Best value — Save 33%</Badge>
+                        </Button>
+                        <p className="text-xs text-muted-foreground text-center">Changes apply at next renewal</p>
+                      </>
+                    ) : (
+                      <>
+                        <Button 
+                          className="w-full bg-yellow-500/30 text-yellow-400 border border-yellow-500/50" 
+                          disabled 
+                          data-testid="button-current-yearly"
+                        >
+                          Current Plan — $79.99/year
+                          <Badge className="ml-2 bg-yellow-600/50 text-black/70 border-0 text-xs">★ Best value — Save 33%</Badge>
+                        </Button>
+                        <Button 
+                          className="w-full bg-white/10 hover:bg-white/20 text-white/70 font-bold h-12 text-lg"
+                          onClick={() => setLocation('/checkout?plan=monthly')}
+                          disabled
+                          title="Switch to monthly at renewal"
+                          data-testid="button-switch-monthly"
+                        >
+                          Monthly — $9.99/month
+                        </Button>
+                        <p className="text-xs text-muted-foreground text-center">You're on the best value plan</p>
+                      </>
+                    )}
                     <Button 
                       variant="ghost"
                       className="text-muted-foreground hover:text-white text-sm"
@@ -276,7 +310,7 @@ export default function PremiumPage() {
                   data-testid="button-convert-trial-yearly"
                 >
                   Subscribe Yearly — $79.99
-                  <Badge className="ml-2 bg-green-600 text-white border-0 text-xs">Best value — save ~33%</Badge>
+                  <Badge className="ml-2 bg-yellow-600 text-black border-0 text-xs">★ Best value — Save 33%</Badge>
                 </Button>
                 <Button 
                   variant="outline"
@@ -303,7 +337,7 @@ export default function PremiumPage() {
                   data-testid="button-subscribe-yearly"
                 >
                   Subscribe Yearly — $79.99
-                  <Badge className="ml-2 bg-green-600 text-white border-0 text-xs">Best value — save ~33%</Badge>
+                  <Badge className="ml-2 bg-yellow-600 text-black border-0 text-xs">★ Best value — Save 33%</Badge>
                 </Button>
                 {isEligibleForTrial && (
                   <Button 
