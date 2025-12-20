@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { db } from "./db";
 import { insertUserSchema, insertPostSchema, insertSwipeActionSchema, insertCommunityMessageSchema, insertDrawSchema, insertPrizeSchema, insertDrawEntrySchema, insertCardCategorySchema } from "@shared/schema";
 import { supabaseAdmin } from "./lib/supabaseAdmin";
 import { nanoid } from "nanoid";
@@ -3654,6 +3655,179 @@ export async function registerRoutes(
       }
     } catch (error: any) {
       res.status(500).json({ error: error.message });
+    }
+  });
+
+  // =====================
+  // STRIPE PAYMENT ROUTES
+  // =====================
+
+  // Get Stripe publishable key
+  app.get("/api/stripe/config", async (req, res) => {
+    try {
+      const { getStripePublishableKey } = await import("./stripeClient");
+      const publishableKey = await getStripePublishableKey();
+      res.json({ publishableKey });
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to get Stripe config" });
+    }
+  });
+
+  // Get S-Class subscription products and prices
+  app.get("/api/stripe/products", async (req, res) => {
+    try {
+      const result = await db.execute(sql`
+        SELECT 
+          p.id as product_id,
+          p.name as product_name,
+          p.description as product_description,
+          pr.id as price_id,
+          pr.unit_amount,
+          pr.currency,
+          pr.recurring,
+          pr.metadata as price_metadata
+        FROM stripe.products p
+        LEFT JOIN stripe.prices pr ON pr.product = p.id AND pr.active = true
+        WHERE p.active = true AND p.name = 'S-Class Membership'
+        ORDER BY pr.unit_amount ASC
+      `);
+      
+      const rows = result.rows as any[];
+      
+      if (rows.length === 0) {
+        return res.json({ products: [], prices: [] });
+      }
+
+      const product = {
+        id: rows[0].product_id,
+        name: rows[0].product_name,
+        description: rows[0].product_description,
+      };
+      
+      const prices = rows
+        .filter(row => row.price_id)
+        .map(row => ({
+          id: row.price_id,
+          unitAmount: row.unit_amount,
+          currency: row.currency,
+          recurring: row.recurring,
+          metadata: row.price_metadata,
+          interval: row.recurring?.interval || 'month',
+        }));
+
+      res.json({ product, prices });
+    } catch (error: any) {
+      console.error("Error fetching Stripe products:", error);
+      res.status(500).json({ error: "Failed to fetch products" });
+    }
+  });
+
+  // Create checkout session for S-Class subscription
+  app.post("/api/stripe/checkout", verifySupabaseToken, async (req, res) => {
+    try {
+      const user = await storage.getUserBySupabaseId(req.supabaseUser!.id);
+      if (!user) {
+        return res.status(401).json({ error: "User not found" });
+      }
+
+      const { priceId } = req.body;
+      if (!priceId) {
+        return res.status(400).json({ error: "Price ID required" });
+      }
+
+      const { getUncachableStripeClient } = await import("./stripeClient");
+      const stripe = await getUncachableStripeClient();
+
+      let customerId = user.stripeCustomerId;
+      
+      if (!customerId) {
+        const customer = await stripe.customers.create({
+          email: user.email,
+          metadata: { 
+            userId: user.id,
+            username: user.username || '',
+          },
+        });
+        customerId = customer.id;
+        await storage.updateUser(user.id, { stripeCustomerId: customerId });
+      }
+
+      const baseUrl = `https://${process.env.REPLIT_DOMAINS?.split(',')[0]}`;
+      
+      const session = await stripe.checkout.sessions.create({
+        customer: customerId,
+        payment_method_types: ['card'],
+        line_items: [{ price: priceId, quantity: 1 }],
+        mode: 'subscription',
+        success_url: `${baseUrl}/premium?success=true`,
+        cancel_url: `${baseUrl}/premium?canceled=true`,
+        automatic_tax: { enabled: true },
+        customer_update: {
+          address: 'auto',
+        },
+        billing_address_collection: 'auto',
+        metadata: {
+          userId: user.id,
+        },
+      });
+
+      res.json({ url: session.url, sessionId: session.id });
+    } catch (error: any) {
+      console.error("Checkout error:", error);
+      res.status(500).json({ error: error.message || "Failed to create checkout session" });
+    }
+  });
+
+  // Get user's subscription status from Stripe
+  app.get("/api/stripe/subscription", verifySupabaseToken, async (req, res) => {
+    try {
+      const user = await storage.getUserBySupabaseId(req.supabaseUser!.id);
+      if (!user) {
+        return res.status(401).json({ error: "User not found" });
+      }
+
+      if (!user.stripeSubscriptionId) {
+        return res.json({ subscription: null });
+      }
+
+      const result = await db.execute(sql`
+        SELECT * FROM stripe.subscriptions WHERE id = ${user.stripeSubscriptionId}
+      `);
+      
+      const subscription = result.rows[0] || null;
+      res.json({ subscription });
+    } catch (error: any) {
+      console.error("Error fetching subscription:", error);
+      res.status(500).json({ error: "Failed to fetch subscription" });
+    }
+  });
+
+  // Create customer portal session
+  app.post("/api/stripe/portal", verifySupabaseToken, async (req, res) => {
+    try {
+      const user = await storage.getUserBySupabaseId(req.supabaseUser!.id);
+      if (!user) {
+        return res.status(401).json({ error: "User not found" });
+      }
+
+      if (!user.stripeCustomerId) {
+        return res.status(400).json({ error: "No billing account found" });
+      }
+
+      const { getUncachableStripeClient } = await import("./stripeClient");
+      const stripe = await getUncachableStripeClient();
+
+      const baseUrl = `https://${process.env.REPLIT_DOMAINS?.split(',')[0]}`;
+      
+      const session = await stripe.billingPortal.sessions.create({
+        customer: user.stripeCustomerId,
+        return_url: `${baseUrl}/premium`,
+      });
+
+      res.json({ url: session.url });
+    } catch (error: any) {
+      console.error("Portal error:", error);
+      res.status(500).json({ error: "Failed to create portal session" });
     }
   });
 
