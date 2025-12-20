@@ -313,11 +313,11 @@ export async function registerRoutes(
   });
   
   // Post routes
-  app.get("/api/posts", async (req, res) => {
+  app.get("/api/posts", verifySupabaseToken, async (req, res) => {
     try {
       // If user is authenticated, return posts with like status
-      if (req.session.userId) {
-        const posts = await storage.getPostsWithLikeStatus(req.session.userId);
+      if (req.dbUser) {
+        const posts = await storage.getPostsWithLikeStatus(req.dbUser.id);
         res.json(posts);
       } else {
         const posts = await storage.getPosts();
@@ -328,15 +328,15 @@ export async function registerRoutes(
     }
   });
   
-  app.post("/api/posts", async (req, res) => {
+  app.post("/api/posts", verifySupabaseToken, async (req, res) => {
     try {
-      if (!req.session.userId) {
+      if (!req.dbUser) {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
       const validatedData = insertPostSchema.parse({
         ...req.body,
-        userId: req.session.userId,
+        userId: req.dbUser.id,
       });
       
       const post = await storage.createPost(validatedData);
@@ -346,13 +346,13 @@ export async function registerRoutes(
     }
   });
   
-  app.post("/api/posts/:id/like", async (req, res) => {
+  app.post("/api/posts/:id/like", verifySupabaseToken, async (req, res) => {
     try {
-      if (!req.session.userId) {
+      if (!req.dbUser) {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
-      const result = await storage.toggleLikePost(req.params.id, req.session.userId);
+      const result = await storage.toggleLikePost(req.params.id, req.dbUser.id);
       res.json(result);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
