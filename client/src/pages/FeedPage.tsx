@@ -17,6 +17,9 @@ import { RarityFrame } from "@/components/RarityFrame";
 import { CardReveal } from "@/components/CardReveal";
 import { CrystalSigil } from "@/components/CrystalSigil";
 import GamePlayBanner from "@/components/GamePlayBanner";
+import { WorldHookSection } from "@/components/home/WorldHookSection";
+import { TodayActionsStrip } from "@/components/home/TodayActionsStrip";
+import { FieldReportTeaser } from "@/components/home/FieldReportTeaser";
 
 export default function FeedPage() {
   const { data: posts, isLoading } = usePosts();
@@ -228,8 +231,10 @@ export default function FeedPage() {
           />
         </div>
         <h1 className="text-2xl font-display font-bold neon-text">HOME</h1>
-        <p className="text-sm text-muted-foreground">Share your thoughts, discover posts, and connect with the anime community</p>
       </div>
+
+      {/* World Hook Section */}
+      <WorldHookSection />
 
       {/* Stories / Status Bar */}
       <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide mask-fade-right">
@@ -450,6 +455,9 @@ export default function FeedPage() {
         </Card>
       </motion.div>
 
+      {/* Today's Actions Strip */}
+      <TodayActionsStrip />
+
       {/* Game Play Banner */}
       {gameplayEnabled && <GamePlayBanner />}
 
@@ -563,7 +571,7 @@ export default function FeedPage() {
         </Card>
       </motion.div>
 
-      {/* Recent Winners Ticker */}
+      {/* Recent Winners Ticker - Max 5, No Duplicates */}
       <Card className="bg-yellow-950/20 border-yellow-500/30 overflow-hidden" data-testid="winners-ticker">
         <CardContent className="p-3">
           <div className="flex items-center gap-3">
@@ -579,12 +587,7 @@ export default function FeedPage() {
                   { name: "Shadow", prize: "30 Days Premium", time: "1d ago" },
                   { name: "Ryu", prize: "Epic Badge", time: "2d ago" },
                   { name: "Miko", prize: "Avatar Frame", time: "3d ago" },
-                  { name: "NeoKai", prize: "Legendary Pack", time: "2h ago" },
-                  { name: "Sakura", prize: "5000 Tokens", time: "5h ago" },
-                  { name: "Shadow", prize: "30 Days Premium", time: "1d ago" },
-                  { name: "Ryu", prize: "Epic Badge", time: "2d ago" },
-                  { name: "Miko", prize: "Avatar Frame", time: "3d ago" },
-                ].map((winner, i) => (
+                ].slice(0, 5).map((winner, i) => (
                   <div key={i} className="flex items-center gap-2 shrink-0">
                     <span className="text-sm font-bold text-white">{winner.name}</span>
                     <span className="text-xs text-purple-400">won</span>
@@ -606,6 +609,9 @@ export default function FeedPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Field Report Teaser */}
+      <FieldReportTeaser />
 
       {/* AI Assistant Prompt */}
       <Card className="bg-gradient-to-r from-primary/20 via-accent/20 to-primary/20 border-primary/30 shadow-lg">
