@@ -269,7 +269,9 @@ export class DbStorage implements IStorage {
   }
 
   async getUserByHandle(handle: string): Promise<User | undefined> {
-    const result = await db.select().from(users).where(eq(users.handle, handle)).limit(1);
+    // Case-insensitive lookup - normalize to lowercase
+    const normalizedHandle = handle.toLowerCase();
+    const result = await db.select().from(users).where(sql`LOWER(${users.handle}) = ${normalizedHandle}`).limit(1);
     return result[0];
   }
 

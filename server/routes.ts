@@ -316,15 +316,28 @@ export async function registerRoutes(
     }
   });
 
-  // Reserved words that cannot be used as handles
+  // Reserved words that cannot be used as handles (all lowercase for comparison)
   const RESERVED_HANDLES = [
+    // Routes
     'cards', 'events', 'summons', 'admin', 'login', 'signup', 'api', 
     'profile', 'settings', 'home', 'help', 'support', 'about', 'terms',
     'privacy', 'contact', 'feeds', 'friends', 'communities', 'community',
     'draws', 'tokens', 'sclass', 'premium', 'benefits', 'game', 'universe',
-    'checkout', 'gacha', 'market', 'watchlist', 'create', 'parent', 'mod',
-    'moderator', 'staff', 'official', 'anirealm', 'system', 'bot', 'null',
-    'undefined', 'test', 'demo', 'example', 'user', 'users', 'anonymous'
+    'checkout', 'gacha', 'market', 'watchlist', 'create', 'parent',
+    // Staff/system
+    'mod', 'moderator', 'staff', 'official', 'anirealm', 'system', 'bot',
+    'null', 'undefined', 'test', 'demo', 'example', 'user', 'users', 'anonymous',
+    // Auth/security
+    'auth', 'authenticate', 'authentication', 'password', 'reset', 'verify',
+    'confirm', 'register', 'signin', 'signout', 'oauth', 'sso',
+    // Legal/support
+    'legal', 'tos', 'eula', 'dmca', 'copyright', 'trademark', 'faq',
+    'helpdesk', 'feedback', 'report', 'abuse', 'spam',
+    // Common reserved
+    'root', 'admin123', 'administrator', 'superuser', 'webmaster', 'postmaster',
+    'hostmaster', 'info', 'mail', 'email', 'www', 'ftp', 'cdn', 'static',
+    // App-specific
+    'anime', 'manga', 'otaku', 'waifu', 'nakama', 'kawaii', 'senpai',
   ];
 
   // Handle validation schema
