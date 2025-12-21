@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -174,13 +175,15 @@ export default function HelpPage() {
 
       {/* Quick Links */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="bg-blue-500/10 border-blue-500/20 hover:bg-blue-500/20 transition-colors cursor-pointer">
-          <CardContent className="p-6 flex flex-col items-center text-center gap-3">
-            <Shield className="h-8 w-8 text-blue-400" />
-            <h3 className="font-bold text-blue-400">Community Guidelines</h3>
-            <p className="text-xs text-muted-foreground">Read our code of ethics and rules.</p>
-          </CardContent>
-        </Card>
+        <Link href="/ethics">
+          <Card className="bg-blue-500/10 border-blue-500/20 hover:bg-blue-500/20 transition-colors cursor-pointer" data-testid="link-code-of-ethics">
+            <CardContent className="p-6 flex flex-col items-center text-center gap-3">
+              <Shield className="h-8 w-8 text-blue-400" />
+              <h3 className="font-bold text-blue-400">Community Guidelines</h3>
+              <p className="text-xs text-muted-foreground">Read our code of ethics and rules.</p>
+            </CardContent>
+          </Card>
+        </Link>
 
         <Card className="bg-purple-500/10 border-purple-500/20 hover:bg-purple-500/20 transition-colors cursor-pointer">
           <CardContent className="p-6 flex flex-col items-center text-center gap-3">

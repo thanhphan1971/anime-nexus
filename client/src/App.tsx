@@ -18,6 +18,7 @@ import PremiumPage from "@/pages/PremiumPage";
 import BenefitsPage from "@/pages/BenefitsPage";
 import CreatePostPage from "@/pages/CreatePostPage";
 import HelpPage from "@/pages/HelpPage";
+import CodeOfEthicsPage from "@/pages/CodeOfEthicsPage";
 import AdminPage from "@/pages/AdminPage";
 import DrawsPage from "@/pages/DrawsPage";
 import TokenShopPage from "@/pages/TokenShopPage";
@@ -91,6 +92,7 @@ function Router() {
         <Route path="/benefits" component={BenefitsPage} />
         <Route path="/create" component={CreatePostPage} />
         <Route path="/help" component={HelpPage} />
+        <Route path="/ethics" component={CodeOfEthicsPage} />
         <Route path="/admin" component={AdminPage} />
         <Route path="/tokens" component={TokenShopPage} />
         <Route path="/parent" component={ParentDashboardPage} />
