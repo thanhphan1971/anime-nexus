@@ -50,7 +50,7 @@ export default function CodeOfEthicsPage() {
           <Shield className="h-8 w-8 text-primary" />
         </div>
         <h1 className="text-4xl font-display font-bold neon-text">CODE OF ETHICS</h1>
-        <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+        <p className="text-foreground/80 text-lg max-w-2xl mx-auto">
           AniRealm is a community for anime fans. These guidelines help keep it welcoming and safe for everyone.
         </p>
       </div>
@@ -65,7 +65,7 @@ export default function CodeOfEthicsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-muted-foreground text-sm">{guideline.description}</p>
+              <p className="text-foreground/70 text-sm">{guideline.description}</p>
             </CardContent>
           </Card>
         ))}

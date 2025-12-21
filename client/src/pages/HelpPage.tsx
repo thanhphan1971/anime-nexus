@@ -97,7 +97,7 @@ export default function HelpPage() {
           <HelpCircle className="h-8 w-8 text-primary" />
         </div>
         <h1 className="text-4xl font-display font-bold neon-text">HELP CENTER</h1>
-        <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+        <p className="text-foreground/80 text-lg max-w-2xl mx-auto">
           Have a question? Found a bug? We're here to help you navigate the AniRealm.
         </p>
       </div>

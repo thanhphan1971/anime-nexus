@@ -192,7 +192,7 @@ export default function CommunitiesPage() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-display font-bold neon-text mb-2">COMMUNITIES</h1>
-          <p className="text-muted-foreground">Join a room. Find your squad. Discuss the latest arcs.</p>
+          <p className="text-foreground/80">Join a room. Find your squad. Discuss the latest arcs.</p>
         </div>
         <div className="flex gap-2 w-full md:w-auto">
           <div className="relative flex-1 md:w-64">

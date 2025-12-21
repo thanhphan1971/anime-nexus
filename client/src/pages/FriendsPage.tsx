@@ -177,7 +177,7 @@ export default function FriendsPage() {
           <div className="flex flex-col items-center justify-center max-w-md mx-auto relative">
             <div className="mb-6 text-center">
               <h2 className="text-2xl font-display font-bold neon-text">FIND NAKAMA</h2>
-              <p className="text-muted-foreground text-sm">Swipe right to connect, left to skip</p>
+              <p className="text-foreground/80 text-sm">Swipe right to connect, left to skip</p>
               
               {/* Swipe Counter - Made more visible */}
               <div className="mt-4 flex items-center justify-center gap-2">
@@ -346,7 +346,7 @@ export default function FriendsPage() {
           <div className="space-y-6">
             <div className="text-center mb-6">
               <h2 className="text-2xl font-display font-bold neon-text">YOUR CONNECTIONS</h2>
-              <p className="text-muted-foreground text-sm">People you've connected with</p>
+              <p className="text-foreground/80 text-sm">People you've connected with</p>
             </div>
 
             {connections.length === 0 ? (

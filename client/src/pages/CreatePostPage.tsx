@@ -188,7 +188,7 @@ export default function CreatePostPage() {
     <div className="max-w-2xl mx-auto space-y-8">
       <div className="text-center mb-8">
         <h1 className="text-3xl font-display font-bold neon-text mb-2">CREATE CONTENT</h1>
-        <p className="text-muted-foreground">Share your theories, art, or daily updates with the realm.</p>
+        <p className="text-foreground/80">Share your theories, art, or daily updates with the realm.</p>
       </div>
 
       <Tabs defaultValue="post" className="w-full">

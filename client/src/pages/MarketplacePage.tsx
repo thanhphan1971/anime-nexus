@@ -44,7 +44,7 @@ export default function MarketplacePage() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-display font-bold neon-text mb-2">CARD MARKETPLACE</h1>
-          <p className="text-muted-foreground">Trade your duplicates or spend tokens to complete your deck.</p>
+          <p className="text-foreground/80">Trade your duplicates or spend tokens to complete your deck.</p>
         </div>
         <div className="flex gap-2 w-full md:w-auto bg-card/50 p-1 rounded-lg border border-white/10">
            <div className="flex items-center px-3 gap-2 text-yellow-400 font-bold border-r border-white/10">

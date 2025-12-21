@@ -168,7 +168,7 @@ export default function TokenShopPage() {
           </div>
           <div>
             <h1 className="text-2xl font-display font-bold text-yellow-400 neon-text">TOKEN SHOP</h1>
-            <p className="text-muted-foreground text-sm">Power up your AniRealm experience</p>
+            <p className="text-foreground/80 text-sm">Power up your AniRealm experience</p>
           </div>
         </div>
         <div className="flex items-center gap-4 mt-4">
