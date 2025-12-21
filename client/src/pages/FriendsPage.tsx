@@ -51,6 +51,21 @@ function removeConnection(userId: string, connectedUserId: string) {
   localStorage.setItem(`connections_${userId}`, JSON.stringify(updated));
 }
 
+function getSkippedIds(userId: string): string[] {
+  const key = `skipped_${userId}`;
+  const data = localStorage.getItem(key);
+  return data ? JSON.parse(data) : [];
+}
+
+function saveSkippedIds(userId: string, skippedIds: string[]) {
+  const key = `skipped_${userId}`;
+  localStorage.setItem(key, JSON.stringify(skippedIds));
+}
+
+function clearSkippedIds(userId: string) {
+  localStorage.removeItem(`skipped_${userId}`);
+}
+
 export default function FriendsPage() {
   const { user } = useAuth();
   const { data: allUsers, isLoading } = useUsers();
@@ -70,6 +85,7 @@ export default function FriendsPage() {
   useEffect(() => {
     if (user) {
       setSwipeCount(getDailySwipes(user.id));
+      setSkippedIds(getSkippedIds(user.id));
       const connectionIds = getConnections(user.id);
       if (allUsers) {
         const connectedUsers = allUsers.filter((u: any) => connectionIds.includes(u.id));
@@ -113,7 +129,9 @@ export default function FriendsPage() {
         }
         toast.success("Connection request sent!");
       } else {
-        setSkippedIds(prev => [...prev, id]);
+        const newSkippedIds = [...skippedIds, id];
+        setSkippedIds(newSkippedIds);
+        saveSkippedIds(user.id, newSkippedIds);
       }
     }
   };
@@ -199,23 +217,35 @@ export default function FriendsPage() {
                 ) : cards.length === 0 ? (
                   <div className="absolute inset-0 flex flex-col items-center justify-center bg-card/50 rounded-3xl border-2 border-dashed border-white/20 p-8 text-center">
                     <RefreshCw className="h-12 w-12 text-muted-foreground mb-4" />
-                    <h3 className="text-xl font-bold mb-2">You've seen everyone!</h3>
-                    <p className="text-muted-foreground mb-4">No new profiles right now. Reset to discover new connections, or check back later for new members.</p>
-                    <Button 
-                      onClick={() => {
-                        if (user) {
-                          localStorage.removeItem(`connections_${user.id}`);
-                          setConnections([]);
-                        }
-                        setSkippedIds([]);
-                        toast.success("Profile pool refreshed!");
-                      }}
-                      variant="outline"
-                      className="border-primary/50 text-primary hover:bg-primary/10"
-                      data-testid="button-reset-profiles"
-                    >
-                      <RefreshCw className="h-4 w-4 mr-2" /> Start Fresh
-                    </Button>
+                    {skippedIds.length > 0 ? (
+                      <>
+                        <h3 className="text-xl font-bold mb-2">Want to see more?</h3>
+                        <p className="text-muted-foreground mb-4">
+                          You skipped {skippedIds.length} profile{skippedIds.length > 1 ? 's' : ''}. Scroll again to give them another look!
+                        </p>
+                        <Button 
+                          onClick={() => {
+                            if (user) {
+                              clearSkippedIds(user.id);
+                            }
+                            setSkippedIds([]);
+                            toast.success("Showing skipped profiles again!");
+                          }}
+                          variant="outline"
+                          className="border-primary/50 text-primary hover:bg-primary/10"
+                          data-testid="button-scroll-again"
+                        >
+                          <RefreshCw className="h-4 w-4 mr-2" /> Scroll Again
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <h3 className="text-xl font-bold mb-2">You've connected with everyone!</h3>
+                        <p className="text-muted-foreground mb-4">
+                          No more profiles to show. Check back later for new members joining the community!
+                        </p>
+                      </>
+                    )}
                   </div>
                 ) : (
                   cards.map((cardUser, index) => {
