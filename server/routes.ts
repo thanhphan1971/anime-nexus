@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import express, { type Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
@@ -2028,21 +2028,21 @@ export async function registerRoutes(
         return res.status(403).json({ error: "Not authorized to respond to this request" });
       }
       
-      if (authRequest.status !== 'pending') {
-        return res.status(400).json({ error: "Request has already been processed" });
+      // Only allow response if pending_parent
+      if (authRequest.status !== 'pending_parent') {
+        return res.status(400).json({ error: "Request is not awaiting parent response" });
       }
       
       // Check if expired
       if (new Date() > authRequest.expiresAt) {
-        await storage.respondToAuthRequest(req.params.requestId, 'denied', 'Request expired');
+        await storage.rejectAuthRequest(req.params.requestId, 'Request expired');
         return res.status(400).json({ error: "Request has expired" });
       }
       
-      // If denied, just update the status
+      // If denied, set status to rejected
       if (status === 'denied') {
-        const updatedRequest = await storage.respondToAuthRequest(
+        const updatedRequest = await storage.rejectAuthRequest(
           req.params.requestId,
-          'denied',
           parentNote
         );
         return res.json({
@@ -2106,8 +2106,8 @@ export async function registerRoutes(
         },
       });
       
-      // Update the auth request with stripe session info (status becomes payment_pending)
-      await storage.updateAuthRequestStripeInfo(authRequest.id, session.id);
+      // Update the auth request with stripe session info (status becomes checkout_created)
+      await storage.setCheckoutCreated(authRequest.id, session.id);
       
       res.json({
         success: true,
@@ -2120,16 +2120,13 @@ export async function registerRoutes(
     }
   });
   
-  // Handle successful payment for minor token purchase
-  app.post("/api/parent/auth-request/:requestId/complete-payment", async (req, res) => {
+  // Cancel checkout and return to pending_parent state
+  app.post("/api/parent/auth-request/:requestId/cancel-checkout", async (req, res) => {
     try {
       if (!req.session.userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
-      const { sessionId } = req.body;
-      
-      // Get the auth request
       const authRequest = await storage.getAuthRequestById(req.params.requestId);
       if (!authRequest) {
         return res.status(404).json({ error: "Request not found" });
@@ -2139,51 +2136,20 @@ export async function registerRoutes(
         return res.status(403).json({ error: "Not authorized" });
       }
       
-      // Verify the Stripe session is completed
-      const { getUncachableStripeClient } = await import("./stripeClient");
-      const stripe = await getUncachableStripeClient();
-      
-      const session = await stripe.checkout.sessions.retrieve(sessionId);
-      
-      if (session.payment_status !== 'paid') {
-        return res.status(400).json({ error: "Payment not completed" });
+      if (authRequest.status !== 'checkout_created') {
+        return res.status(400).json({ error: "Cannot cancel: checkout not in progress" });
       }
       
-      if (session.metadata?.authRequestId !== authRequest.id) {
-        return res.status(400).json({ error: "Session mismatch" });
-      }
-      
-      // Check if already processed
-      if (authRequest.status === 'approved' && authRequest.stripePaymentId) {
-        return res.json({
-          success: true,
-          message: "Payment already processed"
-        });
-      }
-      
-      // Complete the payment - update auth request and add tokens to child
-      const child = await storage.getUser(authRequest.childId);
-      if (!child) {
-        return res.status(404).json({ error: "Child account not found" });
-      }
-      
-      // Update auth request with payment ID
-      await storage.completeAuthRequestPayment(
-        authRequest.id, 
-        session.payment_intent as string
-      );
-      
-      // Add tokens to child's account
-      await storage.updateUser(authRequest.childId, {
-        tokens: child.tokens + authRequest.tokenAmount
-      });
+      // Reset to pending_parent so parent can approve again
+      const updatedRequest = await storage.cancelCheckout(authRequest.id);
       
       res.json({
         success: true,
-        message: `${authRequest.tokenAmount.toLocaleString()} tokens added to ${child.name || child.handle}'s account`
+        request: updatedRequest,
+        message: "Checkout canceled. You can approve this request again when ready."
       });
     } catch (error: any) {
-      console.error("Complete payment error:", error);
+      console.error("Cancel checkout error:", error);
       res.status(400).json({ error: error.message });
     }
   });

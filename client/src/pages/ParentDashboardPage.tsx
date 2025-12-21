@@ -86,36 +86,35 @@ export default function ParentDashboardPage() {
     const paymentSuccess = params.get('payment_success');
     const paymentCanceled = params.get('payment_canceled');
     const requestId = params.get('request_id');
-    const sessionId = params.get('session_id');
 
     if (paymentSuccess === 'true' && requestId) {
-      // Complete the payment
+      // Payment completed - webhook handles fulfillment, just show success and refresh
       setProcessingPayment(true);
-      fetch(`/api/parent/auth-request/${requestId}/complete-payment`, {
+      toast.success("Payment completed! Tokens are being added to your child's account.");
+      queryClient.invalidateQueries({ queryKey: ["/api/parent/auth-requests"] });
+      setProcessingPayment(false);
+      setLocation('/parent');
+    } else if (paymentCanceled === 'true' && requestId) {
+      // Cancel checkout - reset to pending_parent so parent can approve again
+      setProcessingPayment(true);
+      fetch(`/api/parent/auth-request/${requestId}/cancel-checkout`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId }),
       })
         .then(res => res.json())
         .then(data => {
           if (data.success) {
-            toast.success(data.message || "Payment completed! Tokens added to child's account.");
-          } else {
-            toast.error(data.error || "Failed to complete payment");
+            toast.info("Payment was canceled. You can approve this request again when ready.");
           }
         })
         .catch(() => {
-          toast.error("Failed to process payment");
+          // Silently handle - request may already be in correct state
         })
         .finally(() => {
           setProcessingPayment(false);
           queryClient.invalidateQueries({ queryKey: ["/api/parent/auth-requests"] });
-          // Clear URL params
           setLocation('/parent');
         });
-    } else if (paymentCanceled === 'true') {
-      toast.info("Payment was canceled. The purchase request is still pending.");
-      setLocation('/parent');
     }
   }, [searchString, queryClient, setLocation]);
 
@@ -335,26 +334,36 @@ export default function ParentDashboardPage() {
                       <span>Expires: {new Date(request.expiresAt).toLocaleDateString()}</span>
                     </div>
                     <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => respondMutation.mutate({ requestId: request.id, status: 'denied' })}
-                        disabled={respondMutation.isPending}
-                        data-testid={`button-deny-${request.id}`}
-                      >
-                        <X className="h-4 w-4 mr-1" />
-                        Deny
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="bg-green-500 hover:bg-green-600"
-                        onClick={() => respondMutation.mutate({ requestId: request.id, status: 'approved' })}
-                        disabled={respondMutation.isPending}
-                        data-testid={`button-approve-${request.id}`}
-                      >
-                        <Check className="h-4 w-4 mr-1" />
-                        Approve
-                      </Button>
+                      {request.status === 'pending_parent' && (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => respondMutation.mutate({ requestId: request.id, status: 'denied' })}
+                            disabled={respondMutation.isPending}
+                            data-testid={`button-deny-${request.id}`}
+                          >
+                            <X className="h-4 w-4 mr-1" />
+                            Deny
+                          </Button>
+                          <Button
+                            size="sm"
+                            className="bg-green-500 hover:bg-green-600"
+                            onClick={() => respondMutation.mutate({ requestId: request.id, status: 'approved' })}
+                            disabled={respondMutation.isPending}
+                            data-testid={`button-approve-${request.id}`}
+                          >
+                            <Check className="h-4 w-4 mr-1" />
+                            Approve & Pay
+                          </Button>
+                        </>
+                      )}
+                      {request.status === 'checkout_created' && (
+                        <Badge variant="secondary" className="bg-yellow-500/20 text-yellow-400">
+                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                          Payment in progress
+                        </Badge>
+                      )}
                     </div>
                   </div>
                 </div>
