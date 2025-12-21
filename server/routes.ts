@@ -2038,31 +2038,152 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Request has expired" });
       }
       
-      const updatedRequest = await storage.respondToAuthRequest(
-        req.params.requestId,
-        status,
-        parentNote
-      );
-      
-      // If approved, process the purchase
-      if (status === 'approved' && updatedRequest) {
-        const child = await storage.getUser(authRequest.childId);
-        if (child) {
-          // Add tokens to child's account (this is a parent-authorized purchase)
-          await storage.updateUser(authRequest.childId, {
-            tokens: child.tokens + authRequest.tokenAmount
-          });
-        }
+      // If denied, just update the status
+      if (status === 'denied') {
+        const updatedRequest = await storage.respondToAuthRequest(
+          req.params.requestId,
+          'denied',
+          parentNote
+        );
+        return res.json({
+          success: true,
+          request: updatedRequest,
+          message: "Purchase request denied"
+        });
       }
+      
+      // If approved, create a Stripe checkout session for the parent to pay
+      const parent = await storage.getUser(req.session.userId);
+      const child = await storage.getUser(authRequest.childId);
+      
+      if (!parent || !child) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      const { getUncachableStripeClient } = await import("./stripeClient");
+      const stripe = await getUncachableStripeClient();
+      
+      // Ensure parent has a Stripe customer ID
+      let customerId = parent.stripeCustomerId;
+      if (!customerId) {
+        const customer = await stripe.customers.create({
+          email: parent.email,
+          metadata: { 
+            userId: parent.id,
+            username: parent.username || '',
+          },
+        });
+        customerId = customer.id;
+        await storage.updateUser(parent.id, { stripeCustomerId: customerId });
+      }
+      
+      const baseUrl = `https://${process.env.REPLIT_DOMAINS?.split(',')[0]}`;
+      
+      // Create one-time payment checkout session
+      const session = await stripe.checkout.sessions.create({
+        customer: customerId,
+        payment_method_types: ['card'],
+        line_items: [{
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: `${authRequest.tokenAmount.toLocaleString()} Tokens for ${child.name || child.handle}`,
+              description: `Token purchase for ${child.handle}'s account`,
+            },
+            unit_amount: authRequest.amountInCents,
+          },
+          quantity: 1,
+        }],
+        mode: 'payment',
+        success_url: `${baseUrl}/parent?payment_success=true&request_id=${authRequest.id}`,
+        cancel_url: `${baseUrl}/parent?payment_canceled=true&request_id=${authRequest.id}`,
+        metadata: {
+          authRequestId: authRequest.id,
+          parentId: parent.id,
+          childId: child.id,
+          tokenAmount: authRequest.tokenAmount.toString(),
+          type: 'minor_token_purchase',
+        },
+      });
+      
+      // Update the auth request with stripe session info (status becomes payment_pending)
+      await storage.updateAuthRequestStripeInfo(authRequest.id, session.id);
       
       res.json({
         success: true,
-        request: updatedRequest,
-        message: status === 'approved' 
-          ? "Purchase approved and tokens added to child's account"
-          : "Purchase request denied"
+        checkoutUrl: session.url,
+        message: "Redirecting to payment"
       });
     } catch (error: any) {
+      console.error("Parent approval error:", error);
+      res.status(400).json({ error: error.message });
+    }
+  });
+  
+  // Handle successful payment for minor token purchase
+  app.post("/api/parent/auth-request/:requestId/complete-payment", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const { sessionId } = req.body;
+      
+      // Get the auth request
+      const authRequest = await storage.getAuthRequestById(req.params.requestId);
+      if (!authRequest) {
+        return res.status(404).json({ error: "Request not found" });
+      }
+      
+      if (authRequest.parentId !== req.session.userId) {
+        return res.status(403).json({ error: "Not authorized" });
+      }
+      
+      // Verify the Stripe session is completed
+      const { getUncachableStripeClient } = await import("./stripeClient");
+      const stripe = await getUncachableStripeClient();
+      
+      const session = await stripe.checkout.sessions.retrieve(sessionId);
+      
+      if (session.payment_status !== 'paid') {
+        return res.status(400).json({ error: "Payment not completed" });
+      }
+      
+      if (session.metadata?.authRequestId !== authRequest.id) {
+        return res.status(400).json({ error: "Session mismatch" });
+      }
+      
+      // Check if already processed
+      if (authRequest.status === 'approved' && authRequest.stripePaymentId) {
+        return res.json({
+          success: true,
+          message: "Payment already processed"
+        });
+      }
+      
+      // Complete the payment - update auth request and add tokens to child
+      const child = await storage.getUser(authRequest.childId);
+      if (!child) {
+        return res.status(404).json({ error: "Child account not found" });
+      }
+      
+      // Update auth request with payment ID
+      await storage.completeAuthRequestPayment(
+        authRequest.id, 
+        session.payment_intent as string
+      );
+      
+      // Add tokens to child's account
+      await storage.updateUser(authRequest.childId, {
+        tokens: child.tokens + authRequest.tokenAmount
+      });
+      
+      res.json({
+        success: true,
+        message: `${authRequest.tokenAmount.toLocaleString()} tokens added to ${child.name || child.handle}'s account`
+      });
+    } catch (error: any) {
+      console.error("Complete payment error:", error);
       res.status(400).json({ error: error.message });
     }
   });
