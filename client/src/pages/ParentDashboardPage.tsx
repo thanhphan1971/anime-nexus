@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useLocation, useSearch } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { 
   Shield, Users, Settings, CreditCard, MessageSquare, 
   Sparkles, ShoppingBag, UserPlus, Check, X, Eye,
-  AlertTriangle, Clock, DollarSign, Bell, Lock, Unlock, Coins
+  AlertTriangle, Clock, DollarSign, Bell, Lock, Unlock, Coins, Loader2
 } from "lucide-react";
 
 interface ParentalControls {
@@ -71,10 +72,52 @@ interface AuthRequest {
 export default function ParentDashboardPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
+  const searchString = useSearch();
   const [selectedChild, setSelectedChild] = useState<LinkedChild | null>(null);
   const [showVerifyDialog, setShowVerifyDialog] = useState(false);
   const [verificationCode, setVerificationCode] = useState("");
   const [localControls, setLocalControls] = useState<ParentalControls | null>(null);
+  const [processingPayment, setProcessingPayment] = useState(false);
+
+  // Handle payment success/cancel from URL params
+  useEffect(() => {
+    const params = new URLSearchParams(searchString);
+    const paymentSuccess = params.get('payment_success');
+    const paymentCanceled = params.get('payment_canceled');
+    const requestId = params.get('request_id');
+    const sessionId = params.get('session_id');
+
+    if (paymentSuccess === 'true' && requestId) {
+      // Complete the payment
+      setProcessingPayment(true);
+      fetch(`/api/parent/auth-request/${requestId}/complete-payment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId }),
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            toast.success(data.message || "Payment completed! Tokens added to child's account.");
+          } else {
+            toast.error(data.error || "Failed to complete payment");
+          }
+        })
+        .catch(() => {
+          toast.error("Failed to process payment");
+        })
+        .finally(() => {
+          setProcessingPayment(false);
+          queryClient.invalidateQueries({ queryKey: ["/api/parent/auth-requests"] });
+          // Clear URL params
+          setLocation('/parent');
+        });
+    } else if (paymentCanceled === 'true') {
+      toast.info("Payment was canceled. The purchase request is still pending.");
+      setLocation('/parent');
+    }
+  }, [searchString, queryClient, setLocation]);
 
   const { data: children = [], isLoading } = useQuery<LinkedChild[]>({
     queryKey: ["/api/parent/children"],
@@ -157,8 +200,15 @@ export default function ParentDashboardPage() {
       }
       return res.json();
     },
-    onSuccess: (_, variables) => {
-      toast.success(variables.status === 'approved' ? "Purchase approved!" : "Purchase denied.");
+    onSuccess: (data, variables) => {
+      // If approved, redirect to Stripe checkout
+      if (variables.status === 'approved' && data.checkoutUrl) {
+        toast.info("Redirecting to payment...");
+        window.location.href = data.checkoutUrl;
+        return;
+      }
+      // If denied, show success message
+      toast.success("Purchase request denied.");
       queryClient.invalidateQueries({ queryKey: ["/api/parent/auth-requests"] });
       setRespondingTo(null);
       setResponseNote("");
