@@ -197,9 +197,11 @@ export interface IStorage {
   getPendingAuthRequests(parentId: string): Promise<Array<PurchaseAuthRequest & { child: User }>>;
   getAuthRequestById(id: string): Promise<PurchaseAuthRequest | undefined>;
   getAuthRequestByStripeSessionId(sessionId: string): Promise<PurchaseAuthRequest | undefined>;
-  respondToAuthRequest(id: string, status: 'approved' | 'denied', parentNote?: string): Promise<PurchaseAuthRequest | undefined>;
-  updateAuthRequestStripeInfo(id: string, stripeSessionId: string): Promise<PurchaseAuthRequest | undefined>;
-  completeAuthRequestPayment(id: string, stripePaymentId: string): Promise<PurchaseAuthRequest | undefined>;
+  rejectAuthRequest(id: string, parentNote?: string): Promise<PurchaseAuthRequest | undefined>;
+  setCheckoutCreated(id: string, stripeSessionId: string): Promise<PurchaseAuthRequest | undefined>;
+  cancelCheckout(id: string): Promise<PurchaseAuthRequest | undefined>;
+  markPaid(id: string, stripePaymentId: string): Promise<PurchaseAuthRequest | undefined>;
+  fulfillAuthRequest(id: string, childId: string, tokenAmount: number): Promise<{ request: PurchaseAuthRequest; alreadyFulfilled: boolean }>;
   getChildPendingRequests(childId: string): Promise<PurchaseAuthRequest[]>;
   
   // Site settings operations
@@ -1159,7 +1161,7 @@ export class DbStorage implements IStorage {
       .innerJoin(users, eq(purchaseAuthRequests.childId, users.id))
       .where(and(
         eq(purchaseAuthRequests.parentId, parentId),
-        eq(purchaseAuthRequests.status, 'pending')
+        inArray(purchaseAuthRequests.status, ['pending_parent', 'checkout_created'])
       ))
       .orderBy(desc(purchaseAuthRequests.createdAt));
     
@@ -1178,11 +1180,11 @@ export class DbStorage implements IStorage {
     return result[0];
   }
 
-  async respondToAuthRequest(id: string, status: 'approved' | 'denied', parentNote?: string): Promise<PurchaseAuthRequest | undefined> {
+  async rejectAuthRequest(id: string, parentNote?: string): Promise<PurchaseAuthRequest | undefined> {
     const result = await db
       .update(purchaseAuthRequests)
       .set({ 
-        status, 
+        status: 'rejected', 
         parentNote: parentNote || null,
         respondedAt: new Date() 
       })
@@ -1197,7 +1199,7 @@ export class DbStorage implements IStorage {
       .from(purchaseAuthRequests)
       .where(and(
         eq(purchaseAuthRequests.childId, childId),
-        eq(purchaseAuthRequests.status, 'pending')
+        inArray(purchaseAuthRequests.status, ['pending_parent', 'checkout_created', 'paid'])
       ))
       .orderBy(desc(purchaseAuthRequests.createdAt));
   }
@@ -1211,29 +1213,73 @@ export class DbStorage implements IStorage {
     return result[0];
   }
 
-  async updateAuthRequestStripeInfo(id: string, stripeSessionId: string): Promise<PurchaseAuthRequest | undefined> {
+  async setCheckoutCreated(id: string, stripeSessionId: string): Promise<PurchaseAuthRequest | undefined> {
     const result = await db
       .update(purchaseAuthRequests)
       .set({ 
         stripeSessionId,
-        status: 'payment_pending'
+        status: 'checkout_created'
       })
       .where(eq(purchaseAuthRequests.id, id))
       .returning();
     return result[0];
   }
 
-  async completeAuthRequestPayment(id: string, stripePaymentId: string): Promise<PurchaseAuthRequest | undefined> {
+  async cancelCheckout(id: string): Promise<PurchaseAuthRequest | undefined> {
+    const result = await db
+      .update(purchaseAuthRequests)
+      .set({ 
+        status: 'pending_parent',
+        stripeSessionId: null
+      })
+      .where(eq(purchaseAuthRequests.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async markPaid(id: string, stripePaymentId: string): Promise<PurchaseAuthRequest | undefined> {
     const result = await db
       .update(purchaseAuthRequests)
       .set({ 
         stripePaymentId,
-        status: 'approved',
+        status: 'paid',
         respondedAt: new Date()
       })
       .where(eq(purchaseAuthRequests.id, id))
       .returning();
     return result[0];
+  }
+
+  async fulfillAuthRequest(id: string, childId: string, tokenAmount: number): Promise<{ request: PurchaseAuthRequest; alreadyFulfilled: boolean }> {
+    const authRequest = await this.getAuthRequestById(id);
+    if (!authRequest) {
+      throw new Error('Auth request not found');
+    }
+    
+    if (authRequest.status === 'fulfilled') {
+      return { request: authRequest, alreadyFulfilled: true };
+    }
+    
+    if (authRequest.status !== 'paid') {
+      throw new Error('Cannot fulfill: payment not confirmed');
+    }
+    
+    const child = await this.getUser(childId);
+    if (!child) {
+      throw new Error('Child account not found');
+    }
+    
+    await this.updateUser(childId, {
+      tokens: child.tokens + tokenAmount
+    });
+    
+    const result = await db
+      .update(purchaseAuthRequests)
+      .set({ status: 'fulfilled' })
+      .where(eq(purchaseAuthRequests.id, id))
+      .returning();
+    
+    return { request: result[0], alreadyFulfilled: false };
   }
 
   // Site settings operations

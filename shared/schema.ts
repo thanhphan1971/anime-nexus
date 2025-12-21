@@ -423,7 +423,7 @@ export const purchaseAuthRequests = pgTable("purchase_auth_requests", {
   tokenAmount: integer("token_amount").notNull(),
   amountInCents: integer("amount_in_cents").notNull(),
   reason: text("reason"), // child's message to parent
-  status: text("status").notNull().default('pending'), // pending, approved, denied, expired, payment_pending
+  status: text("status").notNull().default('pending_parent'), // pending_parent, checkout_created, paid, fulfilled, rejected
   parentNote: text("parent_note"), // parent's response message
   stripeSessionId: text("stripe_session_id"), // Stripe checkout session for payment
   stripePaymentId: text("stripe_payment_id"), // Stripe payment intent ID after successful payment
