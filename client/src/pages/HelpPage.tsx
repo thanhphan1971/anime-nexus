@@ -71,7 +71,12 @@ export default function HelpPage() {
     },
     {
       question: "How does the card collection work?",
-      answer: "Collect cards through summons using your tokens. Cards come in different rarities from Common to Mythic. Build your collection and showcase your favorite cards on your profile!"
+      answer: (
+        <div className="space-y-2">
+          <p>Collect cards through summons and official in-app activities. Cards come in different rarities, ranging from Common to Mythic.</p>
+          <p>Build your collection and showcase your favorite cards on your profile.</p>
+        </div>
+      )
     },
     {
       question: "How do I report bad behavior?",
