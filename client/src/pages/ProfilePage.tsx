@@ -78,6 +78,7 @@ export default function ProfilePage() {
     bio: "",
     avatar: "",
   });
+  const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
   
   const [cropperOpen, setCropperOpen] = useState(false);
   const [imageToCrop, setImageToCrop] = useState<string | null>(null);
@@ -118,6 +119,7 @@ export default function ProfilePage() {
         bio: currentUser.bio || "",
         avatar: currentUser.avatar || "",
       });
+      setSelectedPresetId(null);
       setEditDialogOpen(true);
     }
   };
@@ -128,6 +130,7 @@ export default function ProfilePage() {
     const randomStyle = styles[Math.floor(Math.random() * styles.length)];
     const newAvatar = `https://api.dicebear.com/7.x/${randomStyle}/svg?seed=${randomSeed}`;
     setEditForm({ ...editForm, avatar: newAvatar });
+    setSelectedPresetId(null);
     toast.success("New avatar generated!");
   };
 
@@ -176,6 +179,7 @@ export default function ProfilePage() {
     try {
       const croppedImage = await getCroppedImg(imageToCrop, croppedAreaPixels);
       setEditForm(prev => ({ ...prev, avatar: croppedImage }));
+      setSelectedPresetId(null);
       setCropperOpen(false);
       setImageToCrop(null);
       toast.success("Image cropped successfully!");
@@ -197,14 +201,30 @@ export default function ProfilePage() {
     if (!currentUser) return;
     
     try {
+      // If a preset avatar was selected, use the secure avatar endpoint
+      if (selectedPresetId) {
+        await updateAvatar.mutateAsync({
+          userId: currentUser.id,
+          avatarId: selectedPresetId,
+        });
+      }
+      
+      // Update other profile fields (name, bio, and non-preset avatar)
+      const updates: { name: string; bio: string; avatar?: string } = {
+        name: editForm.name,
+        bio: editForm.bio,
+      };
+      
+      // Only include avatar in generic update if NOT a preset selection
+      if (!selectedPresetId && editForm.avatar !== currentUser.avatar) {
+        updates.avatar = editForm.avatar;
+      }
+      
       await updateUser.mutateAsync({
         userId: currentUser.id,
-        updates: {
-          name: editForm.name,
-          bio: editForm.bio,
-          avatar: editForm.avatar,
-        },
+        updates,
       });
+      
       await refreshUser();
       setEditDialogOpen(false);
       toast.success("Profile updated!");
@@ -310,16 +330,19 @@ export default function ProfilePage() {
                     <button
                       key={preset.id}
                       type="button"
-                      onClick={() => setEditForm({ ...editForm, avatar: preset.url })}
+                      onClick={() => {
+                        setEditForm({ ...editForm, avatar: preset.url });
+                        setSelectedPresetId(preset.id);
+                      }}
                       className={`relative h-10 w-10 rounded-full overflow-hidden border-2 transition-all hover:scale-110 ${
-                        editForm.avatar === preset.url 
+                        selectedPresetId === preset.id 
                           ? 'border-primary ring-2 ring-primary/50' 
                           : 'border-white/20 hover:border-white/50'
                       }`}
                       data-testid={`button-preset-avatar-${preset.id}`}
                     >
                       <img src={preset.url} alt={preset.name} className="h-full w-full object-cover" />
-                      {editForm.avatar === preset.url && (
+                      {selectedPresetId === preset.id && (
                         <div className="absolute inset-0 bg-primary/30 flex items-center justify-center">
                           <Check className="h-4 w-4 text-white" />
                         </div>
