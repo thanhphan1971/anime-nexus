@@ -182,6 +182,10 @@ export default function HelpPage() {
           </CardContent>
         </Card>
       </div>
+
+      <p className="text-xs text-muted-foreground text-center mt-4">
+        Features and limits may vary by region, event, or update.
+      </p>
     </div>
   );
 }
