@@ -133,7 +133,7 @@ export default function AnimeListPage() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-display font-bold neon-text mb-2" data-testid="text-page-title">MY WATCHLIST</h1>
-          <p className="text-muted-foreground">Track your journey through the multiverse.</p>
+          <p className="text-foreground/80">Track your journey through the multiverse.</p>
         </div>
         <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
           <DialogTrigger asChild>
@@ -161,7 +161,7 @@ export default function AnimeListPage() {
             >
               {tab.label}
               {tab.value !== "ALL" && (
-                <span className="ml-1 text-xs opacity-60">
+                <span className="ml-1 text-xs opacity-80">
                   ({watchlist.filter((i) => i.status === tab.value).length})
                 </span>
               )}
@@ -174,7 +174,7 @@ export default function AnimeListPage() {
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : filteredWatchlist.length === 0 ? (
-          <div className="text-center py-12 border border-dashed border-white/10 rounded-xl text-muted-foreground">
+          <div className="text-center py-12 border border-dashed border-white/10 rounded-xl text-foreground/70">
             {activeTab === "ALL" 
               ? "Your watchlist is empty. Add some anime to get started!"
               : `No anime in ${activeTab.toLowerCase()} status.`}
