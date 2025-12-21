@@ -80,7 +80,12 @@ export default function HelpPage() {
     },
     {
       question: "How do I report bad behavior?",
-      answer: "If you see someone violating our Code of Ethics, click the 'Report' flag icon on their post or profile. Our moderation team reviews all reports 24/7."
+      answer: (
+        <div className="space-y-2">
+          <p>If you see someone violating our Code of Ethics, click the Report flag icon on their post or profile.</p>
+          <p>All reports are reviewed by the AniRealm moderation team. Serious issues are prioritized.</p>
+        </div>
+      )
     }
   ];
 
