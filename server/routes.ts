@@ -2095,7 +2095,7 @@ export async function registerRoutes(
           quantity: 1,
         }],
         mode: 'payment',
-        success_url: `${baseUrl}/parent?payment_success=true&request_id=${authRequest.id}`,
+        success_url: `${baseUrl}/parent?payment_success=true&request_id=${authRequest.id}&session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${baseUrl}/parent?payment_canceled=true&request_id=${authRequest.id}`,
         metadata: {
           authRequestId: authRequest.id,
