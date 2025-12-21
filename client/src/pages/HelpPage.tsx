@@ -45,7 +45,19 @@ export default function HelpPage() {
     },
     {
       question: "What are the benefits of S-Class?",
-      answer: "S-Class Elite members get 2x Daily Summons, higher luck for rare cards, animated profile avatars, exclusive access to VIP chat rooms, increased daily token earning limits, and the ability to see who liked their profile in Find Nakama."
+      answer: (
+        <div className="space-y-2">
+          <p>S-Class membership provides expanded access and higher limits within AniRealm.</p>
+          <p className="font-semibold">S-Class benefits include:</p>
+          <ul className="list-disc list-inside space-y-1 ml-2">
+            <li>Additional daily game and summon entries</li>
+            <li>Higher daily token earning limits</li>
+            <li>Access to weekly and monthly draws</li>
+            <li>Exclusive S-Class identity badge</li>
+          </ul>
+          <p className="text-sm text-muted-foreground mt-2">S-Class does not guarantee specific card rarities or matchmaking outcomes. Exact benefits may evolve as AniRealm expands.</p>
+        </div>
+      )
     },
     {
       question: "How does the 'Find Nakama' matching work?",
