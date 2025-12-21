@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Book, Filter, ArrowUpDown, ChevronLeft, ChevronRight, Sparkles, Clock, Star, Zap, Loader2 } from "lucide-react";
+import { Book, Filter, ArrowUpDown, ChevronLeft, ChevronRight, Sparkles, Clock, Star, Zap, Loader2, ArrowLeft } from "lucide-react";
 
 type CardData = {
   id: string;
@@ -119,6 +120,12 @@ export default function CardCatalogPage() {
 
   return (
     <div className="space-y-6 pb-24">
+      <Link href="/cards">
+        <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary" data-testid="button-back-to-cards">
+          <ArrowLeft className="h-4 w-4 mr-2" /> Back to Cards
+        </Button>
+      </Link>
+      
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-card/30 p-4 rounded-xl border border-white/10 backdrop-blur-md sticky top-0 z-10">
         <div>
           <h1 className="text-2xl font-display font-bold neon-text flex items-center gap-2">
