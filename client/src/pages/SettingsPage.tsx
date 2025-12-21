@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Check, X, Loader2, AtSign, Clock, AlertCircle } from "lucide-react";
+import { ArrowLeft, Check, X, Loader2, AtSign, Clock, AlertCircle, Mail } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useCheckHandle, useUpdateHandle } from "@/lib/api";
 import { toast } from "sonner";
@@ -64,6 +64,25 @@ export default function SettingsPage() {
         </Link>
         <h1 className="text-2xl font-display">Settings</h1>
       </div>
+
+      {/* Email Display */}
+      <Card className="bg-card/50 border-white/10">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Mail className="h-5 w-5 text-primary" />
+            Your Email
+          </CardTitle>
+          <CardDescription>
+            The email address associated with your account
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
+            <p className="text-sm text-muted-foreground">Email address</p>
+            <p className="text-lg font-mono text-foreground" data-testid="text-user-email">{user?.email || 'Not set'}</p>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card className="bg-card/50 border-white/10">
         <CardHeader>

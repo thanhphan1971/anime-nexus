@@ -537,6 +537,13 @@ export default function ProfilePage() {
                  <div className="flex items-center gap-2">
                    <Calendar className="h-4 w-4" /> Joined {profileUser.createdAt ? formatDistanceToNow(new Date(profileUser.createdAt), { addSuffix: true }) : 'recently'}
                  </div>
+                 {isOwnProfile && (
+                   <Link href="/settings">
+                     <div className="flex items-center gap-2 cursor-pointer hover:text-primary transition-colors" data-testid="link-settings">
+                       <Settings className="h-4 w-4" /> Account Settings
+                     </div>
+                   </Link>
+                 )}
                  <Link href="/universe">
                    <div className="flex items-center gap-2 cursor-pointer hover:text-primary transition-colors" data-testid="link-universe">
                      <Globe className="h-4 w-4" /> Explore the Universe
