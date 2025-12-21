@@ -37,26 +37,45 @@ export class WebhookHandlers {
         
         // Check if this is a minor token purchase
         if (session.metadata?.type === 'minor_token_purchase') {
-          const authRequestId = session.metadata.authRequestId;
+          const purchaseRequestId = session.metadata.purchaseRequestId;
           const childId = session.metadata.childId;
-          const tokenAmount = parseInt(session.metadata.tokenAmount, 10);
+          const totalTokens = parseInt(session.metadata.totalTokens, 10);
           
-          if (authRequestId && childId && tokenAmount && session.payment_status === 'paid') {
-            const authRequest = await storage.getAuthRequestById(authRequestId);
+          if (purchaseRequestId && childId && totalTokens && session.payment_status === 'paid') {
+            const purchaseRequest = await storage.getPurchaseRequestById(purchaseRequestId);
             
-            if (authRequest && authRequest.status === 'checkout_created') {
+            if (purchaseRequest && purchaseRequest.status === 'CHECKOUT_CREATED') {
               // Mark as paid
-              await storage.markPaid(authRequestId, session.payment_intent as string);
+              await storage.markPurchasePaid(purchaseRequestId, session.payment_intent as string);
               
-              // Fulfill the request (idempotent)
-              const { alreadyFulfilled } = await storage.fulfillAuthRequest(
-                authRequestId,
-                childId,
-                tokenAmount
-              );
+              // Idempotent token crediting using tokenLedger
+              const existingLedgerEntry = await storage.getTokenLedgerByPurchaseRequest(purchaseRequestId);
               
-              if (!alreadyFulfilled) {
-                console.log(`Webhook: Credited ${tokenAmount} tokens to child ${childId} for request ${authRequestId}`);
+              if (!existingLedgerEntry) {
+                // Credit tokens to child
+                const child = await storage.getUser(childId);
+                if (child) {
+                  await storage.updateUser(childId, {
+                    tokens: child.tokens + totalTokens
+                  });
+                  
+                  // Record in token ledger for idempotency
+                  await storage.createTokenLedgerEntry({
+                    userId: childId,
+                    source: 'minor_token_purchase',
+                    purchaseRequestId: purchaseRequestId,
+                    deltaTokens: totalTokens,
+                  });
+                  
+                  // Mark request as fulfilled
+                  await storage.fulfillPurchaseRequest(purchaseRequestId);
+                  
+                  console.log(`Webhook: Credited ${totalTokens} tokens to child ${childId} for request ${purchaseRequestId}`);
+                }
+              } else {
+                // Already credited, ensure status is fulfilled
+                await storage.fulfillPurchaseRequest(purchaseRequestId);
+                console.log(`Webhook: Skipped duplicate credit for request ${purchaseRequestId}`);
               }
             }
           }

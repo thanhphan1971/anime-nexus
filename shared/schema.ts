@@ -414,23 +414,40 @@ export const parentalControls = pgTable("parental_controls", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
-// Purchase Authorization Requests - for over-limit purchases needing parent approval
-export const purchaseAuthRequests = pgTable("purchase_auth_requests", {
+// Purchase Requests - for minor token purchases needing parent approval
+export const purchaseRequests = pgTable("purchase_requests", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  childId: varchar("child_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
-  parentId: varchar("parent_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
-  packageId: varchar("package_id").references(() => tokenPackages.id, { onDelete: 'set null' }),
-  tokenAmount: integer("token_amount").notNull(),
-  amountInCents: integer("amount_in_cents").notNull(),
-  reason: text("reason"), // child's message to parent
-  status: text("status").notNull().default('pending_parent'), // pending_parent, checkout_created, paid, fulfilled, rejected
-  parentNote: text("parent_note"), // parent's response message
-  stripeSessionId: text("stripe_session_id"), // Stripe checkout session for payment
-  stripePaymentId: text("stripe_payment_id"), // Stripe payment intent ID after successful payment
-  expiresAt: timestamp("expires_at").notNull(), // requests expire after 7 days
+  childUserId: varchar("child_user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  parentUserId: varchar("parent_user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  packId: text("pack_id").notNull(),
+  currency: text("currency").notNull().default('USD'),
+  unitAmountCents: integer("unit_amount_cents").notNull(),
+  baseTokens: integer("base_tokens").notNull(),
+  bonusTokens: integer("bonus_tokens").notNull().default(0),
+  totalTokens: integer("total_tokens").notNull(),
+  status: text("status").notNull().default('PENDING_PARENT'),
+  stripeCheckoutSessionId: text("stripe_checkout_session_id").unique(),
+  stripePaymentIntentId: text("stripe_payment_intent_id").unique(),
+  requestedAt: timestamp("requested_at").notNull().defaultNow(),
+  approvedAt: timestamp("approved_at"),
+  deniedAt: timestamp("denied_at"),
+  paidAt: timestamp("paid_at"),
+  fulfilledAt: timestamp("fulfilled_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-  respondedAt: timestamp("responded_at"),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
+
+// Token Ledger - idempotent token crediting with unique constraint
+export const tokenLedger = pgTable("token_ledger", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  source: text("source").notNull(),
+  purchaseRequestId: varchar("purchase_request_id").notNull().references(() => purchaseRequests.id, { onDelete: 'cascade' }),
+  deltaTokens: integer("delta_tokens").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  uniqueSourcePurchase: sql`UNIQUE (source, purchase_request_id)`,
+}));
 
 // Watchlist Items - user's anime tracking list (AniList integration)
 export const watchlistItems = pgTable("watchlist_items", {
@@ -718,11 +735,23 @@ export const insertParentalControlsSchema = createInsertSchema(parentalControls)
   updatedAt: true,
 });
 
-export const insertPurchaseAuthRequestSchema = createInsertSchema(purchaseAuthRequests).omit({
+export const insertPurchaseRequestSchema = createInsertSchema(purchaseRequests).omit({
   id: true,
   createdAt: true,
+  updatedAt: true,
   status: true,
-  respondedAt: true,
+  stripeCheckoutSessionId: true,
+  stripePaymentIntentId: true,
+  requestedAt: true,
+  approvedAt: true,
+  deniedAt: true,
+  paidAt: true,
+  fulfilledAt: true,
+});
+
+export const insertTokenLedgerSchema = createInsertSchema(tokenLedger).omit({
+  id: true,
+  createdAt: true,
 });
 
 // Export types
@@ -801,8 +830,11 @@ export type ParentChildLink = typeof parentChildLinks.$inferSelect;
 export type InsertParentalControls = z.infer<typeof insertParentalControlsSchema>;
 export type ParentalControls = typeof parentalControls.$inferSelect;
 
-export type InsertPurchaseAuthRequest = z.infer<typeof insertPurchaseAuthRequestSchema>;
-export type PurchaseAuthRequest = typeof purchaseAuthRequests.$inferSelect;
+export type InsertPurchaseRequest = z.infer<typeof insertPurchaseRequestSchema>;
+export type PurchaseRequest = typeof purchaseRequests.$inferSelect;
+
+export type InsertTokenLedger = z.infer<typeof insertTokenLedgerSchema>;
+export type TokenLedger = typeof tokenLedger.$inferSelect;
 
 export const insertSiteSettingSchema = createInsertSchema(siteSettings).omit({
   id: true,

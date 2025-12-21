@@ -29,8 +29,10 @@ import {
   type InsertParentChildLink,
   type ParentalControls,
   type InsertParentalControls,
-  type PurchaseAuthRequest,
-  type InsertPurchaseAuthRequest,
+  type PurchaseRequest,
+  type InsertPurchaseRequest,
+  type TokenLedger,
+  type InsertTokenLedger,
   type SiteSetting,
   type WatchlistItem,
   type InsertWatchlistItem,
@@ -64,7 +66,8 @@ import {
   drawWinners,
   parentChildLinks,
   parentalControls,
-  purchaseAuthRequests,
+  purchaseRequests,
+  tokenLedger,
   siteSettings,
   watchlistItems,
   animeCache,
@@ -192,17 +195,21 @@ export interface IStorage {
   updateParentalControls(parentId: string, childId: string, updates: Partial<ParentalControls>): Promise<ParentalControls | undefined>;
   getControlsForChild(childId: string): Promise<ParentalControls | undefined>;
   
-  // Purchase authorization request operations
-  createPurchaseAuthRequest(request: InsertPurchaseAuthRequest): Promise<PurchaseAuthRequest>;
-  getPendingAuthRequests(parentId: string): Promise<Array<PurchaseAuthRequest & { child: User }>>;
-  getAuthRequestById(id: string): Promise<PurchaseAuthRequest | undefined>;
-  getAuthRequestByStripeSessionId(sessionId: string): Promise<PurchaseAuthRequest | undefined>;
-  rejectAuthRequest(id: string, parentNote?: string): Promise<PurchaseAuthRequest | undefined>;
-  setCheckoutCreated(id: string, stripeSessionId: string): Promise<PurchaseAuthRequest | undefined>;
-  cancelCheckout(id: string): Promise<PurchaseAuthRequest | undefined>;
-  markPaid(id: string, stripePaymentId: string): Promise<PurchaseAuthRequest | undefined>;
-  fulfillAuthRequest(id: string, childId: string, tokenAmount: number): Promise<{ request: PurchaseAuthRequest; alreadyFulfilled: boolean }>;
-  getChildPendingRequests(childId: string): Promise<PurchaseAuthRequest[]>;
+  // Purchase request operations
+  createPurchaseRequest(request: InsertPurchaseRequest): Promise<PurchaseRequest>;
+  getPendingPurchaseRequests(parentId: string): Promise<Array<PurchaseRequest & { child: User }>>;
+  getPurchaseRequestById(id: string): Promise<PurchaseRequest | undefined>;
+  getPurchaseRequestByStripeSessionId(sessionId: string): Promise<PurchaseRequest | undefined>;
+  rejectPurchaseRequest(id: string): Promise<PurchaseRequest | undefined>;
+  approvePurchaseRequest(id: string, stripeSessionId: string): Promise<PurchaseRequest | undefined>;
+  cancelPurchaseCheckout(id: string): Promise<PurchaseRequest | undefined>;
+  markPurchasePaid(id: string, stripePaymentIntentId: string): Promise<PurchaseRequest | undefined>;
+  fulfillPurchaseRequest(id: string): Promise<PurchaseRequest | undefined>;
+  getChildPendingPurchaseRequests(childId: string): Promise<PurchaseRequest[]>;
+  
+  // Token ledger operations
+  createTokenLedgerEntry(entry: InsertTokenLedger): Promise<TokenLedger>;
+  getTokenLedgerByPurchaseRequest(purchaseRequestId: string): Promise<TokenLedger | undefined>;
   
   // Site settings operations
   getSiteSetting(key: string): Promise<string | undefined>;
@@ -1148,138 +1155,139 @@ export class DbStorage implements IStorage {
     return result[0];
   }
 
-  // Purchase authorization request operations
-  async createPurchaseAuthRequest(request: InsertPurchaseAuthRequest): Promise<PurchaseAuthRequest> {
-    const result = await db.insert(purchaseAuthRequests).values(request).returning();
+  // Purchase request operations
+  async createPurchaseRequest(request: InsertPurchaseRequest): Promise<PurchaseRequest> {
+    const result = await db.insert(purchaseRequests).values(request).returning();
     return result[0];
   }
 
-  async getPendingAuthRequests(parentId: string): Promise<Array<PurchaseAuthRequest & { child: User }>> {
+  async getPendingPurchaseRequests(parentId: string): Promise<Array<PurchaseRequest & { child: User }>> {
     const result = await db
       .select()
-      .from(purchaseAuthRequests)
-      .innerJoin(users, eq(purchaseAuthRequests.childId, users.id))
+      .from(purchaseRequests)
+      .innerJoin(users, eq(purchaseRequests.childUserId, users.id))
       .where(and(
-        eq(purchaseAuthRequests.parentId, parentId),
-        inArray(purchaseAuthRequests.status, ['pending_parent', 'checkout_created'])
+        eq(purchaseRequests.parentUserId, parentId),
+        inArray(purchaseRequests.status, ['PENDING_PARENT', 'CHECKOUT_CREATED'])
       ))
-      .orderBy(desc(purchaseAuthRequests.createdAt));
+      .orderBy(desc(purchaseRequests.requestedAt));
     
     return result.map((r: any) => ({
-      ...r.purchase_auth_requests,
+      ...r.purchase_requests,
       child: r.users,
     }));
   }
 
-  async getAuthRequestById(id: string): Promise<PurchaseAuthRequest | undefined> {
+  async getPurchaseRequestById(id: string): Promise<PurchaseRequest | undefined> {
     const result = await db
       .select()
-      .from(purchaseAuthRequests)
-      .where(eq(purchaseAuthRequests.id, id))
+      .from(purchaseRequests)
+      .where(eq(purchaseRequests.id, id))
       .limit(1);
     return result[0];
   }
 
-  async rejectAuthRequest(id: string, parentNote?: string): Promise<PurchaseAuthRequest | undefined> {
+  async rejectPurchaseRequest(id: string): Promise<PurchaseRequest | undefined> {
     const result = await db
-      .update(purchaseAuthRequests)
+      .update(purchaseRequests)
       .set({ 
-        status: 'rejected', 
-        parentNote: parentNote || null,
-        respondedAt: new Date() 
+        status: 'REJECTED', 
+        deniedAt: new Date(),
+        updatedAt: new Date()
       })
-      .where(eq(purchaseAuthRequests.id, id))
+      .where(eq(purchaseRequests.id, id))
       .returning();
     return result[0];
   }
 
-  async getChildPendingRequests(childId: string): Promise<PurchaseAuthRequest[]> {
+  async getChildPendingPurchaseRequests(childId: string): Promise<PurchaseRequest[]> {
     return await db
       .select()
-      .from(purchaseAuthRequests)
+      .from(purchaseRequests)
       .where(and(
-        eq(purchaseAuthRequests.childId, childId),
-        inArray(purchaseAuthRequests.status, ['pending_parent', 'checkout_created', 'paid'])
+        eq(purchaseRequests.childUserId, childId),
+        inArray(purchaseRequests.status, ['PENDING_PARENT', 'CHECKOUT_CREATED', 'PAID'])
       ))
-      .orderBy(desc(purchaseAuthRequests.createdAt));
+      .orderBy(desc(purchaseRequests.requestedAt));
   }
 
-  async getAuthRequestByStripeSessionId(sessionId: string): Promise<PurchaseAuthRequest | undefined> {
+  async getPurchaseRequestByStripeSessionId(sessionId: string): Promise<PurchaseRequest | undefined> {
     const result = await db
       .select()
-      .from(purchaseAuthRequests)
-      .where(eq(purchaseAuthRequests.stripeSessionId, sessionId))
+      .from(purchaseRequests)
+      .where(eq(purchaseRequests.stripeCheckoutSessionId, sessionId))
       .limit(1);
     return result[0];
   }
 
-  async setCheckoutCreated(id: string, stripeSessionId: string): Promise<PurchaseAuthRequest | undefined> {
+  async approvePurchaseRequest(id: string, stripeSessionId: string): Promise<PurchaseRequest | undefined> {
     const result = await db
-      .update(purchaseAuthRequests)
+      .update(purchaseRequests)
       .set({ 
-        stripeSessionId,
-        status: 'checkout_created'
+        stripeCheckoutSessionId: stripeSessionId,
+        status: 'CHECKOUT_CREATED',
+        approvedAt: new Date(),
+        updatedAt: new Date()
       })
-      .where(eq(purchaseAuthRequests.id, id))
+      .where(eq(purchaseRequests.id, id))
       .returning();
     return result[0];
   }
 
-  async cancelCheckout(id: string): Promise<PurchaseAuthRequest | undefined> {
+  async cancelPurchaseCheckout(id: string): Promise<PurchaseRequest | undefined> {
     const result = await db
-      .update(purchaseAuthRequests)
+      .update(purchaseRequests)
       .set({ 
-        status: 'pending_parent',
-        stripeSessionId: null
+        status: 'PENDING_PARENT',
+        stripeCheckoutSessionId: null,
+        approvedAt: null,
+        updatedAt: new Date()
       })
-      .where(eq(purchaseAuthRequests.id, id))
+      .where(eq(purchaseRequests.id, id))
       .returning();
     return result[0];
   }
 
-  async markPaid(id: string, stripePaymentId: string): Promise<PurchaseAuthRequest | undefined> {
+  async markPurchasePaid(id: string, stripePaymentIntentId: string): Promise<PurchaseRequest | undefined> {
     const result = await db
-      .update(purchaseAuthRequests)
+      .update(purchaseRequests)
       .set({ 
-        stripePaymentId,
-        status: 'paid',
-        respondedAt: new Date()
+        stripePaymentIntentId,
+        status: 'PAID',
+        paidAt: new Date(),
+        updatedAt: new Date()
       })
-      .where(eq(purchaseAuthRequests.id, id))
+      .where(eq(purchaseRequests.id, id))
       .returning();
     return result[0];
   }
 
-  async fulfillAuthRequest(id: string, childId: string, tokenAmount: number): Promise<{ request: PurchaseAuthRequest; alreadyFulfilled: boolean }> {
-    const authRequest = await this.getAuthRequestById(id);
-    if (!authRequest) {
-      throw new Error('Auth request not found');
-    }
-    
-    if (authRequest.status === 'fulfilled') {
-      return { request: authRequest, alreadyFulfilled: true };
-    }
-    
-    if (authRequest.status !== 'paid') {
-      throw new Error('Cannot fulfill: payment not confirmed');
-    }
-    
-    const child = await this.getUser(childId);
-    if (!child) {
-      throw new Error('Child account not found');
-    }
-    
-    await this.updateUser(childId, {
-      tokens: child.tokens + tokenAmount
-    });
-    
+  async fulfillPurchaseRequest(id: string): Promise<PurchaseRequest | undefined> {
     const result = await db
-      .update(purchaseAuthRequests)
-      .set({ status: 'fulfilled' })
-      .where(eq(purchaseAuthRequests.id, id))
+      .update(purchaseRequests)
+      .set({ 
+        status: 'FULFILLED',
+        fulfilledAt: new Date(),
+        updatedAt: new Date()
+      })
+      .where(eq(purchaseRequests.id, id))
       .returning();
-    
-    return { request: result[0], alreadyFulfilled: false };
+    return result[0];
+  }
+
+  // Token ledger operations
+  async createTokenLedgerEntry(entry: InsertTokenLedger): Promise<TokenLedger> {
+    const result = await db.insert(tokenLedger).values(entry).returning();
+    return result[0];
+  }
+
+  async getTokenLedgerByPurchaseRequest(purchaseRequestId: string): Promise<TokenLedger | undefined> {
+    const result = await db
+      .select()
+      .from(tokenLedger)
+      .where(eq(tokenLedger.purchaseRequestId, purchaseRequestId))
+      .limit(1);
+    return result[0];
   }
 
   // Site settings operations

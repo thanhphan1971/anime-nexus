@@ -1936,16 +1936,16 @@ export async function registerRoutes(
     }
   });
 
-  // Purchase Authorization Request Routes
+  // Purchase Request Routes
   
-  // Create authorization request (minor requests parent approval for over-limit purchase)
-  app.post("/api/parent/auth-request", async (req, res) => {
+  // Create purchase request (minor requests parent approval for token purchase)
+  app.post("/api/parent/purchase-request", async (req, res) => {
     try {
       if (!req.session.userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
-      const { packageId, tokenAmount, amountInCents, reason } = req.body;
+      const { packId, baseTokens, bonusTokens, totalTokens, unitAmountCents, currency } = req.body;
       
       // Get parent link for this child
       const parentLink = await storage.getParentLink(req.session.userId);
@@ -1953,38 +1953,35 @@ export async function registerRoutes(
         return res.status(400).json({ error: "No active parent link found" });
       }
       
-      // Set expiration to 7 days from now
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 7);
-      
-      const request = await storage.createPurchaseAuthRequest({
-        childId: req.session.userId,
-        parentId: parentLink.parentId,
-        packageId,
-        tokenAmount,
-        amountInCents,
-        reason,
-        expiresAt,
+      const request = await storage.createPurchaseRequest({
+        childUserId: req.session.userId,
+        parentUserId: parentLink.parentId,
+        packId,
+        baseTokens,
+        bonusTokens: bonusTokens || 0,
+        totalTokens,
+        unitAmountCents,
+        currency: currency || 'USD',
       });
       
       res.json({
         success: true,
         request,
-        message: "Authorization request sent to parent"
+        message: "Purchase request sent to parent"
       });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
     }
   });
   
-  // Get pending authorization requests for parent
-  app.get("/api/parent/auth-requests", async (req, res) => {
+  // Get pending purchase requests for parent
+  app.get("/api/parent/purchase-requests", async (req, res) => {
     try {
       if (!req.session.userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
-      const requests = await storage.getPendingAuthRequests(req.session.userId);
+      const requests = await storage.getPendingPurchaseRequests(req.session.userId);
       res.json(requests);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -1998,53 +1995,44 @@ export async function registerRoutes(
         return res.status(401).json({ error: "Not authenticated" });
       }
       
-      const requests = await storage.getChildPendingRequests(req.session.userId);
+      const requests = await storage.getChildPendingPurchaseRequests(req.session.userId);
       res.json(requests);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   });
   
-  // Respond to authorization request (parent approves or denies)
-  app.post("/api/parent/auth-request/:requestId/respond", async (req, res) => {
+  // Respond to purchase request (parent approves or denies)
+  app.post("/api/parent/purchase-request/:requestId/respond", async (req, res) => {
     try {
       if (!req.session.userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
-      const { status, parentNote } = req.body;
+      const { status } = req.body;
       
       if (!['approved', 'denied'].includes(status)) {
         return res.status(400).json({ error: "Status must be 'approved' or 'denied'" });
       }
       
       // Get the request and verify parent owns it
-      const authRequest = await storage.getAuthRequestById(req.params.requestId);
-      if (!authRequest) {
+      const purchaseRequest = await storage.getPurchaseRequestById(req.params.requestId);
+      if (!purchaseRequest) {
         return res.status(404).json({ error: "Request not found" });
       }
       
-      if (authRequest.parentId !== req.session.userId) {
+      if (purchaseRequest.parentUserId !== req.session.userId) {
         return res.status(403).json({ error: "Not authorized to respond to this request" });
       }
       
       // Only allow response if pending_parent
-      if (authRequest.status !== 'pending_parent') {
+      if (purchaseRequest.status !== 'PENDING_PARENT') {
         return res.status(400).json({ error: "Request is not awaiting parent response" });
-      }
-      
-      // Check if expired
-      if (new Date() > authRequest.expiresAt) {
-        await storage.rejectAuthRequest(req.params.requestId, 'Request expired');
-        return res.status(400).json({ error: "Request has expired" });
       }
       
       // If denied, set status to rejected
       if (status === 'denied') {
-        const updatedRequest = await storage.rejectAuthRequest(
-          req.params.requestId,
-          parentNote
-        );
+        const updatedRequest = await storage.rejectPurchaseRequest(req.params.requestId);
         return res.json({
           success: true,
           request: updatedRequest,
@@ -2054,7 +2042,7 @@ export async function registerRoutes(
       
       // If approved, create a Stripe checkout session for the parent to pay
       const parent = await storage.getUser(req.session.userId);
-      const child = await storage.getUser(authRequest.childId);
+      const child = await storage.getUser(purchaseRequest.childUserId);
       
       if (!parent || !child) {
         return res.status(404).json({ error: "User not found" });
@@ -2085,29 +2073,29 @@ export async function registerRoutes(
         payment_method_types: ['card'],
         line_items: [{
           price_data: {
-            currency: 'usd',
+            currency: purchaseRequest.currency.toLowerCase(),
             product_data: {
-              name: `${authRequest.tokenAmount.toLocaleString()} Tokens for ${child.name || child.handle}`,
+              name: `${purchaseRequest.totalTokens.toLocaleString()} Tokens for ${child.name || child.handle}`,
               description: `Token purchase for ${child.handle}'s account`,
             },
-            unit_amount: authRequest.amountInCents,
+            unit_amount: purchaseRequest.unitAmountCents,
           },
           quantity: 1,
         }],
         mode: 'payment',
-        success_url: `${baseUrl}/parent?payment_success=true&request_id=${authRequest.id}&session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${baseUrl}/parent?payment_canceled=true&request_id=${authRequest.id}`,
+        success_url: `${baseUrl}/parent?payment_success=true&request_id=${purchaseRequest.id}&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${baseUrl}/parent?payment_canceled=true&request_id=${purchaseRequest.id}`,
         metadata: {
-          authRequestId: authRequest.id,
+          purchaseRequestId: purchaseRequest.id,
           parentId: parent.id,
           childId: child.id,
-          tokenAmount: authRequest.tokenAmount.toString(),
+          totalTokens: purchaseRequest.totalTokens.toString(),
           type: 'minor_token_purchase',
         },
       });
       
-      // Update the auth request with stripe session info (status becomes checkout_created)
-      await storage.setCheckoutCreated(authRequest.id, session.id);
+      // Update the purchase request with stripe session info (status becomes CHECKOUT_CREATED)
+      await storage.approvePurchaseRequest(purchaseRequest.id, session.id);
       
       res.json({
         success: true,
@@ -2120,28 +2108,28 @@ export async function registerRoutes(
     }
   });
   
-  // Cancel checkout and return to pending_parent state
-  app.post("/api/parent/auth-request/:requestId/cancel-checkout", async (req, res) => {
+  // Cancel checkout and return to PENDING_PARENT state
+  app.post("/api/parent/purchase-request/:requestId/cancel-checkout", async (req, res) => {
     try {
       if (!req.session.userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
-      const authRequest = await storage.getAuthRequestById(req.params.requestId);
-      if (!authRequest) {
+      const purchaseRequest = await storage.getPurchaseRequestById(req.params.requestId);
+      if (!purchaseRequest) {
         return res.status(404).json({ error: "Request not found" });
       }
       
-      if (authRequest.parentId !== req.session.userId) {
+      if (purchaseRequest.parentUserId !== req.session.userId) {
         return res.status(403).json({ error: "Not authorized" });
       }
       
-      if (authRequest.status !== 'checkout_created') {
+      if (purchaseRequest.status !== 'CHECKOUT_CREATED') {
         return res.status(400).json({ error: "Cannot cancel: checkout not in progress" });
       }
       
-      // Reset to pending_parent so parent can approve again
-      const updatedRequest = await storage.cancelCheckout(authRequest.id);
+      // Reset to PENDING_PARENT so parent can approve again
+      const updatedRequest = await storage.cancelPurchaseCheckout(purchaseRequest.id);
       
       res.json({
         success: true,
