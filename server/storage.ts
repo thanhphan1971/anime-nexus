@@ -196,7 +196,10 @@ export interface IStorage {
   createPurchaseAuthRequest(request: InsertPurchaseAuthRequest): Promise<PurchaseAuthRequest>;
   getPendingAuthRequests(parentId: string): Promise<Array<PurchaseAuthRequest & { child: User }>>;
   getAuthRequestById(id: string): Promise<PurchaseAuthRequest | undefined>;
+  getAuthRequestByStripeSessionId(sessionId: string): Promise<PurchaseAuthRequest | undefined>;
   respondToAuthRequest(id: string, status: 'approved' | 'denied', parentNote?: string): Promise<PurchaseAuthRequest | undefined>;
+  updateAuthRequestStripeInfo(id: string, stripeSessionId: string): Promise<PurchaseAuthRequest | undefined>;
+  completeAuthRequestPayment(id: string, stripePaymentId: string): Promise<PurchaseAuthRequest | undefined>;
   getChildPendingRequests(childId: string): Promise<PurchaseAuthRequest[]>;
   
   // Site settings operations
@@ -1197,6 +1200,40 @@ export class DbStorage implements IStorage {
         eq(purchaseAuthRequests.status, 'pending')
       ))
       .orderBy(desc(purchaseAuthRequests.createdAt));
+  }
+
+  async getAuthRequestByStripeSessionId(sessionId: string): Promise<PurchaseAuthRequest | undefined> {
+    const result = await db
+      .select()
+      .from(purchaseAuthRequests)
+      .where(eq(purchaseAuthRequests.stripeSessionId, sessionId))
+      .limit(1);
+    return result[0];
+  }
+
+  async updateAuthRequestStripeInfo(id: string, stripeSessionId: string): Promise<PurchaseAuthRequest | undefined> {
+    const result = await db
+      .update(purchaseAuthRequests)
+      .set({ 
+        stripeSessionId,
+        status: 'payment_pending'
+      })
+      .where(eq(purchaseAuthRequests.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async completeAuthRequestPayment(id: string, stripePaymentId: string): Promise<PurchaseAuthRequest | undefined> {
+    const result = await db
+      .update(purchaseAuthRequests)
+      .set({ 
+        stripePaymentId,
+        status: 'approved',
+        respondedAt: new Date()
+      })
+      .where(eq(purchaseAuthRequests.id, id))
+      .returning();
+    return result[0];
   }
 
   // Site settings operations

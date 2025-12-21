@@ -423,8 +423,10 @@ export const purchaseAuthRequests = pgTable("purchase_auth_requests", {
   tokenAmount: integer("token_amount").notNull(),
   amountInCents: integer("amount_in_cents").notNull(),
   reason: text("reason"), // child's message to parent
-  status: text("status").notNull().default('pending'), // pending, approved, denied, expired
+  status: text("status").notNull().default('pending'), // pending, approved, denied, expired, payment_pending
   parentNote: text("parent_note"), // parent's response message
+  stripeSessionId: text("stripe_session_id"), // Stripe checkout session for payment
+  stripePaymentId: text("stripe_payment_id"), // Stripe payment intent ID after successful payment
   expiresAt: timestamp("expires_at").notNull(), // requests expire after 7 days
   createdAt: timestamp("created_at").notNull().defaultNow(),
   respondedAt: timestamp("responded_at"),
