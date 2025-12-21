@@ -121,7 +121,7 @@ export default function CardCatalogPage() {
   return (
     <div className="space-y-6 pb-24">
       <Link href="/cards">
-        <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary" data-testid="button-back-to-cards">
+        <Button variant="ghost" size="sm" className="text-foreground hover:text-primary" data-testid="button-back-to-cards">
           <ArrowLeft className="h-4 w-4 mr-2" /> Back to Cards
         </Button>
       </Link>
