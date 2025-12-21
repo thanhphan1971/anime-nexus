@@ -199,8 +199,21 @@ export default function FriendsPage() {
                 ) : cards.length === 0 ? (
                   <div className="absolute inset-0 flex flex-col items-center justify-center bg-card/50 rounded-3xl border-2 border-dashed border-white/20 p-8 text-center">
                     <RefreshCw className="h-12 w-12 text-muted-foreground mb-4" />
-                    <h3 className="text-xl font-bold mb-2">No more profiles</h3>
-                    <p className="text-muted-foreground mb-4">Check back later for more matches in your sector.</p>
+                    <h3 className="text-xl font-bold mb-2">You've seen everyone!</h3>
+                    <p className="text-muted-foreground mb-4">No new profiles right now. Reset to see people you passed on, or check back later for new members.</p>
+                    {skippedIds.length > 0 && (
+                      <Button 
+                        onClick={() => {
+                          setSkippedIds([]);
+                          toast.success("Profile pool refreshed!");
+                        }}
+                        variant="outline"
+                        className="border-primary/50 text-primary hover:bg-primary/10"
+                        data-testid="button-reset-skipped"
+                      >
+                        <RefreshCw className="h-4 w-4 mr-2" /> Reset Skipped Profiles
+                      </Button>
+                    )}
                   </div>
                 ) : (
                   cards.map((cardUser, index) => {
