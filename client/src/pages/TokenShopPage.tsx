@@ -20,7 +20,7 @@ import { toast } from "sonner";
 const TOKEN_PACKAGES = [
   { id: "mini", name: "Mini Pack", tokens: 300, bonus: 0, price: 2.99, popular: false },
   { id: "starter", name: "Starter Pack", tokens: 500, bonus: 0, price: 4.99, popular: false },
-  { id: "popular", name: "Popular Pack", tokens: 1200, bonus: 100, price: 9.99, popular: true },
+  { id: "popular", name: "Popular Pack", tokens: 1100, bonus: 100, price: 9.99, popular: true },
   { id: "value", name: "Value Pack", tokens: 2500, bonus: 300, price: 19.99, popular: false },
   { id: "mega", name: "Mega Pack", tokens: 5500, bonus: 800, price: 39.99, popular: false },
   { id: "ultimate", name: "Ultimate Pack", tokens: 12000, bonus: 2000, price: 79.99, popular: false },
