@@ -61,7 +61,13 @@ export default function HelpPage() {
     },
     {
       question: "How does the 'Find Nakama' matching work?",
-      answer: "Our algorithm matches you based on your favorite anime genres, viewing history, and activity tags. The 'Compatibility Score' shows how likely you are to get along!"
+      answer: (
+        <div className="space-y-2">
+          <p>Find Nakama helps you discover other AniRealm users to connect with.</p>
+          <p>Suggestions are based on general in-app activity and are designed to encourage community interaction. Find Nakama does not rank users or calculate compatibility scores.</p>
+          <p>You are always in control of who you connect with and can ignore or mute suggestions at any time.</p>
+        </div>
+      )
     },
     {
       question: "How does the card collection work?",
