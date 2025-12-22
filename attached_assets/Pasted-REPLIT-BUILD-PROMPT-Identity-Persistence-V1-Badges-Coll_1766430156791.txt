@@ -1,0 +1,69 @@
+REPLIT BUILD PROMPT — Identity Persistence V1 (Badges + Collection Milestones + Profile Display)
+
+Goal:
+Implement identity persistence like MAL/AniList: profiles that show progress, badges, and collection milestones.
+This must be lightweight, safe, and fast to ship.
+
+FEATURES TO IMPLEMENT (V1):
+
+A) Collection Milestones (automatic)
+- Milestones based on number of UNIQUE cards owned:
+  - 10 cards → badge: “Collector I”
+  - 25 cards → badge: “Collector II”
+  - 50 cards → badge: “Collector III”
+- Count unique card IDs in user collection table (not total duplicates).
+- Badge is automatically granted when milestone is reached.
+- Badge persists on profile.
+
+B) Foundational badges (manual/system)
+Add these badge types (even if only some are granted now):
+- “Founder” (admin grant)
+- “Early Realmwalker” (granted to accounts created before a configurable cutoff date)
+- “S-Class” (auto while membership active)
+
+C) Database
+Create tables if missing:
+
+1) badges
+- id, code (unique), name, description, icon(optional), created_at
+
+2) user_badges
+- id, user_id, badge_id, granted_by (system/admin), granted_reason, created_at
+- unique(user_id, badge_id)
+
+Add indexes on user_id.
+
+D) API
+- GET /api/profile/:handle or /api/users/:id/profile
+  returns:
+  - display_name, handle, avatar
+  - total_unique_cards
+  - badges[] (name, code, description)
+  - membership (S-Class active yes/no)
+- POST /api/badges/grant (admin-only)
+  inputs: user_id, badge_code, reason
+
+E) UI
+1) Profile page
+- Add a “Badges” section showing earned badges.
+- Add “Collection” section showing:
+  - Unique Cards Owned: X
+  - Next milestone progress: (X / 10), (X / 25), (X / 50) depending on next target
+- If user has S-Class, show S-Class badge.
+
+2) Home (small surface)
+- Add a small “Progress” row under PRIZE DRAWS or Today’s Actions:
+  - “Collection Milestone: X / nextTarget”
+  - Link to profile
+
+F) Rules / safety
+- Badges must not expose private info.
+- No public email, no exact join timestamp displayed (relative time ok).
+- Must work for minors.
+
+After implementation:
+- List exact files changed.
+- Provide test steps:
+  1) Create user with 9 unique cards → no collector badge
+  2) Add 10th unique card → badge granted automatically
+  3) Profile displays badges + progress

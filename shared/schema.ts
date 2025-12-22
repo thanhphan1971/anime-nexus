@@ -910,3 +910,45 @@ export type GameEvent = typeof gameEvents.$inferSelect;
 
 export type InsertGameActivityLog = z.infer<typeof insertGameActivityLogSchema>;
 export type GameActivityLog = typeof gameActivityLog.$inferSelect;
+
+// ============== BADGES SYSTEM ==============
+
+// Badges table - defines available badges
+export const badges = pgTable("badges", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  code: text("code").notNull().unique(), // e.g., 'collector_1', 'founder', 'early_realmwalker', 's_class'
+  name: text("name").notNull(), // Display name: "Collector I", "Founder", etc.
+  description: text("description").notNull(),
+  icon: text("icon"), // Optional icon URL or emoji
+  category: text("category").notNull().default('achievement'), // 'achievement', 'membership', 'special'
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// User Badges - tracks which badges users have earned
+export const userBadges = pgTable("user_badges", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  badgeId: varchar("badge_id").notNull().references(() => badges.id, { onDelete: 'cascade' }),
+  grantedBy: text("granted_by").notNull().default('system'), // 'system' or 'admin'
+  grantedReason: text("granted_reason"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Badge Insert Schemas
+export const insertBadgeSchema = createInsertSchema(badges).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertUserBadgeSchema = createInsertSchema(userBadges).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Badge Types
+export type InsertBadge = z.infer<typeof insertBadgeSchema>;
+export type Badge = typeof badges.$inferSelect;
+
+export type InsertUserBadge = z.infer<typeof insertUserBadgeSchema>;
+export type UserBadge = typeof userBadges.$inferSelect;
