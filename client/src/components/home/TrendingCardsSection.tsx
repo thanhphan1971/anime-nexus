@@ -19,6 +19,11 @@ export function TrendingCardsSection() {
     return null;
   }
 
+  // Dedupe cards by id
+  const uniqueCards = Array.from(
+    new Map(trendingCards.map((c: any) => [c.id, c])).values()
+  ) as any[];
+
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
@@ -27,7 +32,7 @@ export function TrendingCardsSection() {
       </div>
 
       <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-        {trendingCards.slice(0, 8).map((card: any) => (
+        {uniqueCards.slice(0, 8).map((card: any) => (
           <div
             key={card.id}
             className={`flex-shrink-0 w-24 cursor-pointer transition-transform hover:scale-105`}
