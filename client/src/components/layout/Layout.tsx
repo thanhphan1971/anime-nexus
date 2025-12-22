@@ -55,20 +55,20 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <BetaBanner />
       <div className="flex flex-col md:flex-row flex-1">
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex w-64 flex-col border-r border-border/40 bg-card/30 backdrop-blur-xl sticky top-0 h-screen p-6">
-        <div className="flex items-center gap-2 mb-10">
+      <aside className="hidden md:flex w-64 flex-col border-r border-border/40 bg-card/30 backdrop-blur-xl sticky top-0 h-screen p-6 overflow-hidden">
+        <div className="flex items-center gap-2 mb-6 flex-shrink-0">
           <div className="h-8 w-8 rounded bg-primary flex items-center justify-center shadow-[0_0_15px_hsl(var(--primary))]">
             <Zap className="text-white h-5 w-5 fill-white" />
           </div>
           <h1 className="text-2xl font-bold tracking-wider neon-text font-display">ANIREALM</h1>
         </div>
 
-        <nav className="flex-1 space-y-2">
+        <nav className="flex-1 space-y-1.5 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
           {navItems.map((item) => (
             <Link key={item.path} href={item.path}>
               <Button
                 variant="ghost"
-                className={`w-full justify-start gap-3 text-lg h-12 rounded-xl transition-all duration-300 ${
+                className={`w-full justify-start gap-3 text-base h-11 rounded-xl transition-all duration-300 ${
                   (location === item.path || (item.path !== "/" && location.startsWith(item.path)))
                     ? item.path === "/sclass" 
                       ? "bg-yellow-500/20 text-yellow-400 neon-border border-yellow-500/50" 
@@ -85,7 +85,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           ))}
         </nav>
 
-        <div className="mt-auto pt-6 border-t border-border/40">
+        <div className="flex-shrink-0 pt-4 border-t border-border/40">
           <div className="flex items-center gap-3 mb-4 p-2 rounded-lg bg-white/5">
             <Avatar>
               <AvatarImage src={user.avatar} />
