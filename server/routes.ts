@@ -1395,6 +1395,8 @@ export async function registerRoutes(
 
   app.get("/api/draws/next", async (req, res) => {
     try {
+      const MONTHLY_TOKEN_COST = 500;
+      
       const [weeklyDraw, monthlyDraw] = await Promise.all([
         storage.getNextDrawByCadence('weekly'),
         storage.getNextDrawByCadence('monthly'),
@@ -1405,6 +1407,11 @@ export async function registerRoutes(
       let monthlyEntry = null;
       let weeklyEntryCount = 0;
       let monthlyEntryCount = 0;
+      let user = null;
+
+      if (userId) {
+        user = await storage.getUser(userId);
+      }
 
       if (weeklyDraw) {
         weeklyEntryCount = await storage.getEntryCount(weeklyDraw.id);
@@ -1419,6 +1426,22 @@ export async function registerRoutes(
         }
       }
 
+      // Calculate monthly entry cost for the current user
+      let monthlyEntryCost = MONTHLY_TOKEN_COST; // Default for non-logged in or free users
+      let monthlyEntryReason = 'token_purchase';
+      
+      if (user) {
+        if (user.isPremium && !monthlyEntry) {
+          // S-Class user hasn't entered yet - free entry available
+          monthlyEntryCost = 0;
+          monthlyEntryReason = 'premium_free';
+        } else if (monthlyEntry) {
+          // Already entered, additional entries cost tokens
+          monthlyEntryCost = MONTHLY_TOKEN_COST;
+          monthlyEntryReason = 'additional_entry';
+        }
+      }
+
       res.json({
         weekly: weeklyDraw ? {
           ...weeklyDraw,
@@ -1429,6 +1452,8 @@ export async function registerRoutes(
           ...monthlyDraw,
           userEntry: monthlyEntry,
           entryCount: monthlyEntryCount,
+          entryCost: monthlyEntryCost,
+          entryReason: monthlyEntryReason,
         } : null,
       });
     } catch (error: any) {
@@ -1633,22 +1658,15 @@ export async function registerRoutes(
 
       // Check entry rules
       const entryRules = draw.entryRules as any || {};
-      
-      // Monthly draws are S-Class only (enforced regardless of entryRules configuration)
-      if (draw.cadence === 'monthly' && !user.isPremium) {
-        return res.status(400).json({ 
-          error: "Monthly draws are exclusive to S-Class members. Upgrade to enter!",
-          upsell: true
-        });
-      }
+      const MONTHLY_TOKEN_COST = 500; // Default cost for monthly draw entry
       
       // Level requirement
       if (entryRules.minLevel && user.level < entryRules.minLevel) {
         return res.status(400).json({ error: `Minimum level ${entryRules.minLevel} required` });
       }
       
-      // Premium-only check (for other premium-only draws)
-      if (entryRules.premiumOnly && !user.isPremium) {
+      // Premium-only check (for other premium-only draws, NOT monthly)
+      if (entryRules.premiumOnly && !user.isPremium && draw.cadence !== 'monthly') {
         return res.status(400).json({ error: "S-Class members only for free entry" });
       }
       
@@ -1701,25 +1719,66 @@ export async function registerRoutes(
       const ticketsToAdd = 1;
       const newTotalTickets = currentTickets + ticketsToAdd;
       
+      // Monthly draw token payment logic
+      let entrySource = 'manual';
+      let tokensCost = 0;
+      
+      if (draw.cadence === 'monthly') {
+        // Check if S-Class user has used their free entry
+        const usedFreeEntry = existingEntry?.entrySource === 'premium_free';
+        
+        if (user.isPremium && !existingEntry) {
+          // S-Class user's first entry is free
+          entrySource = 'premium_free';
+          tokensCost = 0;
+        } else {
+          // Free users always pay, S-Class pays for additional entries
+          tokensCost = MONTHLY_TOKEN_COST;
+          entrySource = 'token_purchase';
+          
+          // Check if user has enough tokens
+          if (user.tokens < tokensCost) {
+            return res.status(400).json({ 
+              error: `Not enough tokens. You need ${tokensCost} tokens to enter. You have ${user.tokens}.`,
+              tokensNeeded: tokensCost,
+              tokensHave: user.tokens
+            });
+          }
+          
+          // Deduct tokens from user
+          await storage.updateUser(user.id, { tokens: user.tokens - tokensCost });
+        }
+      }
+      
       let entry;
       if (existingEntry) {
         // Update existing entry with more tickets
-        entry = await storage.updateDrawEntry(existingEntry.id, { tickets: newTotalTickets });
+        // If adding a paid entry to an existing entry, update entrySource to reflect it's now a paid entry
+        const updateData: { tickets: number; entrySource?: string } = { tickets: newTotalTickets };
+        if (tokensCost > 0) {
+          updateData.entrySource = 'token_purchase';
+        }
+        entry = await storage.updateDrawEntry(existingEntry.id, updateData);
       } else {
         // Create new entry
         entry = await storage.createDrawEntry({
           drawId: req.params.id,
           userId: user.id,
           tickets: ticketsToAdd,
-          entrySource: 'manual',
+          entrySource,
         });
       }
       
+      const responseMessage = tokensCost > 0 
+        ? `Entry added! ${tokensCost} tokens spent. You now have ${newTotalTickets} of ${maxEntriesAllowed} entries.`
+        : `Entry added! You now have ${newTotalTickets} of ${maxEntriesAllowed} entries.`;
+      
       res.json({ 
         ...entry, 
-        message: `Entry added! You now have ${newTotalTickets} of ${maxEntriesAllowed} entries.`,
+        message: responseMessage,
         currentEntries: newTotalTickets,
-        maxEntries: maxEntriesAllowed
+        maxEntries: maxEntriesAllowed,
+        tokensCost
       });
     } catch (error: any) {
       res.status(400).json({ error: error.message });

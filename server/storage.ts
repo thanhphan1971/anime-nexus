@@ -828,7 +828,8 @@ export class DbStorage implements IStorage {
         and(
           eq(draws.cadence, cadence),
           eq(draws.isVisible, true),
-          sql`${draws.status} IN ('scheduled', 'open')`
+          sql`${draws.status} IN ('scheduled', 'open')`,
+          sql`${draws.drawAt} > NOW()`
         )
       )
       .orderBy(draws.drawAt)

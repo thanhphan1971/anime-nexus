@@ -16,11 +16,13 @@ interface DrawData {
   status: string;
   drawAt: string;
   executedAt?: string;
-  userEntry: { tickets: number } | null;
+  userEntry: { tickets: number; entrySource?: string } | null;
   entryCount: number;
   maxEntriesPerUser: number;
   premiumEntriesPerUser: number;
   entryRules?: { premiumOnly?: boolean };
+  entryCost?: number;
+  entryReason?: string;
 }
 
 function CountdownTimer({ targetDate }: { targetDate: Date }) {
@@ -111,18 +113,35 @@ function DrawCard({
   const maxEntries = isPremium ? draw.premiumEntriesPerUser : draw.maxEntriesPerUser;
   const currentTickets = draw.userEntry?.tickets || 0;
   const canAddMore = currentTickets < maxEntries;
-  const isMonthlyPremiumOnly = type === 'monthly' && draw.entryRules?.premiumOnly && !isPremium;
   const drawTime = new Date(draw.drawAt);
   const now = new Date();
   const isLocked = now >= new Date(drawTime.getTime() - 60000);
   const isExecuted = draw.status === 'executed' || draw.status === 'completed';
+  
+  // Monthly draw token cost logic
+  const isMonthly = type === 'monthly';
+  const entryCost = draw.entryCost ?? (isMonthly ? 500 : 0);
+  const isFreeEntry = entryCost === 0;
 
   const getButtonContent = () => {
     if (!user) return { text: "Sign In", disabled: true };
     if (isExecuted) return { text: "View Results", disabled: false, action: 'view' };
     if (isLocked) return { text: "Locked", disabled: true };
-    if (isMonthlyPremiumOnly) return { text: "S-Class Only", disabled: true, upgrade: true };
     if (hasEntered && !canAddMore) return { text: "Entered", disabled: true, entered: true };
+    
+    // Monthly draw button text with token cost
+    // entryCost from API reflects the cost for the next entry
+    if (isMonthly) {
+      if (hasEntered && canAddMore) {
+        return { text: `+1 Entry (${entryCost} Tokens)`, disabled: false };
+      }
+      if (isFreeEntry) {
+        return { text: "Enter Free", disabled: false };
+      }
+      return { text: `Enter (${entryCost} Tokens)`, disabled: false };
+    }
+    
+    // Weekly draw
     if (hasEntered && canAddMore) return { text: `+1 Entry (${currentTickets}/${maxEntries})`, disabled: false };
     return { text: "Enter Draw", disabled: false };
   };
@@ -132,8 +151,6 @@ function DrawCard({
   const handleClick = () => {
     if (buttonState.action === 'view') {
       setLocation(`/draws?recap=${draw.id}`);
-    } else if (buttonState.upgrade) {
-      setLocation('/premium');
     } else if (!buttonState.disabled) {
       onEnter(draw.id);
     }
@@ -196,12 +213,10 @@ function DrawCard({
             <Button
               size="sm"
               onClick={handleClick}
-              disabled={buttonState.disabled && !buttonState.upgrade && buttonState.action !== 'view'}
+              disabled={buttonState.disabled && buttonState.action !== 'view'}
               className={`w-full ${
                 buttonState.entered 
                   ? 'bg-green-600/50 text-white cursor-default' 
-                  : buttonState.upgrade
-                  ? 'bg-gradient-to-r from-yellow-600 to-amber-600 hover:from-yellow-500 hover:to-amber-500 text-white'
                   : `bg-gradient-to-r ${colorScheme.from} ${colorScheme.to} hover:opacity-90 text-white`
               } font-bold text-xs`}
               data-testid={`button-enter-${type}-draw`}
@@ -222,9 +237,9 @@ function DrawCard({
             </Button>
           </div>
 
-          {isMonthlyPremiumOnly && (
-            <p className="mt-2 text-[10px] text-center text-yellow-400/80">
-              Free entry for S-Class members
+          {isMonthly && isFreeEntry && (
+            <p className="mt-2 text-[10px] text-center text-purple-400/80">
+              S-Class Free Entry
             </p>
           )}
         </CardContent>

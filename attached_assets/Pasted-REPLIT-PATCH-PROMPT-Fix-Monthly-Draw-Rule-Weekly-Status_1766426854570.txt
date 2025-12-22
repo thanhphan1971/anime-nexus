@@ -1,0 +1,47 @@
+REPLIT PATCH PROMPT — Fix Monthly Draw Rule + Weekly Status Bug
+
+Context:
+You implemented countdowns and home entry buttons. Good.
+But you enforced Monthly draw as "S-Class only" (hard paywall).
+Requirement is different:
+
+Monthly Draw Policy (must implement):
+- S-Class (paid) users: 1 FREE monthly entry per monthly draw cycle.
+- Free users: may enter the monthly draw by paying tokens (token cost configurable, default 500 tokens).
+- Monthly draw must NOT be blocked for free users; it must be pay-to-enter.
+- If a free user does not have enough tokens, show error + upsell path to buy tokens or upgrade.
+
+Also fix bug:
+Home currently shows "Weekly ends 3 days ago" and "Locked" for weekly; it must show NEXT upcoming weekly draw with a live countdown, not a past-ended state, unless the draw is actually running and not scheduled.
+
+Implement changes:
+
+A) Server eligibility logic
+- Remove "monthly is premium-only" enforcement.
+- Add logic:
+  - If user is S-Class and has NOT used their free monthly entry for this draw_id => allow entry_type="free", token_cost=0.
+  - Else => allow entry_type="paid", token_cost = MONTHLY_TOKEN_COST (default 500).
+- Store whether the S-Class free entry was used in draw_entries (entry_type).
+- Ensure idempotency: user cannot enter the same draw twice.
+
+B) API responses
+- /api/draws/next must return for each draw:
+  - draw_id, scheduled_at, ends_at, status, countdown_target
+  - user_entered boolean
+  - user_can_enter boolean
+  - entry_cost_tokens (0 for eligible free S-Class monthly entry; else monthly token cost)
+  - entry_reason string for UI (“Free monthly entry available”, “Costs 500 tokens”, “Already entered”, etc.)
+
+C) Home UI
+- Monthly card/button must show:
+  - If S-Class eligible free: “Enter Free”
+  - If not eligible free (including free users): “Enter (500 Tokens)” (or configured cost)
+  - If already entered: show “Entered”
+- Weekly card must show upcoming weekly countdown and must NOT show past “ends X days ago” if next draw exists.
+
+D) Testing notes to output
+- How to test as S-Class: see free monthly entry, enter once free, then cost becomes tokens if trying again (or blocked as already entered).
+- How to test as Free: monthly shows token cost, token deducted on entry, success message.
+- Weekly home display must show countdown to next Friday 7pm draw.
+
+After patch, list exact files changed and summarize what you changed.
