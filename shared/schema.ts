@@ -696,7 +696,6 @@ export const insertPrizeSchema = createInsertSchema(prizes).omit({
 export const insertDrawSchema = createInsertSchema(draws).omit({
   id: true,
   createdAt: true,
-  status: true,
   overrideBy: true,
   overrideReason: true,
   overrideAt: true,
