@@ -50,6 +50,10 @@ import {
   type InsertGameEvent,
   type GameActivityLog,
   type InsertGameActivityLog,
+  type Badge,
+  type InsertBadge,
+  type UserBadge,
+  type InsertUserBadge,
   users,
   posts,
   postLikes,
@@ -77,6 +81,8 @@ import {
   userDailyGameStats,
   gameEvents,
   gameActivityLog,
+  badges,
+  userBadges,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql, desc, ne, inArray, lte, lt, asc } from "drizzle-orm";
@@ -269,6 +275,16 @@ export interface IStorage {
   logGameActivity(log: InsertGameActivityLog): Promise<GameActivityLog>;
   getUserGameActivityLogs(userId: string, limit?: number): Promise<GameActivityLog[]>;
   getGameActivityLogsForDate(userId: string, date: string): Promise<GameActivityLog[]>;
+  
+  // Badge operations
+  getAllBadges(): Promise<Badge[]>;
+  getBadgeByCode(code: string): Promise<Badge | undefined>;
+  getUserBadges(userId: string): Promise<Array<UserBadge & { badge: Badge }>>;
+  hasUserBadge(userId: string, badgeCode: string): Promise<boolean>;
+  grantBadge(userId: string, badgeCode: string, grantedBy: string, reason?: string): Promise<UserBadge | undefined>;
+  revokeBadge(userId: string, badgeCode: string): Promise<void>;
+  getUserUniqueCardCount(userId: string): Promise<number>;
+  checkAndGrantCollectionMilestones(userId: string): Promise<string[]>;
 }
 
 export class DbStorage implements IStorage {
@@ -1696,6 +1712,106 @@ export class DbStorage implements IStorage {
         sql`${gameActivityLog.createdAt} < ${endOfDay}`
       ))
       .orderBy(desc(gameActivityLog.createdAt));
+  }
+
+  // Badge operations
+  async getAllBadges(): Promise<Badge[]> {
+    return await db.select().from(badges).orderBy(asc(badges.sortOrder));
+  }
+
+  async getBadgeByCode(code: string): Promise<Badge | undefined> {
+    const result = await db.select().from(badges).where(eq(badges.code, code)).limit(1);
+    return result[0];
+  }
+
+  async getUserBadges(userId: string): Promise<Array<UserBadge & { badge: Badge }>> {
+    return await db
+      .select({
+        id: userBadges.id,
+        userId: userBadges.userId,
+        badgeId: userBadges.badgeId,
+        grantedBy: userBadges.grantedBy,
+        grantedReason: userBadges.grantedReason,
+        createdAt: userBadges.createdAt,
+        badge: badges,
+      })
+      .from(userBadges)
+      .innerJoin(badges, eq(userBadges.badgeId, badges.id))
+      .where(eq(userBadges.userId, userId))
+      .orderBy(asc(badges.sortOrder));
+  }
+
+  async hasUserBadge(userId: string, badgeCode: string): Promise<boolean> {
+    const badge = await this.getBadgeByCode(badgeCode);
+    if (!badge) return false;
+    
+    const result = await db
+      .select()
+      .from(userBadges)
+      .where(and(eq(userBadges.userId, userId), eq(userBadges.badgeId, badge.id)))
+      .limit(1);
+    return result.length > 0;
+  }
+
+  async grantBadge(userId: string, badgeCode: string, grantedBy: string, reason?: string): Promise<UserBadge | undefined> {
+    const badge = await this.getBadgeByCode(badgeCode);
+    if (!badge) return undefined;
+    
+    // Check if user already has this badge
+    const existing = await this.hasUserBadge(userId, badgeCode);
+    if (existing) return undefined;
+    
+    const result = await db
+      .insert(userBadges)
+      .values({
+        userId,
+        badgeId: badge.id,
+        grantedBy,
+        grantedReason: reason,
+      })
+      .returning();
+    return result[0];
+  }
+
+  async revokeBadge(userId: string, badgeCode: string): Promise<void> {
+    const badge = await this.getBadgeByCode(badgeCode);
+    if (!badge) return;
+    
+    await db
+      .delete(userBadges)
+      .where(and(eq(userBadges.userId, userId), eq(userBadges.badgeId, badge.id)));
+  }
+
+  async getUserUniqueCardCount(userId: string): Promise<number> {
+    const result = await db
+      .select({ count: sql<number>`COUNT(DISTINCT ${userCards.cardId})` })
+      .from(userCards)
+      .where(eq(userCards.userId, userId));
+    return result[0]?.count || 0;
+  }
+
+  async checkAndGrantCollectionMilestones(userId: string): Promise<string[]> {
+    const uniqueCards = await this.getUserUniqueCardCount(userId);
+    const grantedBadges: string[] = [];
+    
+    // Collection milestone thresholds
+    const milestones = [
+      { count: 10, code: 'collector_1' },
+      { count: 25, code: 'collector_2' },
+      { count: 50, code: 'collector_3' },
+    ];
+    
+    for (const milestone of milestones) {
+      if (uniqueCards >= milestone.count) {
+        const hasIt = await this.hasUserBadge(userId, milestone.code);
+        if (!hasIt) {
+          await this.grantBadge(userId, milestone.code, 'system', `Collected ${milestone.count} unique cards`);
+          grantedBadges.push(milestone.code);
+        }
+      }
+    }
+    
+    return grantedBadges;
   }
 }
 
