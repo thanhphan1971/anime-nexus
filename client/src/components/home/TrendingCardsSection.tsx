@@ -41,12 +41,13 @@ export function TrendingCardsSection() {
           >
             <Card className={`overflow-hidden ${rarityColors[card.rarity] || rarityColors.Common}`}>
               <CardContent className="p-0">
-                <div className="aspect-[3/4] relative">
+                <div className="aspect-[3/4] relative bg-black/50">
                   <img
                     src={card.image}
-                    alt={card.name}
+                    alt=""
                     className="w-full h-full object-cover"
                     loading="lazy"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                   />
                   <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-1.5">
                     <p className="text-[10px] font-medium text-white truncate">{card.name}</p>
