@@ -375,6 +375,246 @@ export async function registerRoutes(
     res.json(presets);
   });
 
+  // ============== PROFILE & BADGES API ==============
+
+  // Get user profile with badges and collection stats (public)
+  app.get("/api/users/:id/profile", async (req, res) => {
+    try {
+      const user = await storage.getUser(req.params.id);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const [userBadges, uniqueCardCount] = await Promise.all([
+        storage.getUserBadges(user.id),
+        storage.getUserUniqueCardCount(user.id),
+      ]);
+
+      // Check and grant any missing collection milestones
+      await storage.checkAndGrantCollectionMilestones(user.id);
+
+      // Calculate next milestone
+      const milestones = [10, 25, 50, 100];
+      const nextMilestone = milestones.find(m => uniqueCardCount < m) || null;
+      
+      // Add S-Class badge dynamically if user is premium
+      const badges = userBadges.map(ub => ({
+        code: ub.badge.code,
+        name: ub.badge.name,
+        description: ub.badge.description,
+        icon: ub.badge.icon,
+        category: ub.badge.category,
+        grantedAt: ub.createdAt,
+      }));
+      
+      // Include S-Class badge if premium and not already in badges
+      if (user.isPremium && !badges.find(b => b.code === 's_class')) {
+        const sclassBadge = await storage.getBadgeByCode('s_class');
+        if (sclassBadge) {
+          badges.push({
+            code: sclassBadge.code,
+            name: sclassBadge.name,
+            description: sclassBadge.description,
+            icon: sclassBadge.icon,
+            category: sclassBadge.category,
+            grantedAt: user.premiumStartDate || new Date(),
+          });
+        }
+      }
+
+      // Calculate relative join time
+      const joinedDaysAgo = Math.floor((Date.now() - new Date(user.createdAt).getTime()) / (1000 * 60 * 60 * 24));
+      let joinedRelative = 'just joined';
+      if (joinedDaysAgo >= 365) {
+        joinedRelative = `${Math.floor(joinedDaysAgo / 365)} year(s) ago`;
+      } else if (joinedDaysAgo >= 30) {
+        joinedRelative = `${Math.floor(joinedDaysAgo / 30)} month(s) ago`;
+      } else if (joinedDaysAgo > 0) {
+        joinedRelative = `${joinedDaysAgo} day(s) ago`;
+      }
+
+      res.json({
+        id: user.id,
+        name: user.name,
+        handle: user.handle,
+        avatar: user.avatar,
+        bio: user.bio,
+        level: user.level,
+        isPremium: user.isPremium,
+        joinedRelative,
+        totalUniqueCards: uniqueCardCount,
+        nextMilestone,
+        badges,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get user profile by handle (public)
+  app.get("/api/profile/:handle", async (req, res) => {
+    try {
+      let handle = req.params.handle;
+      if (!handle.startsWith('@')) {
+        handle = '@' + handle;
+      }
+      
+      const user = await storage.getUserByHandle(handle);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Redirect to the /api/users/:id/profile endpoint logic
+      const [userBadges, uniqueCardCount] = await Promise.all([
+        storage.getUserBadges(user.id),
+        storage.getUserUniqueCardCount(user.id),
+      ]);
+
+      await storage.checkAndGrantCollectionMilestones(user.id);
+
+      const milestones = [10, 25, 50, 100];
+      const nextMilestone = milestones.find(m => uniqueCardCount < m) || null;
+      
+      const badges = userBadges.map(ub => ({
+        code: ub.badge.code,
+        name: ub.badge.name,
+        description: ub.badge.description,
+        icon: ub.badge.icon,
+        category: ub.badge.category,
+        grantedAt: ub.createdAt,
+      }));
+      
+      if (user.isPremium && !badges.find(b => b.code === 's_class')) {
+        const sclassBadge = await storage.getBadgeByCode('s_class');
+        if (sclassBadge) {
+          badges.push({
+            code: sclassBadge.code,
+            name: sclassBadge.name,
+            description: sclassBadge.description,
+            icon: sclassBadge.icon,
+            category: sclassBadge.category,
+            grantedAt: user.premiumStartDate || new Date(),
+          });
+        }
+      }
+
+      const joinedDaysAgo = Math.floor((Date.now() - new Date(user.createdAt).getTime()) / (1000 * 60 * 60 * 24));
+      let joinedRelative = 'just joined';
+      if (joinedDaysAgo >= 365) {
+        joinedRelative = `${Math.floor(joinedDaysAgo / 365)} year(s) ago`;
+      } else if (joinedDaysAgo >= 30) {
+        joinedRelative = `${Math.floor(joinedDaysAgo / 30)} month(s) ago`;
+      } else if (joinedDaysAgo > 0) {
+        joinedRelative = `${joinedDaysAgo} day(s) ago`;
+      }
+
+      res.json({
+        id: user.id,
+        name: user.name,
+        handle: user.handle,
+        avatar: user.avatar,
+        bio: user.bio,
+        level: user.level,
+        isPremium: user.isPremium,
+        joinedRelative,
+        totalUniqueCards: uniqueCardCount,
+        nextMilestone,
+        badges,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get current user's collection progress
+  app.get("/api/users/me/collection-progress", verifySupabaseToken, async (req, res) => {
+    try {
+      if (!req.dbUser) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const uniqueCardCount = await storage.getUserUniqueCardCount(req.dbUser.id);
+      const milestones = [10, 25, 50, 100];
+      const nextMilestone = milestones.find(m => uniqueCardCount < m) || null;
+      const prevMilestone = [...milestones].reverse().find(m => uniqueCardCount >= m) || 0;
+
+      // Check and grant any missing badges
+      const newBadges = await storage.checkAndGrantCollectionMilestones(req.dbUser.id);
+
+      res.json({
+        uniqueCards: uniqueCardCount,
+        nextMilestone,
+        prevMilestone,
+        progress: nextMilestone ? (uniqueCardCount / nextMilestone) * 100 : 100,
+        newBadgesGranted: newBadges,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Admin: Grant badge to user
+  app.post("/api/badges/grant", verifySupabaseToken, async (req, res) => {
+    try {
+      if (!req.dbUser?.isAdmin) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      const { userId, badgeCode, reason } = req.body;
+      if (!userId || !badgeCode) {
+        return res.status(400).json({ error: "userId and badgeCode are required" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const badge = await storage.getBadgeByCode(badgeCode);
+      if (!badge) {
+        return res.status(404).json({ error: "Badge not found" });
+      }
+
+      const userBadge = await storage.grantBadge(userId, badgeCode, 'admin', reason);
+      if (!userBadge) {
+        return res.status(400).json({ error: "User already has this badge" });
+      }
+
+      res.json({ success: true, badge: badge.name });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Admin: Revoke badge from user
+  app.post("/api/badges/revoke", verifySupabaseToken, async (req, res) => {
+    try {
+      if (!req.dbUser?.isAdmin) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      const { userId, badgeCode } = req.body;
+      if (!userId || !badgeCode) {
+        return res.status(400).json({ error: "userId and badgeCode are required" });
+      }
+
+      await storage.revokeBadge(userId, badgeCode);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get all available badges (for admin panel)
+  app.get("/api/badges", async (req, res) => {
+    try {
+      const allBadges = await storage.getAllBadges();
+      res.json(allBadges);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Reserved words that cannot be used as handles (all lowercase for comparison)
   const RESERVED_HANDLES = [
     // Routes
@@ -644,7 +884,10 @@ export async function registerRoutes(
         tokens: user.tokens - 100,
       });
       
-      res.json({ cards: pulledCards });
+      // Check and grant collection milestone badges
+      const newBadges = await storage.checkAndGrantCollectionMilestones(user.id);
+      
+      res.json({ cards: pulledCards, newBadges });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -751,10 +994,14 @@ export async function registerRoutes(
         freeSummonsUsedToday: newUsedToday,
       });
       
+      // Check and grant collection milestone badges
+      const newBadges = await storage.checkAndGrantCollectionMilestones(user.id);
+      
       res.json({
         card: pulledCard,
         remainingToday: Math.max(0, dailyLimit - newUsedToday),
         nextResetAt: resetAt?.toISOString() || getNextResetTime().toISOString(),
+        newBadges,
       });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
