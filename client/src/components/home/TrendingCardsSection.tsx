@@ -25,36 +25,31 @@ export function TrendingCardsSection() {
   ) as any[];
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-2">
+    <div>
+      <div className="flex items-center gap-1.5 mb-1.5">
         <TrendingUp className="h-4 w-4 text-orange-400" />
         <h2 className="font-display font-bold text-sm">Trending This Week</h2>
       </div>
-
-      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+      <div className="flex gap-1.5 overflow-x-auto scrollbar-hide">
         {uniqueCards.slice(0, 8).map((card: any) => (
           <div
             key={card.id}
-            className="flex-shrink-0 w-16 cursor-pointer transition-transform hover:scale-105"
+            className="flex-shrink-0 w-14 cursor-pointer hover:opacity-80 transition-opacity"
             onClick={() => setLocation(`/cards?card=${card.id}`)}
             data-testid={`trending-card-${card.id}`}
           >
-            <Card className={`overflow-hidden ${rarityColors[card.rarity] || rarityColors.Common}`}>
-              <CardContent className="p-0">
-                <div className="aspect-square relative bg-black/50">
-                  <img
-                    src={card.image}
-                    alt=""
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                  />
-                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-1">
-                    <p className="text-[9px] font-medium text-white text-center truncate">{card.name}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <div className={`rounded overflow-hidden border ${rarityColors[card.rarity] || rarityColors.Common}`}>
+              <div className="aspect-square relative bg-black/40">
+                <img
+                  src={card.image}
+                  alt=""
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                />
+              </div>
+              <p className="text-[8px] font-medium text-center truncate px-0.5 py-0.5 bg-black/60 text-white leading-tight">{card.name}</p>
+            </div>
           </div>
         ))}
       </div>

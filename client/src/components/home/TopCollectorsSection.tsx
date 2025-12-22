@@ -8,47 +8,58 @@ export function TopCollectorsSection() {
   const [, setLocation] = useLocation();
   const { data: topCollectors, isLoading } = useTopCollectors();
 
-  if (isLoading || !topCollectors || topCollectors.length === 0) {
+  if (isLoading) {
     return null;
   }
 
+  // Only show collectors with >= 10 unique cards
+  const qualifiedCollectors = (topCollectors || []).filter(
+    (c: any) => Number(c.uniqueCardCount) >= 10
+  );
+
   return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <Trophy className="h-5 w-5 text-yellow-400" />
-        <h2 className="font-display font-bold text-lg">Top Collectors This Week</h2>
+    <div>
+      <div className="flex items-center gap-1.5 mb-1.5">
+        <Trophy className="h-4 w-4 text-yellow-400" />
+        <h2 className="font-display font-bold text-sm">Top Collectors</h2>
       </div>
 
-      <Card className="bg-card/50 border-white/10">
-        <CardContent className="p-3 space-y-2">
-          {topCollectors.slice(0, 5).map((collector: any) => (
-            <div
-              key={collector.id}
-              className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 cursor-pointer transition-colors"
-              onClick={() => setLocation(`/@${collector.handle?.replace('@', '')}`)}
-              data-testid={`top-collector-${collector.id}`}
-            >
-              <Avatar className="h-10 w-10">
-                <AvatarImage src={collector.avatar} />
-                <AvatarFallback>{collector.name?.[0] || '?'}</AvatarFallback>
-              </Avatar>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-sm font-medium truncate">{collector.name}</span>
-                  {collector.isPremium && (
-                    <Crown className="h-3.5 w-3.5 text-yellow-500 flex-shrink-0" />
-                  )}
+      {qualifiedCollectors.length === 0 ? (
+        <Card className="bg-card/50 border-white/10">
+          <CardContent className="p-3 text-center">
+            <p className="text-xs text-muted-foreground">
+              No top collectors yet — be the first to reach 10 unique cards!
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="bg-card/50 border-white/10">
+          <CardContent className="p-2">
+            {qualifiedCollectors.slice(0, 5).map((collector: any) => (
+              <div
+                key={collector.id}
+                className="flex items-center gap-2 py-1.5 px-1 rounded hover:bg-white/5 cursor-pointer transition-colors"
+                onClick={() => setLocation(`/@${collector.handle?.replace('@', '')}`)}
+                data-testid={`top-collector-${collector.id}`}
+              >
+                <Avatar className="h-7 w-7">
+                  <AvatarImage src={collector.avatar} />
+                  <AvatarFallback className="text-xs">{collector.name?.[0] || '?'}</AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs font-medium truncate">{collector.name}</span>
+                    {collector.isPremium && (
+                      <Crown className="h-3 w-3 text-yellow-500 flex-shrink-0" />
+                    )}
+                  </div>
                 </div>
-                <span className="text-xs text-muted-foreground">{collector.handle}</span>
+                <span className="text-xs font-bold text-primary">{collector.uniqueCardCount}</span>
               </div>
-              <div className="text-right">
-                <span className="text-sm font-bold text-primary">{collector.uniqueCardCount}</span>
-                <p className="text-[10px] text-muted-foreground">unique cards</p>
-              </div>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
+            ))}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
