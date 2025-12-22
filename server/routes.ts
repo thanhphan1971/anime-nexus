@@ -1804,7 +1804,7 @@ export async function registerRoutes(
 
   app.get("/api/draws/next", async (req, res) => {
     try {
-      const MONTHLY_TOKEN_COST = 500;
+      const MONTHLY_TOKEN_COST = 100;
       
       let [weeklyDraw, monthlyDraw] = await Promise.all([
         storage.getNextDrawByCadence('weekly'),
@@ -1851,7 +1851,7 @@ export async function registerRoutes(
         if (!existing) {
           monthlyDraw = await storage.createDraw({
             name: 'Monthly Card Giveaway',
-            description: 'Win legendary and mythic cards! S-Class gets 1 free entry.',
+            description: 'Win legendary and mythic cards! S-Class gets 1 free entry. Free users: 100 tokens.',
             cadence: 'monthly',
             cycleId,
             status: 'open',
@@ -1864,8 +1864,8 @@ export async function registerRoutes(
               { name: '30 Days S-Class', type: 'premium', value: 30, quantity: 2 }
             ],
             entryRules: { minAccountAgeDays: 7 },
-            maxEntriesPerUser: 3,
-            premiumEntriesPerUser: 3,
+            maxEntriesPerUser: 1,
+            premiumEntriesPerUser: 1,
             isVisible: true,
             isFeatured: false
           });
@@ -1900,17 +1900,25 @@ export async function registerRoutes(
 
       // Calculate monthly entry cost for the current user
       let monthlyEntryCost = MONTHLY_TOKEN_COST; // Default for non-logged in or free users
-      let monthlyEntryReason = 'token_purchase';
+      let monthlyEntryReason = 'Free users: 100 tokens to enter monthly';
       
       if (user) {
-        if (user.isPremium && !monthlyEntry) {
+        // Check if user has S-Class access (isPremium OR valid admin-granted access)
+        const hasAdminGrant = user.accessSource === 'admin_grant' && 
+          user.accessExpiresAt && new Date(user.accessExpiresAt) > new Date();
+        const isSClass = user.isPremium || hasAdminGrant;
+        
+        if (isSClass && !monthlyEntry) {
           // S-Class user hasn't entered yet - free entry available
           monthlyEntryCost = 0;
-          monthlyEntryReason = 'premium_free';
+          monthlyEntryReason = 'S-Class: 1 free monthly entry available';
         } else if (monthlyEntry) {
           // Already entered, additional entries cost tokens
           monthlyEntryCost = MONTHLY_TOKEN_COST;
-          monthlyEntryReason = 'additional_entry';
+          monthlyEntryReason = 'Already entered • Extra entries: 100 tokens';
+        } else if (!isSClass) {
+          // Free user without entry
+          monthlyEntryReason = 'Free users: 100 tokens to enter monthly';
         }
       }
 
@@ -2130,7 +2138,7 @@ export async function registerRoutes(
 
       // Check entry rules
       const entryRules = draw.entryRules as any || {};
-      const MONTHLY_TOKEN_COST = 500; // Default cost for monthly draw entry
+      const MONTHLY_TOKEN_COST = 100; // Default cost for monthly draw entry
       
       // Level requirement
       if (entryRules.minLevel && user.level < entryRules.minLevel) {
@@ -2196,10 +2204,12 @@ export async function registerRoutes(
       let tokensCost = 0;
       
       if (draw.cadence === 'monthly') {
-        // Check if S-Class user has used their free entry
-        const usedFreeEntry = existingEntry?.entrySource === 'premium_free';
+        // Check if user has S-Class access (isPremium OR valid admin-granted access)
+        const hasAdminGrant = user.accessSource === 'admin_grant' && 
+          user.accessExpiresAt && new Date(user.accessExpiresAt) > new Date();
+        const isSClass = user.isPremium || hasAdminGrant;
         
-        if (user.isPremium && !existingEntry) {
+        if (isSClass && !existingEntry) {
           // S-Class user's first entry is free
           entrySource = 'premium_free';
           tokensCost = 0;

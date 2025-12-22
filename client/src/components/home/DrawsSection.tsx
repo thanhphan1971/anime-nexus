@@ -120,7 +120,7 @@ function DrawCard({
   
   // Monthly draw token cost logic
   const isMonthly = type === 'monthly';
-  const entryCost = draw.entryCost ?? (isMonthly ? 500 : 0);
+  const entryCost = draw.entryCost ?? (isMonthly ? 100 : 0);
   const isFreeEntry = entryCost === 0;
 
   const getButtonContent = () => {
@@ -237,9 +237,9 @@ function DrawCard({
             </Button>
           </div>
 
-          {isMonthly && isFreeEntry && (
+          {isMonthly && (
             <p className="mt-2 text-[10px] text-center text-purple-400/80">
-              S-Class Free Entry
+              {draw.entryReason || (isFreeEntry ? 'S-Class: 1 free entry • Free users: 100 tokens' : 'S-Class: 1 free entry • Your entry cost: 100 tokens')}
             </p>
           )}
         </CardContent>
