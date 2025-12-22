@@ -10,9 +10,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Slider } from "@/components/ui/slider";
-import { Settings, MapPin, Link as LinkIcon, Calendar, Loader2, Crown, Upload, Sparkles, Globe, ZoomIn, Check, X, Copy, ExternalLink } from "lucide-react";
+import { Settings, MapPin, Link as LinkIcon, Calendar, Loader2, Crown, Upload, Sparkles, Globe, ZoomIn, Check, X, Copy, ExternalLink, Award, Target } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { usePosts, useUpdateUser, useUserByHandle, useUser, usePresetAvatars, useUpdateAvatar } from "@/lib/api";
+import { usePosts, useUpdateUser, useUserByHandle, useUser, usePresetAvatars, useUpdateAvatar, useUserProfile } from "@/lib/api";
+import { Progress } from "@/components/ui/progress";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import Cropper from "react-easy-crop";
@@ -71,6 +72,12 @@ export default function ProfilePage() {
   const { data: userById, isLoading: idLoading } = useUser(
     id && id !== currentUser?.id && id !== 'me' ? id : undefined
   );
+  
+  // Determine user ID for profile data
+  const targetUserId = username ? userByHandle?.id : (id && id !== 'me' ? id : currentUser?.id);
+  
+  // Fetch profile data with badges and collection stats
+  const { data: profileData } = useUserProfile(targetUserId);
   
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -581,6 +588,59 @@ export default function ProfilePage() {
                    )}
                  </div>
                </div>
+
+               {/* Badges Section */}
+               {profileData?.badges && profileData.badges.length > 0 && (
+                 <div className="pt-4 border-t border-white/10">
+                   <h3 className="font-bold mb-3 text-sm text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                     <Award className="h-4 w-4" /> Badges
+                   </h3>
+                   <div className="flex flex-wrap gap-2">
+                     {profileData.badges.map((badge: any) => (
+                       <div
+                         key={badge.code}
+                         className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-primary/20 to-purple-500/20 border border-primary/30"
+                         title={badge.description}
+                         data-testid={`badge-${badge.code}`}
+                       >
+                         <span className="text-base">{badge.icon || '🏆'}</span>
+                         <span className="text-xs font-medium">{badge.name}</span>
+                       </div>
+                     ))}
+                   </div>
+                 </div>
+               )}
+
+               {/* Collection Progress Section */}
+               {profileData && (
+                 <div className="pt-4 border-t border-white/10">
+                   <h3 className="font-bold mb-3 text-sm text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                     <Target className="h-4 w-4" /> Collection
+                   </h3>
+                   <div className="space-y-2">
+                     <div className="flex justify-between text-sm">
+                       <span>Unique Cards</span>
+                       <span className="font-bold text-primary" data-testid="text-unique-cards">{profileData.totalUniqueCards}</span>
+                     </div>
+                     {profileData.nextMilestone && (
+                       <>
+                         <Progress 
+                           value={(profileData.totalUniqueCards / profileData.nextMilestone) * 100} 
+                           className="h-2"
+                         />
+                         <p className="text-xs text-muted-foreground text-center">
+                           {profileData.totalUniqueCards} / {profileData.nextMilestone} to next badge
+                         </p>
+                       </>
+                     )}
+                     {!profileData.nextMilestone && profileData.totalUniqueCards >= 50 && (
+                       <p className="text-xs text-green-400 text-center">
+                         All collection milestones achieved!
+                       </p>
+                     )}
+                   </div>
+                 </div>
+               )}
              </CardContent>
            </Card>
         </div>

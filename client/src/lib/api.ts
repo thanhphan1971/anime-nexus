@@ -114,6 +114,31 @@ export function useUserByHandle(handle: string | undefined) {
   });
 }
 
+// Profile with badges and collection stats
+export function useUserProfile(userId: string | undefined) {
+  return useQuery({
+    queryKey: ["userProfile", userId],
+    queryFn: () => apiCall(`/api/users/${userId}/profile`),
+    enabled: !!userId,
+  });
+}
+
+export function useProfileByHandle(handle: string | undefined) {
+  return useQuery({
+    queryKey: ["profileByHandle", handle],
+    queryFn: () => apiCall(`/api/profile/${handle}`),
+    enabled: !!handle,
+    retry: false,
+  });
+}
+
+export function useCollectionProgress() {
+  return useQuery({
+    queryKey: ["collectionProgress"],
+    queryFn: () => apiCall("/api/users/me/collection-progress"),
+  });
+}
+
 export function useCheckHandle(handle: string | undefined) {
   return useQuery({
     queryKey: ["checkHandle", handle],
