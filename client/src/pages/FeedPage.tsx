@@ -18,6 +18,8 @@ import { TodayActionsStrip } from "@/components/home/TodayActionsStrip";
 import { FieldReportTeaser } from "@/components/home/FieldReportTeaser";
 import { RewardsTodayHub } from "@/components/home/RewardsTodayHub";
 import { DrawsSection } from "@/components/home/DrawsSection";
+import { TrendingCardsSection } from "@/components/home/TrendingCardsSection";
+import { TopCollectorsSection } from "@/components/home/TopCollectorsSection";
 
 export default function FeedPage() {
   const { data: posts, isLoading } = usePosts();
@@ -299,6 +301,12 @@ export default function FeedPage() {
 
       {/* Prize Draws Section */}
       <DrawsSection />
+
+      {/* Trending Cards Section */}
+      <TrendingCardsSection />
+
+      {/* Top Collectors Section */}
+      <TopCollectorsSection />
 
       {/* Today's Actions Strip */}
       <TodayActionsStrip />

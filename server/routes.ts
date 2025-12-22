@@ -819,6 +819,30 @@ export async function registerRoutes(
     }
   });
 
+  // Trending cards - most acquired in last 7 days
+  app.get("/api/cards/trending", async (req, res) => {
+    try {
+      const limit = Math.min(parseInt(req.query.limit as string) || 10, 20);
+      const trendingCards = await storage.getTrendingCards(limit);
+      res.json(trendingCards);
+    } catch (error: any) {
+      console.error("Error fetching trending cards:", error);
+      res.json([]); // Graceful empty state
+    }
+  });
+
+  // Top collectors - users with most unique cards
+  app.get("/api/collectors/top", async (req, res) => {
+    try {
+      const limit = Math.min(parseInt(req.query.limit as string) || 10, 20);
+      const topCollectors = await storage.getTopCollectors(limit);
+      res.json(topCollectors);
+    } catch (error: any) {
+      console.error("Error fetching top collectors:", error);
+      res.json([]); // Graceful empty state
+    }
+  });
+
   // Card catalog with pagination and filtering
   app.get("/api/cards/catalog", async (req, res) => {
     try {

@@ -1,0 +1,126 @@
+REPLIT BUILD PROMPT — Social Proof Surfaces V1 (Popular Pack, Trending Cards, Top Collectors)
+
+Goal:
+Add lightweight social proof surfaces that guide user behavior, reduce choice paralysis,
+and increase conversion without adding complexity.
+
+This is NOT a leaderboard-heavy system.
+This is visibility + framing only.
+
+────────────────────────
+FEATURES TO IMPLEMENT
+────────────────────────
+
+A) MOST POPULAR PACK (PRIMARY)
+
+Definition:
+- One pack/bundle is marked as “Most Popular”.
+- This flag is ADMIN-CONTROLLED (not algorithmic yet).
+
+Implementation:
+1) Database
+- Add boolean column: is_most_popular to packs/bundles table.
+- Only ONE pack can be marked as most popular at a time (enforce in admin logic).
+
+2) UI
+- On the Summon / Gacha page:
+  - Display a badge: “🔥 Most Popular”
+  - Slight visual emphasis (badge only, no price change)
+- On Home (optional but recommended):
+  - Under Gacha section: “Most Popular Pack: <Pack Name>”
+
+Purpose:
+- Reduce decision fatigue
+- Increase default conversion
+- Match industry behavior (without manipulation)
+
+────────────────────────
+
+B) TRENDING CARDS (WEEKLY SNAPSHOT)
+
+Definition:
+- “Trending” = cards most acquired in the last 7 days.
+
+Implementation:
+1) Backend
+- Create query:
+  - Count card acquisitions (draws, summons) over rolling 7 days.
+  - Group by card_id.
+  - Sort desc.
+  - Limit 5–10 cards.
+
+2) API
+- GET /api/cards/trending
+  returns:
+  - card_id
+  - card_name
+  - rarity
+  - thumbnail_url
+  - acquisition_count (optional, can be hidden in UI)
+
+3) UI
+- Home page section: “Trending This Week”
+- Horizontal scroll or grid (small cards).
+- Clicking a card opens its card detail page.
+
+Rules:
+- Do NOT show exact numbers publicly unless already trivial.
+- Focus on visibility, not competition.
+
+────────────────────────
+
+C) TOP COLLECTORS (WEEKLY ROTATION)
+
+Definition:
+- Highlight collectors with the highest number of UNIQUE cards.
+
+Implementation:
+1) Backend
+- Weekly query:
+  - Count unique cards per user.
+  - Sort desc.
+  - Limit top 5–10.
+- Cache result for 24h (do not recompute constantly).
+
+2) API
+- GET /api/collectors/top
+  returns:
+  - user_id
+  - display_name / handle
+  - avatar
+  - unique_card_count
+
+3) UI
+- Home section: “Top Collectors This Week”
+- Show:
+  - Avatar
+  - Name
+  - “XX unique cards”
+- Clicking opens profile.
+
+Rules:
+- No ranking numbers (1st, 2nd, etc.) yet.
+- No shaming for low collectors.
+- Keep it aspirational, not competitive.
+
+────────────────────────
+
+D) SAFETY & UX RULES
+
+- Do not expose emails, join dates, or private info.
+- Handles only (@tanikai).
+- Works for minors.
+- Must not block page load if APIs fail (graceful empty state).
+
+────────────────────────
+ACCEPTANCE TESTS
+────────────────────────
+
+1) One pack shows “🔥 Most Popular” and no others do.
+2) Trending cards section renders with recent acquisitions.
+3) Top Collectors section shows profiles with unique card counts.
+4) All sections are read-only (no interactions break core flows).
+
+After implementation:
+- List exact files changed.
+- Confirm admin control for “Most Popular Pack”.

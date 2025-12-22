@@ -285,6 +285,10 @@ export interface IStorage {
   revokeBadge(userId: string, badgeCode: string): Promise<void>;
   getUserUniqueCardCount(userId: string): Promise<number>;
   checkAndGrantCollectionMilestones(userId: string): Promise<string[]>;
+  
+  // Social proof
+  getTrendingCards(limit?: number): Promise<any[]>;
+  getTopCollectors(limit?: number): Promise<any[]>;
 }
 
 export class DbStorage implements IStorage {
@@ -1812,6 +1816,66 @@ export class DbStorage implements IStorage {
     }
     
     return grantedBadges;
+  }
+
+  async getTrendingCards(limit: number = 10): Promise<any[]> {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    
+    const result = await db
+      .select({
+        cardId: userCards.cardId,
+        acquisitionCount: sql<number>`COUNT(*)::int`,
+      })
+      .from(userCards)
+      .where(sql`${userCards.acquiredAt} >= ${sevenDaysAgo}`)
+      .groupBy(userCards.cardId)
+      .orderBy(sql`COUNT(*) DESC`)
+      .limit(limit);
+    
+    // Fetch card details for each trending card
+    const trendingWithDetails = await Promise.all(
+      result.map(async (item) => {
+        const card = await db.select().from(cards).where(eq(cards.id, item.cardId)).limit(1);
+        return card[0] ? {
+          ...card[0],
+          acquisitionCount: item.acquisitionCount,
+        } : null;
+      })
+    );
+    
+    return trendingWithDetails.filter(Boolean);
+  }
+
+  async getTopCollectors(limit: number = 10): Promise<any[]> {
+    const result = await db
+      .select({
+        userId: userCards.userId,
+        uniqueCardCount: sql<number>`COUNT(DISTINCT ${userCards.cardId})::int`,
+      })
+      .from(userCards)
+      .groupBy(userCards.userId)
+      .orderBy(sql`COUNT(DISTINCT ${userCards.cardId}) DESC`)
+      .limit(limit);
+    
+    // Fetch user details for each collector
+    const collectorsWithDetails = await Promise.all(
+      result.map(async (item) => {
+        const user = await db.select({
+          id: users.id,
+          name: users.name,
+          handle: users.handle,
+          avatar: users.avatar,
+          isPremium: users.isPremium,
+        }).from(users).where(eq(users.id, item.userId)).limit(1);
+        return user[0] ? {
+          ...user[0],
+          uniqueCardCount: item.uniqueCardCount,
+        } : null;
+      })
+    );
+    
+    return collectorsWithDetails.filter(Boolean);
   }
 }
 

@@ -193,6 +193,23 @@ export function useCards() {
   });
 }
 
+// Social proof APIs
+export function useTrendingCards() {
+  return useQuery({
+    queryKey: ["trendingCards"],
+    queryFn: () => apiCall("/api/cards/trending?limit=8"),
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+  });
+}
+
+export function useTopCollectors() {
+  return useQuery({
+    queryKey: ["topCollectors"],
+    queryFn: () => apiCall("/api/collectors/top?limit=5"),
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+  });
+}
+
 export function useUserCards(userId: string | undefined) {
   return useQuery({
     queryKey: ["userCards", userId],
