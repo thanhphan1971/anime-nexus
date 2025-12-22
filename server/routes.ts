@@ -6,7 +6,7 @@ import { insertUserSchema, insertPostSchema, insertSwipeActionSchema, insertComm
 import { supabaseAdmin } from "./lib/supabaseAdmin";
 import { nanoid } from "nanoid";
 import bcrypt from "bcrypt";
-import { verifySupabaseToken } from "./lib/supabaseAuth";
+import { verifySupabaseToken, optionalSupabaseAuth } from "./lib/supabaseAuth";
 import { sql } from "drizzle-orm";
 import { z } from "zod";
 import { FREE_ODDS, PAID_ODDS, PREMIUM_PAID_ODDS, FREE_SUMMON_LIMITS, PAID_SUMMON_CONFIG, selectRarity, getNextResetTime, needsReset } from "./config/gachaOdds";
@@ -1802,7 +1802,7 @@ export async function registerRoutes(
     return fromZonedTime(naiveTorontoTime, TORONTO_TZ);
   }
 
-  app.get("/api/draws/next", async (req, res) => {
+  app.get("/api/draws/next", optionalSupabaseAuth, async (req, res) => {
     try {
       const MONTHLY_TOKEN_COST = 100;
       
@@ -1874,16 +1874,19 @@ export async function registerRoutes(
         }
       }
 
-      const userId = req.session?.userId || null;
+      // Use dbUser from optionalSupabaseAuth middleware (Supabase token) or fallback to session
+      let user = req.dbUser ?? null;
+      const userId = user?.id || req.session?.userId || null;
+      
+      // Fallback: if no dbUser but session exists, fetch user
+      if (!user && req.session?.userId) {
+        user = (await storage.getUser(req.session.userId)) ?? null;
+      }
+      
       let weeklyEntry = null;
       let monthlyEntry = null;
       let weeklyEntryCount = 0;
       let monthlyEntryCount = 0;
-      let user = null;
-
-      if (userId) {
-        user = await storage.getUser(userId);
-      }
 
       if (weeklyDraw) {
         weeklyEntryCount = await storage.getEntryCount(weeklyDraw.id);
@@ -1911,6 +1914,17 @@ export async function registerRoutes(
         const hasAdminGrant = user.accessSource === 'admin_grant' && 
           user.accessExpiresAt && new Date(user.accessExpiresAt) > new Date();
         isSClass = !!(user.isPremium || hasAdminGrant);
+        
+        // Debug log for S-Class detection
+        console.log("[draws.next]", { 
+          userId: user.id, 
+          handle: user.username, 
+          isSClass,
+          source: user.isPremium ? 'isPremium' : hasAdminGrant ? 'admin_grant' : 'none',
+          isPremium: user.isPremium,
+          accessSource: user.accessSource,
+          accessExpiresAt: user.accessExpiresAt
+        });
         
         // S-Class gets 1 free entry per monthly cycle
         freeEntriesTotal = isSClass ? 1 : 0;

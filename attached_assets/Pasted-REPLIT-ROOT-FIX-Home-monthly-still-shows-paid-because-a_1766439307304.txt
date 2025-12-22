@@ -1,0 +1,53 @@
+REPLIT ROOT FIX — Home monthly still shows paid because /api/draws/next isSClass=false, but /draws isSClass=true
+
+Observed:
+- /draws (“Crystal Sigil”) shows S-Class free entry remaining (0/1 used).
+- Home monthly shows “Enter (100 Tokens)” and “Free users: 100 tokens…”.
+Therefore /api/draws/next (used by Home) is computing isSClass incorrectly (false) for Tanikai.
+
+Goal:
+Make /api/draws/next use the SAME membership detection logic as /draws page.
+After fix, Tanikai must get:
+- isSClass=true
+- monthly free_entries_remaining=1
+- Home button label “Enter Free”
+
+Tasks:
+
+A) Identify membership logic used by /draws
+- Locate the code that renders /draws and determines:
+  - “S-Class gets 1 free entry”
+  - “0/1 entries used (1 remaining)”
+This code path is correctly detecting S-Class for Tanikai.
+Extract or reuse the exact membership function/query it uses.
+
+B) Reuse that same logic in /api/draws/next
+- Replace current premium check in /api/draws/next with the shared function used by /draws.
+- Ensure it supports admin/complimentary S-Class grants (not just Stripe).
+
+C) Add a temporary dev log
+In /api/draws/next, log once:
+console.log("[draws.next]", { userId, handle, isSClass, source: "<which field determined premium>" })
+This is to confirm Tanikai isSClass=true.
+
+D) Return explicit eligibility fields
+For monthly return:
+- is_s_class
+- free_entries_remaining
+- entry_cost_tokens (0 if free remaining else 100)
+- entry_reason (“S-Class free entry available” OR “Free users: 100 tokens…”)
+
+E) Home UI uses these fields (already implemented, keep it)
+- If entry_cost_tokens==0 show “Enter Free”
+- else show “Enter (100 Tokens)”
+- Show correct helper line for S-Class vs free
+
+Acceptance:
+1) Log in as Tanikai.
+2) Call /api/draws/next → log shows isSClass:true and source indicates the correct membership field.
+3) Home monthly button shows “Enter Free” and helper line mentions S-Class free entry.
+4) /draws and Home are consistent.
+
+After changes:
+- List files changed
+- Paste the debug log output for Tanikai from /api/draws/next.
