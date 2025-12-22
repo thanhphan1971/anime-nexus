@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Coins, Sparkles, Layers, ShoppingBag, ArrowRightLeft, Filter, Search, ShieldCheck, Gift, Star, Crown, Loader2, Book, Clock } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
-import { useUserCards, useSummonCards, useMarketListings, usePurchaseListing, useFreeGachaStatus, useFreeSummon } from "@/lib/api";
+import { useUserCards, useSummonCards, useMarketListings, usePurchaseListing, useFreeGachaStatus, useFreeSummon, useCreatePost } from "@/lib/api";
+import { Share2, Check } from "lucide-react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
 import { format } from "date-fns";
@@ -32,8 +33,11 @@ export default function CardsPage() {
   const [reward, setReward] = useState<any>(null);
   const [rarityFilter, setRarityFilter] = useState<string>("All");
   const [isFreeLoading, setIsFreeLoading] = useState(false);
+  const [hasShared, setHasShared] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
   const paidSummonRef = useRef<HTMLDivElement>(null);
   const freeSummonRef = useRef<HTMLDivElement>(null);
+  const createPost = useCreatePost();
   
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -78,6 +82,7 @@ export default function CardsPage() {
     try {
       const result = await freeSummonMutation.mutateAsync();
       setReward(result.card);
+      setHasShared(false);
       await refetchFreeStatus();
       await refreshUser();
       toast.success(`Summoned ${result.card?.name || 'a card'}!`);
@@ -97,11 +102,41 @@ export default function CardsPage() {
     try {
       const result = await summonCards.mutateAsync();
       setReward(result.cards);
+      setHasShared(false);
       await refreshUser();
       toast.success(`Summoned ${result.cards?.length || 1} card(s)!`);
     } catch (error: any) {
       toast.error(error.message || "Summon failed");
     }
+  };
+
+  const handleShareToFeed = async () => {
+    if (!reward) return;
+    
+    const cards = Array.isArray(reward) ? reward : [reward];
+    if (cards.length === 0) return;
+    
+    const card = cards[0];
+    const postContent = `⚡ I pulled ${card.name} — ${card.rarity}!`;
+    
+    setIsSharing(true);
+    try {
+      await createPost.mutateAsync({
+        content: postContent,
+        image: card.image,
+      });
+      setHasShared(true);
+      toast.success("Shared to Feed!");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to share");
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
+  const handleBackToSummons = () => {
+    setReward(null);
+    setHasShared(false);
   };
 
   return (
@@ -302,9 +337,49 @@ export default function CardsPage() {
                     </div>
                   ))}
                 </div>
+                
+                {/* Share to Feed Panel */}
+                <div className="bg-card/60 border border-white/10 rounded-xl p-4 max-w-sm mx-auto">
+                  {hasShared ? (
+                    <div className="flex items-center justify-center gap-2 text-green-400 font-medium">
+                      <Check className="h-5 w-5" />
+                      Shared to Feed!
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-sm text-muted-foreground mb-3">
+                        You pulled: <span className="text-white font-medium">{(Array.isArray(reward) ? reward[0] : reward)?.name}</span> ({(Array.isArray(reward) ? reward[0] : reward)?.rarity})
+                      </p>
+                      <div className="flex gap-3 justify-center">
+                        <Button
+                          onClick={handleShareToFeed}
+                          disabled={isSharing}
+                          className="bg-gradient-to-r from-cyan-600 to-purple-600 hover:from-cyan-500 hover:to-purple-500 text-white font-bold"
+                          data-testid="button-share-to-feed"
+                        >
+                          {isSharing ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            <Share2 className="h-4 w-4 mr-2" />
+                          )}
+                          Share to Feed
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          onClick={handleBackToSummons}
+                          className="text-muted-foreground hover:text-white"
+                          data-testid="button-not-now"
+                        >
+                          Not now
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </div>
+
                 <Button 
                   size="lg" 
-                  onClick={() => setReward(null)} 
+                  onClick={handleBackToSummons} 
                   className="bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500 text-white font-bold px-8"
                   data-testid="button-back-to-summons"
                 >
