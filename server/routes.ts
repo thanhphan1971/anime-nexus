@@ -11,6 +11,7 @@ import { sql } from "drizzle-orm";
 import { z } from "zod";
 import { FREE_ODDS, PAID_ODDS, PREMIUM_PAID_ODDS, FREE_SUMMON_LIMITS, PAID_SUMMON_CONFIG, selectRarity, getNextResetTime, needsReset } from "./config/gachaOdds";
 import { getDrawLockTime, getCooldownEndTime, getDrawCycleStatus } from "./drawCycle";
+import { fromZonedTime } from "date-fns-tz";
 
 const createProfileSchema = z.object({
   id: z.string().min(1),
@@ -1393,14 +1394,170 @@ export async function registerRoutes(
     }
   });
 
+  // Helper: Get next Friday at 7PM America/Toronto using date-fns-tz
+  function getNextFridayToronto(): Date {
+    const TORONTO_TZ = 'America/Toronto';
+    const now = new Date();
+    
+    // Calculate what day/time it is in Toronto
+    const torontoFormatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: TORONTO_TZ,
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hour12: false, weekday: 'short'
+    });
+    const parts = torontoFormatter.formatToParts(now);
+    const getPart = (type: string) => parts.find(p => p.type === type)?.value || '';
+    const torontoYear = parseInt(getPart('year'));
+    const torontoMonth = parseInt(getPart('month')) - 1;
+    const torontoDay = parseInt(getPart('day'));
+    const torontoHour = parseInt(getPart('hour'));
+    const weekdayStr = getPart('weekday');
+    
+    // Map weekday string to number (0=Sun, 5=Fri)
+    const weekdayMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+    const dayOfWeek = weekdayMap[weekdayStr] ?? new Date(torontoYear, torontoMonth, torontoDay).getDay();
+    
+    let daysUntilFriday = (5 - dayOfWeek + 7) % 7;
+    if (daysUntilFriday === 0 && torontoHour >= 19) {
+      daysUntilFriday = 7; // Next Friday if it's Friday after 7PM
+    }
+    
+    // Calculate target date components in Toronto timezone
+    const targetDate = new Date(torontoYear, torontoMonth, torontoDay + daysUntilFriday);
+    const year = targetDate.getFullYear();
+    const month = targetDate.getMonth();
+    const day = targetDate.getDate();
+    
+    // Create a naive Date object with Toronto wall-clock time (hour=19)
+    // This Date's internal UTC representation doesn't matter - we're using it as a container for the values
+    const naiveTorontoTime = new Date(year, month, day, 19, 0, 0, 0);
+    // fromZonedTime reads the local date parts (getFullYear, getMonth, etc.) and treats them as Toronto time
+    return fromZonedTime(naiveTorontoTime, TORONTO_TZ);
+  }
+
+  // Helper: Get last Friday of current/next month at 7PM Toronto
+  function getLastFridayOfMonthToronto(): Date {
+    const TORONTO_TZ = 'America/Toronto';
+    const now = new Date();
+    
+    // Get Toronto current date
+    const torontoFormatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: TORONTO_TZ,
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hour12: false
+    });
+    const parts = torontoFormatter.formatToParts(now);
+    const getPart = (type: string) => parts.find(p => p.type === type)?.value || '';
+    let year = parseInt(getPart('year'));
+    let month = parseInt(getPart('month')) - 1;
+    const torontoDay = parseInt(getPart('day'));
+    const torontoHour = parseInt(getPart('hour'));
+    const torontoMinute = parseInt(parts.find(p => p.type === 'minute')?.value || '0');
+    
+    // Find last Friday of a month (using UTC to avoid local timezone issues)
+    function findLastFriday(y: number, m: number): { year: number; month: number; day: number } {
+      // Last day of month m in year y
+      const lastDayDate = new Date(Date.UTC(y, m + 1, 0));
+      const lastDayOfMonth = lastDayDate.getUTCDate();
+      for (let d = lastDayOfMonth; d >= 1; d--) {
+        const testDate = new Date(Date.UTC(y, m, d));
+        if (testDate.getUTCDay() === 5) { // Friday
+          return { year: y, month: m, day: d };
+        }
+      }
+      return { year: y, month: m, day: lastDayOfMonth }; // fallback
+    }
+    
+    let lastFriday = findLastFriday(year, month);
+    
+    // Check if last Friday 7PM has passed in Toronto time
+    const torontoNowMins = torontoDay * 24 * 60 + torontoHour * 60 + torontoMinute;
+    const lastFridayMins = lastFriday.day * 24 * 60 + 19 * 60;
+    
+    if (torontoNowMins >= lastFridayMins) {
+      // Move to next month
+      month++;
+      if (month > 11) { month = 0; year++; }
+      lastFriday = findLastFriday(year, month);
+    }
+    
+    // Create a naive Date object with Toronto wall-clock time (hour=19)
+    const naiveTorontoTime = new Date(lastFriday.year, lastFriday.month, lastFriday.day, 19, 0, 0, 0);
+    // fromZonedTime reads the local date parts and treats them as Toronto time
+    return fromZonedTime(naiveTorontoTime, TORONTO_TZ);
+  }
+
   app.get("/api/draws/next", async (req, res) => {
     try {
       const MONTHLY_TOKEN_COST = 500;
       
-      const [weeklyDraw, monthlyDraw] = await Promise.all([
+      let [weeklyDraw, monthlyDraw] = await Promise.all([
         storage.getNextDrawByCadence('weekly'),
         storage.getNextDrawByCadence('monthly'),
       ]);
+
+      // Auto-create weekly draw if none exists
+      if (!weeklyDraw) {
+        const nextFriday = getNextFridayToronto();
+        const cycleId = `weekly-${nextFriday.toISOString().slice(0, 10)}`;
+        // Check if draw with this cycleId exists (in any status)
+        const existing = await storage.getDrawByCycleId(cycleId);
+        if (!existing) {
+          weeklyDraw = await storage.createDraw({
+            name: 'Weekly Token Jackpot',
+            description: 'Win up to 5,000 tokens every week! All members can enter.',
+            cadence: 'weekly',
+            cycleId,
+            status: 'open',
+            startAt: new Date(),
+            endAt: nextFriday,
+            drawAt: nextFriday,
+            prizePool: [
+              { name: '5,000 Tokens', type: 'tokens', value: 5000, quantity: 1 },
+              { name: '2,000 Tokens', type: 'tokens', value: 2000, quantity: 3 },
+              { name: '500 Tokens', type: 'tokens', value: 500, quantity: 10 }
+            ],
+            entryRules: { minAccountAgeDays: 1 },
+            maxEntriesPerUser: 1,
+            premiumEntriesPerUser: 2,
+            isVisible: true,
+            isFeatured: true
+          });
+        } else if (existing.status === 'open' || existing.status === 'scheduled') {
+          weeklyDraw = existing;
+        }
+      }
+
+      // Auto-create monthly draw if none exists
+      if (!monthlyDraw) {
+        const lastFriday = getLastFridayOfMonthToronto();
+        const cycleId = `monthly-${lastFriday.toISOString().slice(0, 7)}`;
+        const existing = await storage.getDrawByCycleId(cycleId);
+        if (!existing) {
+          monthlyDraw = await storage.createDraw({
+            name: 'Monthly Card Giveaway',
+            description: 'Win legendary and mythic cards! S-Class gets 1 free entry.',
+            cadence: 'monthly',
+            cycleId,
+            status: 'open',
+            startAt: new Date(),
+            endAt: lastFriday,
+            drawAt: lastFriday,
+            prizePool: [
+              { name: 'Mythic Card Pack', type: 'card', rarity: 'mythic', quantity: 1 },
+              { name: 'Legendary Card Pack', type: 'card', rarity: 'legendary', quantity: 3 },
+              { name: '30 Days S-Class', type: 'premium', value: 30, quantity: 2 }
+            ],
+            entryRules: { minAccountAgeDays: 7 },
+            maxEntriesPerUser: 3,
+            premiumEntriesPerUser: 3,
+            isVisible: true,
+            isFeatured: false
+          });
+        } else if (existing.status === 'open' || existing.status === 'scheduled') {
+          monthlyDraw = existing;
+        }
+      }
 
       const userId = req.session?.userId || null;
       let weeklyEntry = null;

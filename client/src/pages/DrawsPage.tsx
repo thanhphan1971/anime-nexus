@@ -57,10 +57,6 @@ function getDrawButtonState(
   const drawTime = new Date(draw.drawAt);
   const lockTime = new Date(drawTime.getTime() - 60000);
   
-  if (isMonthly && !isPremium) {
-    return { state: 'premium_only' };
-  }
-  
   if (draw.status === 'executed' || draw.status === 'completed') {
     if (draw.executedAt) {
       const cooldownEnd = new Date(new Date(draw.executedAt).getTime() + 24 * 60 * 60 * 1000);
@@ -140,12 +136,14 @@ interface Winner {
 
 function CountdownTimer({ targetDate }: { targetDate: string }) {
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+  const [isExpired, setIsExpired] = useState(false);
 
   useEffect(() => {
     const calculateTimeLeft = () => {
       const difference = new Date(targetDate).getTime() - new Date().getTime();
       
       if (difference > 0) {
+        setIsExpired(false);
         setTimeLeft({
           days: Math.floor(difference / (1000 * 60 * 60 * 24)),
           hours: Math.floor((difference / (1000 * 60 * 60)) % 24),
@@ -153,6 +151,7 @@ function CountdownTimer({ targetDate }: { targetDate: string }) {
           seconds: Math.floor((difference / 1000) % 60),
         });
       } else {
+        setIsExpired(true);
         setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
       }
     };
@@ -161,6 +160,18 @@ function CountdownTimer({ targetDate }: { targetDate: string }) {
     const timer = setInterval(calculateTimeLeft, 1000);
     return () => clearInterval(timer);
   }, [targetDate]);
+
+  if (isExpired) {
+    return (
+      <div className="flex items-center gap-2">
+        <div className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/50 rounded-lg px-4 py-2">
+          <span className="text-lg font-bold text-yellow-400 animate-pulse">
+            Drawing soon...
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex gap-2">
@@ -251,8 +262,8 @@ function DrawSection({
     : isEvent
     ? `All users: ${draw?.maxEntriesPerUser || 1} ${(draw?.maxEntriesPerUser || 1) > 1 ? 'entries' : 'entry'}`
     : isPremium 
-      ? `S-Class: 1 entry` 
-      : `S-Class members only`;
+      ? `S-Class: 1 free entry • Additional: 500 tokens` 
+      : `Entry: 500 tokens • S-Class: 1 free entry!`;
 
   const buttonState = getDrawButtonState(draw, entriesUsed, maxEntries, isPremium, type === 'monthly');
 
@@ -374,7 +385,7 @@ function DrawSection({
                 ? 'Win tokens every week! All members can enter.' 
                 : isEvent
                 ? (draw?.description || 'Special limited-time event with exclusive prizes!')
-                : 'S-Class exclusive! Win legendary and mythic cards.'}
+                : 'Win legendary and mythic cards. S-Class gets 1 free entry!'}
             </p>
           </div>
           
