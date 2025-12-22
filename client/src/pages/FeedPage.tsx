@@ -266,38 +266,58 @@ export default function FeedPage() {
       <RewardsTodayHub />
 
       {/* Collection Progress Row */}
-      {collectionProgress && user && (
-        <div 
-          className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-purple-500/10 to-primary/10 border border-purple-500/20 cursor-pointer hover:border-purple-500/40 transition-colors"
-          onClick={() => setLocation(`/@${user.handle?.replace('@', '')}`)}
-          data-testid="collection-progress-row"
-        >
-          <div className="h-10 w-10 rounded-full bg-purple-500/20 flex items-center justify-center">
-            <Target className="h-5 w-5 text-purple-400" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-sm font-medium">Card Collection</span>
-              <span className="text-xs text-purple-400 font-medium" data-testid="text-collection-count">
-                {collectionProgress.totalUniqueCards} unique
-              </span>
+      {collectionProgress && user && (() => {
+        const uniqueCount = Number(collectionProgress.uniqueCards ?? 0);
+        const nextTarget = collectionProgress.nextMilestone != null ? Number(collectionProgress.nextMilestone) : null;
+        const isValidCount = Number.isFinite(uniqueCount);
+        const isValidTarget = nextTarget === null || Number.isFinite(nextTarget);
+        
+        if (!isValidCount || !isValidTarget) {
+          return (
+            <div 
+              className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-purple-500/10 to-primary/10 border border-purple-500/20"
+              data-testid="collection-progress-row"
+            >
+              <div className="h-10 w-10 rounded-full bg-purple-500/20 flex items-center justify-center">
+                <Target className="h-5 w-5 text-purple-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <span className="text-sm font-medium">Card Collection</span>
+                <p className="text-xs text-muted-foreground mt-1">Progress unavailable</p>
+              </div>
             </div>
-            {collectionProgress.nextMilestone ? (
-              <Progress 
-                value={(collectionProgress.totalUniqueCards / collectionProgress.nextMilestone) * 100} 
-                className="h-1.5"
-              />
-            ) : (
-              <Progress value={100} className="h-1.5" />
-            )}
-            <p className="text-xs text-muted-foreground mt-1">
-              {collectionProgress.nextMilestone 
-                ? `${collectionProgress.nextMilestone - collectionProgress.totalUniqueCards} more to next badge`
-                : "All milestones achieved!"}
-            </p>
+          );
+        }
+        
+        const progressValue = nextTarget ? (uniqueCount / nextTarget) * 100 : 100;
+        const remaining = nextTarget ? nextTarget - uniqueCount : 0;
+        
+        return (
+          <div 
+            className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-purple-500/10 to-primary/10 border border-purple-500/20 cursor-pointer hover:border-purple-500/40 transition-colors"
+            onClick={() => setLocation(`/@${user.handle?.replace('@', '')}`)}
+            data-testid="collection-progress-row"
+          >
+            <div className="h-10 w-10 rounded-full bg-purple-500/20 flex items-center justify-center">
+              <Target className="h-5 w-5 text-purple-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-sm font-medium">Card Collection</span>
+                <span className="text-xs text-purple-400 font-medium" data-testid="text-collection-count">
+                  {uniqueCount} unique
+                </span>
+              </div>
+              <Progress value={progressValue} className="h-1.5" />
+              <p className="text-xs text-muted-foreground mt-1">
+                {nextTarget 
+                  ? `${uniqueCount} / ${nextTarget} to next badge`
+                  : "Max badge reached"}
+              </p>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Prize Draws Section */}
       <DrawsSection />
