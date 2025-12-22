@@ -132,10 +132,11 @@ export function useProfileByHandle(handle: string | undefined) {
   });
 }
 
-export function useCollectionProgress() {
+export function useCollectionProgress(enabled: boolean = true) {
   return useQuery({
     queryKey: ["collectionProgress"],
     queryFn: () => apiCall("/api/users/me/collection-progress"),
+    enabled,
   });
 }
 

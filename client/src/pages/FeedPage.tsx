@@ -2,9 +2,10 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardFooter } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Heart, MessageCircle, Share2, MoreHorizontal, Sparkles, Loader2, X, Play } from "lucide-react";
+import { Heart, MessageCircle, Share2, MoreHorizontal, Sparkles, Loader2, X, Play, Target } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 import { motion, AnimatePresence } from "framer-motion";
-import { usePosts, useLikePost, useSiteSettings } from "@/lib/api";
+import { usePosts, useLikePost, useSiteSettings, useCollectionProgress } from "@/lib/api";
 import { useLocation } from "wouter";
 import { formatDistanceToNow } from "date-fns";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -34,6 +35,7 @@ export default function FeedPage() {
   });
 
   const { data: siteSettings } = useSiteSettings();
+  const { data: collectionProgress } = useCollectionProgress(!!user);
 
   const gameplayEnabled = siteSettings?.gameplayEnabled === 'true' || siteSettings?.gameplayEnabled === true;
   
@@ -260,6 +262,40 @@ export default function FeedPage() {
 
       {/* Rewards Today Hub - Unified summons and draws */}
       <RewardsTodayHub />
+
+      {/* Collection Progress Row */}
+      {collectionProgress && user && (
+        <div 
+          className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-purple-500/10 to-primary/10 border border-purple-500/20 cursor-pointer hover:border-purple-500/40 transition-colors"
+          onClick={() => setLocation(`/@${user.handle?.replace('@', '')}`)}
+          data-testid="collection-progress-row"
+        >
+          <div className="h-10 w-10 rounded-full bg-purple-500/20 flex items-center justify-center">
+            <Target className="h-5 w-5 text-purple-400" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-sm font-medium">Card Collection</span>
+              <span className="text-xs text-purple-400 font-medium" data-testid="text-collection-count">
+                {collectionProgress.totalUniqueCards} unique
+              </span>
+            </div>
+            {collectionProgress.nextMilestone ? (
+              <Progress 
+                value={(collectionProgress.totalUniqueCards / collectionProgress.nextMilestone) * 100} 
+                className="h-1.5"
+              />
+            ) : (
+              <Progress value={100} className="h-1.5" />
+            )}
+            <p className="text-xs text-muted-foreground mt-1">
+              {collectionProgress.nextMilestone 
+                ? `${collectionProgress.nextMilestone - collectionProgress.totalUniqueCards} more to next badge`
+                : "All milestones achieved!"}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Prize Draws Section */}
       <DrawsSection />
