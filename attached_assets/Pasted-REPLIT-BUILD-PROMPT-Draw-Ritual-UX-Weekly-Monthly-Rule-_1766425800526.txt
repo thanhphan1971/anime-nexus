@@ -1,0 +1,58 @@
+REPLIT BUILD PROMPT — Draw Ritual UX (Weekly + Monthly) + Rule Hardening
+
+Goal:
+Make Weekly + Monthly draws feel like a ritual and remove user confusion.
+We already have weekly draw Friday 7pm and monthly draw last Friday 7pm.
+We must add: countdown, eligibility messaging, and a recap section.
+
+Constraints:
+- Keep current schedule logic.
+- Monthly entry: FREE for paid users only; paid users get 1 free monthly entry per cycle.
+- Free users: monthly entry is paid (tokens) OR blocked with upsell message (choose token-paid if it already exists).
+- Weekly entry: keep existing rules (do not change unless already discussed).
+- Must be safe for minors (no public personal info).
+
+Implement:
+A) Home page “Draws” section (or banner)
+- Show: “Weekly Summon Night — Friday 7:00 PM” + countdown timer to next draw.
+- Show: “Monthly Prestige Draw — Last Friday 7:00 PM” + countdown timer.
+- Each has a CTA:
+  - “Enter Weekly Draw”
+  - “Enter Monthly Draw”
+- Under each CTA show eligibility text based on user status:
+  - Paid: “You have 1 free monthly entry this cycle” (or “Already used — next cycle in X days”)
+  - Free: “Monthly entry requires tokens” OR “Upgrade for free entry” (match whatever we decide is implemented)
+
+B) Draw detail page (or modal) for each draw
+- Show next draw time + countdown
+- Show user’s current entry status:
+  - Entered / Not entered
+  - If entered: show “You can re-enter next cycle 24 hours after draw ends” (if that rule exists) OR show “Next entry available: <time>”
+- Provide a “Recap” area:
+  - After a draw happens, store winners in DB and show a simple recap list (card won + winner display name truncated or anonymized).
+  - If you cannot store winners yet, create the DB table now (see C) and show placeholder “Recap available after next draw.”
+
+C) Database changes
+- Create tables:
+  1) draws (id, type weekly/monthly, scheduled_at, ends_at, status, created_at)
+  2) draw_entries (id, draw_id, user_id, created_at, entry_type free/paid, token_cost)
+  3) draw_results (id, draw_id, user_id, card_id, created_at)
+- Add indexes on draw_id and user_id where needed.
+- Ensure we can query “current cycle draw” and whether user already used their free monthly entry.
+
+D) Server/API
+- Endpoints:
+  - GET /api/draws/next (returns next weekly + next monthly + countdown targets)
+  - POST /api/draws/:id/enter (handles eligibility + token charging if needed)
+  - GET /api/draws/:id/status (user entry status)
+  - GET /api/draws/:id/recap (returns results list)
+
+E) UI acceptance criteria
+- Home shows both countdowns correctly.
+- Paid user sees “free monthly entry available” until they use it.
+- Free user cannot claim free monthly; they either pay tokens or see upsell message.
+- Enter buttons do not silently fail; show toast success/error.
+- Recap section renders without crashing even if empty.
+
+Do not change anything unrelated to draws.
+After implementation, list the files changed and how to test.

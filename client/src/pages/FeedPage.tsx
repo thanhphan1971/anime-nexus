@@ -16,6 +16,7 @@ import { WorldHookSection } from "@/components/home/WorldHookSection";
 import { TodayActionsStrip } from "@/components/home/TodayActionsStrip";
 import { FieldReportTeaser } from "@/components/home/FieldReportTeaser";
 import { RewardsTodayHub } from "@/components/home/RewardsTodayHub";
+import { DrawsSection } from "@/components/home/DrawsSection";
 
 export default function FeedPage() {
   const { data: posts, isLoading } = usePosts();
@@ -259,6 +260,9 @@ export default function FeedPage() {
 
       {/* Rewards Today Hub - Unified summons and draws */}
       <RewardsTodayHub />
+
+      {/* Prize Draws Section */}
+      <DrawsSection />
 
       {/* Today's Actions Strip */}
       <TodayActionsStrip />

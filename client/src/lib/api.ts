@@ -592,7 +592,32 @@ export function useEnterDraw() {
       queryClient.invalidateQueries({ queryKey: ["userDrawEntries"] });
       queryClient.invalidateQueries({ queryKey: ["activeDraws"] });
       queryClient.invalidateQueries({ queryKey: ["allDraws"] });
+      queryClient.invalidateQueries({ queryKey: ["nextDraws"] });
     },
+  });
+}
+
+export function useNextDraws() {
+  return useQuery({
+    queryKey: ["nextDraws"],
+    queryFn: () => apiCall("/api/draws/next"),
+    refetchInterval: 60000,
+  });
+}
+
+export function useDrawStatus(drawId: string | null) {
+  return useQuery({
+    queryKey: ["drawStatus", drawId],
+    queryFn: () => apiCall(`/api/draws/${drawId}/status`),
+    enabled: !!drawId,
+  });
+}
+
+export function useDrawRecap(drawId: string | null) {
+  return useQuery({
+    queryKey: ["drawRecap", drawId],
+    queryFn: () => apiCall(`/api/draws/${drawId}/recap`),
+    enabled: !!drawId,
   });
 }
 

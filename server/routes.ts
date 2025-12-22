@@ -1393,6 +1393,49 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/draws/next", async (req, res) => {
+    try {
+      const [weeklyDraw, monthlyDraw] = await Promise.all([
+        storage.getNextDrawByCadence('weekly'),
+        storage.getNextDrawByCadence('monthly'),
+      ]);
+
+      const userId = req.session?.userId || null;
+      let weeklyEntry = null;
+      let monthlyEntry = null;
+      let weeklyEntryCount = 0;
+      let monthlyEntryCount = 0;
+
+      if (weeklyDraw) {
+        weeklyEntryCount = await storage.getEntryCount(weeklyDraw.id);
+        if (userId) {
+          weeklyEntry = await storage.getUserEntryForDraw(userId, weeklyDraw.id);
+        }
+      }
+      if (monthlyDraw) {
+        monthlyEntryCount = await storage.getEntryCount(monthlyDraw.id);
+        if (userId) {
+          monthlyEntry = await storage.getUserEntryForDraw(userId, monthlyDraw.id);
+        }
+      }
+
+      res.json({
+        weekly: weeklyDraw ? {
+          ...weeklyDraw,
+          userEntry: weeklyEntry,
+          entryCount: weeklyEntryCount,
+        } : null,
+        monthly: monthlyDraw ? {
+          ...monthlyDraw,
+          userEntry: monthlyEntry,
+          entryCount: monthlyEntryCount,
+        } : null,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.get("/api/draws/:id", async (req, res) => {
     try {
       const draw = await storage.getDraw(req.params.id);
@@ -1419,6 +1462,106 @@ export async function registerRoutes(
     try {
       const winners = await storage.getDrawWinners(req.params.id);
       res.json(winners);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/draws/:id/status", async (req, res) => {
+    try {
+      const draw = await storage.getDraw(req.params.id);
+      if (!draw) {
+        return res.status(404).json({ error: "Draw not found" });
+      }
+
+      const userId = req.session?.userId || null;
+      let userEntry = null;
+      let user = null;
+      let eligibility = { eligible: false, reason: "Login required" };
+
+      if (userId) {
+        user = await storage.getUser(userId);
+        userEntry = await storage.getUserEntryForDraw(userId, req.params.id);
+        
+        if (user) {
+          const entryRules = draw.entryRules as any || {};
+          const now = new Date();
+          const lockTime = getDrawLockTime(new Date(draw.drawAt));
+          
+          if (draw.status === 'executed' || draw.status === 'completed') {
+            eligibility = { eligible: false, reason: "Draw has ended" };
+          } else if (now >= lockTime) {
+            eligibility = { eligible: false, reason: "Entries locked" };
+          } else if (userEntry) {
+            const maxEntries = user.isPremium 
+              ? (draw.premiumEntriesPerUser || 3) 
+              : (draw.maxEntriesPerUser || 1);
+            if (userEntry.tickets >= maxEntries) {
+              eligibility = { eligible: false, reason: "Maximum entries reached" };
+            } else {
+              eligibility = { eligible: true, reason: "Can add more entries" };
+            }
+          } else if (entryRules.premiumOnly && !user.isPremium) {
+            eligibility = { eligible: false, reason: "S-Class members only" };
+          } else if (entryRules.minLevel && user.level < entryRules.minLevel) {
+            eligibility = { eligible: false, reason: `Level ${entryRules.minLevel} required` };
+          } else {
+            eligibility = { eligible: true, reason: "Ready to enter" };
+          }
+        }
+      }
+
+      const entryCount = await storage.getEntryCount(req.params.id);
+      
+      res.json({
+        draw,
+        userEntry,
+        entryCount,
+        eligibility,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/draws/:id/recap", async (req, res) => {
+    try {
+      const draw = await storage.getDraw(req.params.id);
+      if (!draw) {
+        return res.status(404).json({ error: "Draw not found" });
+      }
+
+      const winners = await storage.getDrawWinners(req.params.id);
+      const entryCount = await storage.getEntryCount(req.params.id);
+      
+      const userId = req.session?.userId || null;
+      let userEntry = null;
+      let userWon = null;
+
+      if (userId) {
+        userEntry = await storage.getUserEntryForDraw(userId, req.params.id);
+        userWon = winners.find(w => w.userId === userId) || null;
+      }
+
+      res.json({
+        draw,
+        winners: winners.map(w => ({
+          id: w.id,
+          username: w.user.username,
+          avatarUrl: w.user.avatar,
+          prizeName: w.prize.name,
+          prizeRarity: w.prize.rarity,
+          winnerTier: w.winnerTier,
+        })),
+        entryCount,
+        userEntry,
+        userWon: userWon ? {
+          prizeName: userWon.prize.name,
+          prizeRarity: userWon.prize.rarity,
+          winnerTier: userWon.winnerTier,
+          claimStatus: userWon.claimStatus,
+        } : null,
+      });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -1491,12 +1634,20 @@ export async function registerRoutes(
       // Check entry rules
       const entryRules = draw.entryRules as any || {};
       
+      // Monthly draws are S-Class only (enforced regardless of entryRules configuration)
+      if (draw.cadence === 'monthly' && !user.isPremium) {
+        return res.status(400).json({ 
+          error: "Monthly draws are exclusive to S-Class members. Upgrade to enter!",
+          upsell: true
+        });
+      }
+      
       // Level requirement
       if (entryRules.minLevel && user.level < entryRules.minLevel) {
         return res.status(400).json({ error: `Minimum level ${entryRules.minLevel} required` });
       }
       
-      // Premium-only check (for free entry on monthly draws)
+      // Premium-only check (for other premium-only draws)
       if (entryRules.premiumOnly && !user.isPremium) {
         return res.status(400).json({ error: "S-Class members only for free entry" });
       }

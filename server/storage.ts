@@ -159,6 +159,8 @@ export interface IStorage {
   getDraw(id: string): Promise<Draw | undefined>;
   getActiveDraws(): Promise<Draw[]>;
   getFeaturedDraw(): Promise<Draw | undefined>;
+  getNextDrawByCadence(cadence: string): Promise<Draw | undefined>;
+  getLastExecutedDrawByCadence(cadence: string): Promise<Draw | undefined>;
   createDraw(draw: InsertDraw): Promise<Draw>;
   updateDraw(id: string, updates: Partial<Draw>): Promise<Draw | undefined>;
   overrideDraw(id: string, adminId: string, reason: string, updates: Partial<Draw>): Promise<Draw | undefined>;
@@ -814,6 +816,37 @@ export class DbStorage implements IStorage {
         )
       )
       .orderBy(draws.drawAt)
+      .limit(1);
+    return result[0];
+  }
+
+  async getNextDrawByCadence(cadence: string): Promise<Draw | undefined> {
+    const result = await db
+      .select()
+      .from(draws)
+      .where(
+        and(
+          eq(draws.cadence, cadence),
+          eq(draws.isVisible, true),
+          sql`${draws.status} IN ('scheduled', 'open')`
+        )
+      )
+      .orderBy(draws.drawAt)
+      .limit(1);
+    return result[0];
+  }
+
+  async getLastExecutedDrawByCadence(cadence: string): Promise<Draw | undefined> {
+    const result = await db
+      .select()
+      .from(draws)
+      .where(
+        and(
+          eq(draws.cadence, cadence),
+          sql`${draws.status} IN ('executed', 'completed')`
+        )
+      )
+      .orderBy(desc(draws.drawAt))
       .limit(1);
     return result[0];
   }
