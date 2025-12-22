@@ -25,23 +25,23 @@ export function TrendingCardsSection() {
   ) as any[];
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       <div className="flex items-center gap-2">
-        <TrendingUp className="h-5 w-5 text-orange-400" />
-        <h2 className="font-display font-bold text-lg">Trending This Week</h2>
+        <TrendingUp className="h-4 w-4 text-orange-400" />
+        <h2 className="font-display font-bold text-sm">Trending This Week</h2>
       </div>
 
-      <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
         {uniqueCards.slice(0, 8).map((card: any) => (
           <div
             key={card.id}
-            className={`flex-shrink-0 w-24 cursor-pointer transition-transform hover:scale-105`}
+            className="flex-shrink-0 w-16 cursor-pointer transition-transform hover:scale-105"
             onClick={() => setLocation(`/cards?card=${card.id}`)}
             data-testid={`trending-card-${card.id}`}
           >
             <Card className={`overflow-hidden ${rarityColors[card.rarity] || rarityColors.Common}`}>
               <CardContent className="p-0">
-                <div className="aspect-[3/4] relative bg-black/50">
+                <div className="aspect-square relative bg-black/50">
                   <img
                     src={card.image}
                     alt=""
@@ -49,8 +49,8 @@ export function TrendingCardsSection() {
                     loading="lazy"
                     onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                   />
-                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-1.5">
-                    <p className="text-[10px] font-medium text-white truncate">{card.name}</p>
+                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-1">
+                    <p className="text-[9px] font-medium text-white text-center truncate">{card.name}</p>
                   </div>
                 </div>
               </CardContent>
