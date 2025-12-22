@@ -23,6 +23,11 @@ interface DrawData {
   entryRules?: { premiumOnly?: boolean };
   entryCost?: number;
   entryReason?: string;
+  isSClass?: boolean;
+  freeEntriesTotal?: number;
+  freeEntriesUsed?: number;
+  freeEntriesRemaining?: number;
+  paidEntryCostTokens?: number;
 }
 
 function CountdownTimer({ targetDate }: { targetDate: Date }) {
@@ -118,9 +123,13 @@ function DrawCard({
   const isLocked = now >= new Date(drawTime.getTime() - 60000);
   const isExecuted = draw.status === 'executed' || draw.status === 'completed';
   
-  // Monthly draw token cost logic
+  // Monthly draw token cost logic - use explicit fields from API
   const isMonthly = type === 'monthly';
-  const entryCost = draw.entryCost ?? (isMonthly ? 100 : 0);
+  const paidEntryCost = draw.paidEntryCostTokens ?? 100;
+  const freeEntriesRemaining = draw.freeEntriesRemaining ?? 0;
+  const hasFreeEntry = freeEntriesRemaining > 0;
+  // entryCost from API: 0 if free entry available, otherwise paid cost
+  const entryCost = draw.entryCost ?? (hasFreeEntry ? 0 : paidEntryCost);
   const isFreeEntry = entryCost === 0;
 
   const getButtonContent = () => {
@@ -130,15 +139,17 @@ function DrawCard({
     if (hasEntered && !canAddMore) return { text: "Entered", disabled: true, entered: true };
     
     // Monthly draw button text with token cost
-    // entryCost from API reflects the cost for the next entry
+    // Use freeEntriesRemaining for accurate S-Class free entry detection
     if (isMonthly) {
       if (hasEntered && canAddMore) {
-        return { text: `+1 Entry (${entryCost} Tokens)`, disabled: false };
+        return { text: `+1 Entry (${paidEntryCost} Tokens)`, disabled: false };
       }
-      if (isFreeEntry) {
+      // S-Class with free entry remaining
+      if (hasFreeEntry) {
         return { text: "Enter Free", disabled: false };
       }
-      return { text: `Enter (${entryCost} Tokens)`, disabled: false };
+      // Free user or S-Class who used free entry
+      return { text: `Enter (${paidEntryCost} Tokens)`, disabled: false };
     }
     
     // Weekly draw
@@ -239,7 +250,9 @@ function DrawCard({
 
           {isMonthly && (
             <p className="mt-2 text-[10px] text-center text-purple-400/80">
-              {draw.entryReason || (isFreeEntry ? 'S-Class: 1 free entry • Free users: 100 tokens' : 'S-Class: 1 free entry • Your entry cost: 100 tokens')}
+              {draw.entryReason || (hasFreeEntry 
+                ? 'S-Class: 1 free entry this cycle • Free users: 100 tokens' 
+                : 'Free users: 100 tokens to enter monthly')}
             </p>
           )}
         </CardContent>

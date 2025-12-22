@@ -1898,17 +1898,27 @@ export async function registerRoutes(
         }
       }
 
-      // Calculate monthly entry cost for the current user
+      // Calculate monthly entry cost and eligibility for the current user
       let monthlyEntryCost = MONTHLY_TOKEN_COST; // Default for non-logged in or free users
       let monthlyEntryReason = 'Free users: 100 tokens to enter monthly';
+      let isSClass = false;
+      let freeEntriesTotal = 0;
+      let freeEntriesUsed = 0;
+      let freeEntriesRemaining = 0;
       
       if (user) {
         // Check if user has S-Class access (isPremium OR valid admin-granted access)
         const hasAdminGrant = user.accessSource === 'admin_grant' && 
           user.accessExpiresAt && new Date(user.accessExpiresAt) > new Date();
-        const isSClass = user.isPremium || hasAdminGrant;
+        isSClass = !!(user.isPremium || hasAdminGrant);
         
-        if (isSClass && !monthlyEntry) {
+        // S-Class gets 1 free entry per monthly cycle
+        freeEntriesTotal = isSClass ? 1 : 0;
+        // Check if user already used their free entry (any entry counts as using free first)
+        freeEntriesUsed = monthlyEntry ? Math.min(1, freeEntriesTotal) : 0;
+        freeEntriesRemaining = freeEntriesTotal - freeEntriesUsed;
+        
+        if (isSClass && freeEntriesRemaining > 0) {
           // S-Class user hasn't entered yet - free entry available
           monthlyEntryCost = 0;
           monthlyEntryReason = 'S-Class: 1 free monthly entry available';
@@ -1934,6 +1944,11 @@ export async function registerRoutes(
           entryCount: monthlyEntryCount,
           entryCost: monthlyEntryCost,
           entryReason: monthlyEntryReason,
+          isSClass,
+          freeEntriesTotal,
+          freeEntriesUsed,
+          freeEntriesRemaining,
+          paidEntryCostTokens: MONTHLY_TOKEN_COST,
         } : null,
       });
     } catch (error: any) {
