@@ -1,0 +1,47 @@
+REPLIT FIX PROMPT — Unify Draws UI + Fix Weekly “No active draw” + Remove Stale Home Block
+
+Problem:
+Home shows conflicting draw info:
+- Old “Live Events → Prize Draws” block shows stale message like “Weekly ends 3 days ago”.
+- New “PRIZE DRAWS” cards show Monthly countdown but Weekly says “No active draw”.
+- /draws page (“Crystal Sigil”) uses a separate engine with old dates and still says “S-Class exclusive” for monthly, conflicting with token-entry rule.
+
+Goal:
+One single source of truth + consistent draw schedule.
+Weekly draw must always exist: every Friday 7:00 PM America/Toronto.
+Monthly draw must always exist: last Friday 7:00 PM America/Toronto.
+
+AUTHORITATIVE RULES:
+- Weekly: all users can enter (keep existing entry limits if they exist).
+- Monthly: S-Class gets 1 free entry per cycle; everyone else may enter by paying tokens (default 500).
+- No “S-Class exclusive” hard lock for monthly.
+
+Tasks:
+
+A) HOME PAGE CLEANUP (must do)
+- Remove the old “Live Events → Prize Draws” block entirely (the one showing “Weekly ends … days ago”).
+- Keep ONLY the newer “PRIZE DRAWS” cards section with countdown + enter buttons.
+
+B) BACKEND: guarantee next weekly/monthly draw exists
+- In /api/draws/next (or the function it uses), ALWAYS compute and return:
+  - nextWeeklyScheduledAt = NEXT upcoming Friday 19:00 America/Toronto (never in the past)
+  - nextMonthlyScheduledAt = last Friday of current month at 19:00 America/Toronto; if already passed then next month
+- If a draw record does not exist in DB for that scheduled time, create it (upsert by type+scheduled_at).
+- Return the created/found draw in response so Weekly never becomes “No active draw”.
+
+C) UNIFY /draws (“Crystal Sigil”) PAGE WITH NEW API
+- Update the /draws page to render from /api/draws/next + /api/draws/:id/status + /api/draws/:id/enter.
+- Remove or override any hardcoded OPEN/Opens/Draw/Locked date blocks that show old dates (Dec 12/Dec 19 etc.).
+- Ensure the monthly card no longer says “S-Class exclusive”; show:
+  - If S-Class free available: “Enter Free”
+  - Otherwise: “Enter (500 Tokens)”
+- Winners Hall of Fame can stay, but its draw IDs must match the unified draw records.
+
+D) UI BEHAVIOR
+- Weekly card on Home must show countdown to next Friday 7pm ET (not “No active draw”).
+- No negative countdown; clamp at 0; when 0 show “Drawing soon…” and refresh /api/draws/next.
+- Enter buttons must show toast success/error.
+
+After implementation:
+- List exact files changed.
+- Confirm weekly next draw returned by /api/draws/next includes scheduled_at equal to next Friday 7:00 PM ET (America/Toronto).

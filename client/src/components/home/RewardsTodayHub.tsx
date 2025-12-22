@@ -3,32 +3,22 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
 import { 
-  Sparkles, Gift, Clock, Star, Coins, Trophy, 
-  ChevronRight, Loader2, Zap, Calendar, Crown
+  Sparkles, Gift, Clock, Star, Coins,
+  ChevronRight, Loader2, Zap, Crown
 } from "lucide-react";
 import { motion } from "framer-motion";
-import { useFreeGachaStatus, useFreeSummon, useActiveDraws, useRecentWinners } from "@/lib/api";
+import { useFreeGachaStatus, useFreeSummon } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
-import { format, formatDistanceToNow } from "date-fns";
+import { format } from "date-fns";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { PortalCharge } from "@/components/PortalRing";
 import { RarityFrame } from "@/components/RarityFrame";
-
-interface Winner {
-  id: string;
-  userId: string;
-  user: { name: string; avatar: string; handle: string };
-  prize: { name: string; type: string; rarity: string };
-  awardedAt: string;
-}
 
 export function RewardsTodayHub() {
   const [, setLocation] = useLocation();
   const { user } = useAuth();
   const { data: freeStatus, refetch: refetchFreeStatus } = useFreeGachaStatus();
-  const { data: activeDraws } = useActiveDraws();
-  const { data: recentWinners } = useRecentWinners();
   const freeSummonMutation = useFreeSummon();
   
   const [isSummoning, setIsSummoning] = useState(false);
@@ -83,14 +73,6 @@ export function RewardsTodayHub() {
 
   const hasTokens = user && user.tokens >= 100;
   const isPremium = user?.isPremium || false;
-  
-  const weeklyDraw = activeDraws?.find((d: any) => d.cadence === 'weekly');
-  const monthlyDraw = activeDraws?.find((d: any) => d.cadence === 'monthly');
-  const eventDraw = activeDraws?.find((d: any) => d.cadence === 'special' || d.cadence === 'one_time');
-  
-  const uniqueWinners = recentWinners?.slice(0, 3).filter((w: Winner, i: number, arr: Winner[]) => 
-    arr.findIndex(x => x.userId === w.userId) === i
-  ) || [];
 
   return (
     <motion.div
@@ -257,82 +239,6 @@ export function RewardsTodayHub() {
           >
             How Summoning Works <ChevronRight className="h-3 w-3" />
           </button>
-        </CardContent>
-      </Card>
-
-      <Card 
-        className="relative overflow-hidden border-yellow-500/50 bg-gradient-to-br from-yellow-950/40 via-slate-950/80 to-purple-950/40 cursor-pointer hover:border-yellow-400 transition-all"
-        onClick={() => setLocation("/draws")}
-        data-testid="card-live-draws"
-      >
-        <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-500/10 blur-3xl rounded-full" />
-        <CardContent className="p-4 relative z-10">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-yellow-500 to-amber-600 flex items-center justify-center shadow-lg shadow-yellow-500/30">
-                <Trophy className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] px-1.5 py-0.5 bg-yellow-500/20 text-yellow-400 rounded-full font-bold uppercase">Live Events</span>
-                </div>
-                <h3 className="font-bold text-white">Prize Draws</h3>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <div className="text-right text-xs">
-                {weeklyDraw && (
-                  <div className="flex items-center gap-1 text-muted-foreground">
-                    <Calendar className="h-3 w-3" />
-                    <span>Weekly ends {formatDistanceToNow(new Date(weeklyDraw.drawAt), { addSuffix: true })}</span>
-                  </div>
-                )}
-              </div>
-              <ChevronRight className="h-5 w-5 text-yellow-400" />
-            </div>
-          </div>
-          
-          <div className="mt-3 flex items-center gap-4 text-xs">
-            {weeklyDraw && (
-              <div className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-                <span className="text-green-400">Weekly</span>
-              </div>
-            )}
-            {monthlyDraw && (
-              <div className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-purple-500 animate-pulse" />
-                <span className="text-purple-400">Monthly</span>
-              </div>
-            )}
-            {eventDraw && (
-              <div className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-pink-500 animate-pulse" />
-                <span className="text-pink-400">Event</span>
-              </div>
-            )}
-            {!weeklyDraw && !monthlyDraw && !eventDraw && (
-              <span className="text-muted-foreground">No active draws</span>
-            )}
-          </div>
-          
-          {uniqueWinners.length > 0 && (
-            <div className="mt-3 pt-3 border-t border-white/10">
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">Recent Winners</p>
-              <div className="flex flex-wrap gap-2">
-                {uniqueWinners.map((winner: Winner) => (
-                  <div 
-                    key={winner.id} 
-                    className="flex items-center gap-1.5 bg-black/30 px-2 py-1 rounded-full"
-                  >
-                    <span className="text-xs font-bold text-white">{winner.user.name}</span>
-                    <span className="text-[10px] text-yellow-400">{winner.prize.name}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </CardContent>
       </Card>
 
