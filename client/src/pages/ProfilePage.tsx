@@ -10,7 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Slider } from "@/components/ui/slider";
-import { Settings, MapPin, Link as LinkIcon, Calendar, Loader2, Crown, Upload, Sparkles, Globe, ZoomIn, Check, X, Copy, ExternalLink, Award, Target } from "lucide-react";
+import { Settings, MapPin, Link as LinkIcon, Calendar, Loader2, Crown, Upload, Sparkles, Globe, ZoomIn, Check, X, Copy, ExternalLink, Award, Target, Lock } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAuth } from "@/context/AuthContext";
 import { usePosts, useUpdateUser, useUserByHandle, useUser, usePresetAvatars, useUpdateAvatar, useUserProfile } from "@/lib/api";
 import { Progress } from "@/components/ui/progress";
@@ -53,6 +54,18 @@ async function getCroppedImg(imageSrc: string, pixelCrop: Area): Promise<string>
   );
 
   return canvas.toDataURL("image/jpeg", 0.9);
+}
+
+function getBadgeRule(code: string): string {
+  const rules: Record<string, string> = {
+    'collector_1': 'Own 10 unique cards',
+    'collector_2': 'Own 25 unique cards',
+    'collector_3': 'Own 50 unique cards',
+    's_class': 'Be an S-Class member',
+    'founder': 'Be an early platform adopter',
+    'early_realmwalker': 'Join during early access',
+  };
+  return rules[code] || 'Special achievement';
 }
 
 export default function ProfilePage() {
@@ -590,55 +603,81 @@ export default function ProfilePage() {
                </div>
 
                {/* Badges Section */}
-               {profileData?.badges && profileData.badges.length > 0 && (
-                 <div className="pt-4 border-t border-white/10">
-                   <h3 className="font-bold mb-3 text-sm text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                     <Award className="h-4 w-4" /> Badges
-                   </h3>
-                   <div className="flex flex-wrap gap-2">
-                     {profileData.badges.map((badge: any) => (
-                       <div
-                         key={badge.code}
-                         className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-primary/20 to-purple-500/20 border border-primary/30"
-                         title={badge.description}
-                         data-testid={`badge-${badge.code}`}
-                       >
-                         <span className="text-base">{badge.icon || '🏆'}</span>
-                         <span className="text-xs font-medium">{badge.name}</span>
-                       </div>
-                     ))}
-                   </div>
-                 </div>
-               )}
-
-               {/* Collection Progress Section */}
                {profileData && (
                  <div className="pt-4 border-t border-white/10">
                    <h3 className="font-bold mb-3 text-sm text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                     <Target className="h-4 w-4" /> Collection
+                     <Award className="h-4 w-4" /> Badges ({profileData.badges?.length || 0})
                    </h3>
-                   <div className="space-y-2">
-                     <div className="flex justify-between text-sm">
-                       <span>Unique Cards</span>
-                       <span className="font-bold text-primary" data-testid="text-unique-cards">{profileData.totalUniqueCards}</span>
+                   
+                   {/* Earned Badges */}
+                   {profileData.badges && profileData.badges.length > 0 ? (
+                     <div className="space-y-2 mb-4">
+                       <TooltipProvider>
+                         {profileData.badges.map((badge: any) => (
+                           <Tooltip key={badge.code}>
+                             <TooltipTrigger asChild>
+                               <div
+                                 className="flex items-start gap-3 p-2.5 rounded-lg bg-gradient-to-r from-primary/10 to-purple-500/10 border border-primary/20 cursor-default"
+                                 data-testid={`badge-${badge.code}`}
+                               >
+                                 <span className="text-xl flex-shrink-0">{badge.icon || '🏆'}</span>
+                                 <div className="flex-1 min-w-0">
+                                   <p className="text-sm font-medium">{badge.name}</p>
+                                   <p className="text-xs text-muted-foreground line-clamp-1">{badge.description}</p>
+                                   <p className="text-xs text-primary/80 mt-0.5">
+                                     Earned by: {getBadgeRule(badge.code)}
+                                   </p>
+                                 </div>
+                               </div>
+                             </TooltipTrigger>
+                             <TooltipContent side="top" className="max-w-[200px]">
+                               <p className="font-medium">{badge.name}</p>
+                               <p className="text-xs text-muted-foreground">{badge.description}</p>
+                             </TooltipContent>
+                           </Tooltip>
+                         ))}
+                       </TooltipProvider>
                      </div>
-                     {profileData.nextMilestone && (
-                       <>
-                         <Progress 
-                           value={(profileData.totalUniqueCards / profileData.nextMilestone) * 100} 
-                           className="h-2"
-                         />
-                         <p className="text-xs text-muted-foreground text-center">
-                           {profileData.totalUniqueCards} / {profileData.nextMilestone} to next badge
+                   ) : (
+                     <p className="text-sm text-muted-foreground mb-4">No badges earned yet</p>
+                   )}
+
+                   {/* Locked Badges - Next Milestones */}
+                   {(() => {
+                     const totalCards = profileData.totalUniqueCards || 0;
+                     const milestones = [
+                       { threshold: 10, name: "Collector I", icon: "🃏" },
+                       { threshold: 25, name: "Collector II", icon: "🎴" },
+                       { threshold: 50, name: "Collector III", icon: "🏅" },
+                     ];
+                     const lockedMilestones = milestones.filter(m => totalCards < m.threshold);
+                     
+                     if (lockedMilestones.length === 0) return null;
+                     
+                     return (
+                       <div className="space-y-2">
+                         <p className="text-xs text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                           <Lock className="h-3 w-3" /> Next Badges
                          </p>
-                       </>
-                     )}
-                     {!profileData.nextMilestone && profileData.totalUniqueCards >= 50 && (
-                       <p className="text-xs text-green-400 text-center">
-                         All collection milestones achieved!
-                       </p>
-                     )}
-                   </div>
+                         {lockedMilestones.map((milestone) => (
+                           <div
+                             key={milestone.threshold}
+                             className="flex items-center gap-3 p-2 rounded-lg bg-white/5 border border-white/10 opacity-60"
+                             data-testid={`locked-badge-${milestone.threshold}`}
+                           >
+                             <span className="text-lg grayscale">{milestone.icon}</span>
+                             <div className="flex-1 min-w-0">
+                               <p className="text-sm font-medium text-muted-foreground">{milestone.name}</p>
+                               <p className="text-xs text-muted-foreground">Own {milestone.threshold} unique cards</p>
+                             </div>
+                             <div className="text-xs text-muted-foreground whitespace-nowrap">
+                               {totalCards}/{milestone.threshold}
+                             </div>
+                           </div>
+                         ))}
+                       </div>
+                     );
+                   })()}
                  </div>
                )}
              </CardContent>
