@@ -34,27 +34,31 @@ export function TopCollectorsSection() {
         </Card>
       ) : (
         <Card className="bg-card/50 border-white/10">
-          <CardContent className="p-2">
+          <CardContent className="p-2 space-y-1">
             {qualifiedCollectors.slice(0, 5).map((collector: any) => (
               <div
                 key={collector.id}
-                className="flex items-center gap-2 py-1.5 px-1 rounded hover:bg-white/5 cursor-pointer transition-colors"
+                className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 cursor-pointer transition-colors"
                 onClick={() => setLocation(`/@${collector.handle?.replace('@', '')}`)}
                 data-testid={`top-collector-${collector.id}`}
               >
-                <Avatar className="h-7 w-7">
+                <Avatar className="h-10 w-10 flex-shrink-0">
                   <AvatarImage src={collector.avatar} />
-                  <AvatarFallback className="text-xs">{collector.name?.[0] || '?'}</AvatarFallback>
+                  <AvatarFallback className="text-sm bg-primary/20">{collector.name?.[0] || '?'}</AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1">
-                    <span className="text-xs font-medium truncate">{collector.name}</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm font-medium truncate">{collector.name}</span>
                     {collector.isPremium && (
-                      <Crown className="h-3 w-3 text-yellow-500 flex-shrink-0" />
+                      <Crown className="h-3.5 w-3.5 text-yellow-500 flex-shrink-0" />
                     )}
                   </div>
+                  <span className="text-xs text-muted-foreground">{collector.handle || `@${collector.name?.toLowerCase().replace(/\s+/g, '')}`}</span>
                 </div>
-                <span className="text-xs font-bold text-primary">{collector.uniqueCardCount}</span>
+                <div className="text-right flex-shrink-0">
+                  <span className="text-sm font-bold text-primary">{collector.uniqueCardCount}</span>
+                  <div className="text-[10px] text-muted-foreground">unique cards</div>
+                </div>
               </div>
             ))}
           </CardContent>
