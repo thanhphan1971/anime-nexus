@@ -107,6 +107,7 @@ export interface IStorage {
   getUserPosts(userId: string): Promise<Post[]>;
   toggleLikePost(postId: string, userId: string): Promise<{ liked: boolean; likeCount: number }>;
   hasUserLikedPost(postId: string, userId: string): Promise<boolean>;
+  countSummonSharesToday(userId: string, today: Date): Promise<number>;
   
   // Card operations
   getAllCards(): Promise<Card[]>;
@@ -424,6 +425,17 @@ export class DbStorage implements IStorage {
       .where(and(eq(postLikes.postId, postId), eq(postLikes.userId, userId)))
       .limit(1);
     return like.length > 0;
+  }
+
+  async countSummonSharesToday(userId: string, today: Date): Promise<number> {
+    const result = await db.select({ count: sql<number>`count(*)` })
+      .from(posts)
+      .where(and(
+        eq(posts.userId, userId),
+        eq(posts.postType, 'summon'),
+        sql`${posts.createdAt} >= ${today}`
+      ));
+    return result[0]?.count || 0;
   }
 
   // Card operations

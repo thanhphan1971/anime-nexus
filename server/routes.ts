@@ -795,6 +795,50 @@ export async function registerRoutes(
       res.status(400).json({ error: error.message });
     }
   });
+
+  // Summon share endpoint with rate limiting (max 5 per day)
+  app.post("/api/posts/summon-share", verifySupabaseToken, async (req, res) => {
+    try {
+      if (!req.dbUser) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const { cardId, source } = req.body;
+      if (!cardId) {
+        return res.status(400).json({ error: "Card ID is required" });
+      }
+
+      // Check rate limit: max 5 summon shares per day
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const summonSharesToday = await storage.countSummonSharesToday(req.dbUser.id, today);
+      
+      if (summonSharesToday >= 5) {
+        return res.status(429).json({ error: "You've reached the daily limit of 5 summon shares" });
+      }
+
+      // Get card details
+      const card = await storage.getCard(cardId);
+      if (!card) {
+        return res.status(404).json({ error: "Card not found" });
+      }
+
+      // Create post with fixed template
+      const postContent = `⚡ I pulled ${card.name} — ${card.rarity}!`;
+      const post = await storage.createPost({
+        userId: req.dbUser.id,
+        content: postContent,
+        image: card.image,
+        postType: 'summon',
+        cardId: cardId,
+        summonSource: source || 'paid',
+      });
+
+      res.json(post);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
   
   app.post("/api/posts/:id/like", verifySupabaseToken, async (req, res) => {
     try {

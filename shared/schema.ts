@@ -80,6 +80,9 @@ export const posts = pgTable("posts", {
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
   content: text("content"),
   image: text("image"),
+  postType: text("post_type").default('regular'), // 'regular', 'summon'
+  cardId: varchar("card_id"), // Card ID if post is a summon share
+  summonSource: text("summon_source"), // 'daily_free' or 'paid' for summon posts
   likes: integer("likes").notNull().default(0),
   comments: integer("comments").notNull().default(0),
   createdAt: timestamp("created_at").notNull().defaultNow(),

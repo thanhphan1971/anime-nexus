@@ -56,6 +56,20 @@ export function useCreatePost() {
   });
 }
 
+export function useShareSummon() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { cardId: string; source: 'daily_free' | 'paid' }) =>
+      apiCall("/api/posts/summon-share", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["posts"] });
+    },
+  });
+}
+
 export function useLikePost() {
   const queryClient = useQueryClient();
   return useMutation({

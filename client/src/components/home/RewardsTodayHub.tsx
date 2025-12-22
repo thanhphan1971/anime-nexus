@@ -4,10 +4,10 @@ import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
 import { 
   Sparkles, Gift, Clock, Star, Coins,
-  ChevronRight, Loader2, Zap, Crown
+  ChevronRight, Loader2, Zap, Crown, Share2, Check
 } from "lucide-react";
 import { motion } from "framer-motion";
-import { useFreeGachaStatus, useFreeSummon } from "@/lib/api";
+import { useFreeGachaStatus, useFreeSummon, useShareSummon } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -24,6 +24,39 @@ export function RewardsTodayHub() {
   const [isSummoning, setIsSummoning] = useState(false);
   const [summonedCard, setSummonedCard] = useState<any>(null);
   const [showPortal, setShowPortal] = useState(false);
+  const [hasShared, setHasShared] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
+  const [shareDismissed, setShareDismissed] = useState(false);
+  const shareSummon = useShareSummon();
+
+  const handleShareToFeed = async () => {
+    if (!summonedCard) return;
+    
+    setIsSharing(true);
+    try {
+      await shareSummon.mutateAsync({
+        cardId: summonedCard.id,
+        source: 'daily_free',
+      });
+      setHasShared(true);
+      toast.success("Shared to Feed!");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to share");
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
+  const handleCloseResult = () => {
+    toast.success(`${summonedCard?.name} added to your collection!`);
+    setSummonedCard(null);
+    setHasShared(false);
+    setShareDismissed(false);
+  };
+
+  const handleDismissShare = () => {
+    setShareDismissed(true);
+  };
 
   const handleFreeSummon = () => {
     if (!user) {
@@ -37,6 +70,8 @@ export function RewardsTodayHub() {
     setIsSummoning(true);
     setShowPortal(true);
     setSummonedCard(null);
+    setHasShared(false);
+    setShareDismissed(false);
     
     setTimeout(() => {
       freeSummonMutation.mutate(undefined, {
@@ -250,7 +285,7 @@ export function RewardsTodayHub() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!summonedCard} onOpenChange={() => setSummonedCard(null)}>
+      <Dialog open={!!summonedCard} onOpenChange={() => { setSummonedCard(null); setHasShared(false); setShareDismissed(false); }}>
         <DialogContent className="bg-slate-950/95 border-purple-500/30 max-w-sm p-6">
           {summonedCard && (
             <div className="flex flex-col items-center gap-4">
@@ -274,11 +309,50 @@ export function RewardsTodayHub() {
                   summonedCard.rarity === 'Rare' ? 'text-blue-400' : 'text-gray-400'
                 }`}>{summonedCard.rarity}</p>
               </div>
+              
+              {/* Share to Feed Panel */}
+              {!shareDismissed && (
+                <div className="w-full bg-slate-900/60 border border-white/10 rounded-lg p-3">
+                  {hasShared ? (
+                    <div className="flex items-center justify-center gap-2 text-green-400 font-medium text-sm">
+                      <Check className="h-4 w-4" />
+                      Shared to Feed!
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-xs text-center text-muted-foreground mb-2">Share your pull?</p>
+                      <div className="flex gap-2 justify-center">
+                        <Button
+                          size="sm"
+                          onClick={handleShareToFeed}
+                          disabled={isSharing}
+                          className="bg-gradient-to-r from-cyan-600 to-purple-600 hover:from-cyan-500 hover:to-purple-500 text-white font-bold text-xs"
+                          data-testid="button-share-to-feed"
+                        >
+                          {isSharing ? (
+                            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                          ) : (
+                            <Share2 className="h-3 w-3 mr-1" />
+                          )}
+                          Share to Feed
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={handleDismissShare}
+                          className="text-muted-foreground hover:text-white text-xs"
+                          data-testid="button-not-now"
+                        >
+                          Not now
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
               <Button 
-                onClick={() => {
-                  toast.success(`${summonedCard.name} added to your collection!`);
-                  setSummonedCard(null);
-                }} 
+                onClick={handleCloseResult} 
                 className="w-full bg-gradient-to-r from-purple-600 to-cyan-600"
                 data-testid="button-close-card-reveal"
               >
