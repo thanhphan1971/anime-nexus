@@ -23,6 +23,9 @@ function formatDrawTime(dateStr: string): string {
   return formatInTimeZone(date, 'America/New_York', 'MMM d, yyyy h:mm a');
 }
 
+// Monthly entry cost constant - single source of truth
+const MONTHLY_ENTRY_TOKEN_COST = 100;
+
 interface Draw {
   id: string;
   name: string;
@@ -40,6 +43,8 @@ interface Draw {
   isFeatured: boolean;
   maxEntriesPerUser: number;
   premiumEntriesPerUser: number;
+  entryCost?: number;
+  entryReason?: string;
 }
 
 type DrawButtonState = 'cooldown' | 'open' | 'entered' | 'max_entries' | 'locked' | 'next_cycle' | 'premium_only';
@@ -257,13 +262,14 @@ function DrawSection({
     : [{ name: 'Special Event Prize', type: 'special', icon: <Sparkles className="h-4 w-4" />, qty: '1 Winner' }];
 
   const prizes = isWeekly ? weeklyPrizes : isEvent ? eventPrizes : monthlyPrizes;
+  const monthlyEntryCost = draw?.entryCost ?? MONTHLY_ENTRY_TOKEN_COST;
   const entryNote = isWeekly 
     ? `Free: 1 entry • S-Class: 2 entries`
     : isEvent
     ? `All users: ${draw?.maxEntriesPerUser || 1} ${(draw?.maxEntriesPerUser || 1) > 1 ? 'entries' : 'entry'}`
     : isPremium 
-      ? `S-Class: 1 free entry • Additional: 500 tokens` 
-      : `Entry: 500 tokens • S-Class: 1 free entry!`;
+      ? `S-Class: 1 free entry • Additional: ${monthlyEntryCost} tokens` 
+      : `Entry: ${monthlyEntryCost} tokens • S-Class: 1 free entry!`;
 
   const buttonState = getDrawButtonState(draw, entriesUsed, maxEntries, isPremium, type === 'monthly');
 
