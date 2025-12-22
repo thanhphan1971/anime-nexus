@@ -7,7 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
-import { useEnterDraw, useUserDrawEntries, useActiveDraws, useRecentWinners } from "@/lib/api";
+import { useEnterDraw, useUserDrawEntries, useNextDraws, useRecentWinners, useActiveDraws } from "@/lib/api";
 import { 
   Trophy, Gift, Clock, Sparkles, Crown, Star, 
   Ticket, Award, Zap, Calendar, ChevronRight
@@ -441,12 +441,8 @@ function DrawSection({
             {draw && (
               <div className="text-xs text-gray-400 flex flex-wrap gap-x-3 gap-y-1">
                 <span>
-                  <Calendar className="h-3 w-3 inline mr-1" />
-                  Opens: {formatDrawTime(draw.startAt)} ET
-                </span>
-                <span>
                   <Trophy className="h-3 w-3 inline mr-1" />
-                  Draw: {formatDrawTime(draw.drawAt)} ET
+                  {isWeekly ? 'Next Weekly Draw' : isEvent ? 'Event Draw' : 'Next Monthly Draw'}: {formatDrawTime(draw.drawAt)} ET
                 </span>
               </div>
             )}
@@ -465,12 +461,15 @@ export default function DrawsPage() {
   const queryClient = useQueryClient();
   const enterDraw = useEnterDraw();
 
-  const { data: activeDraws = [], isLoading: drawsLoading } = useActiveDraws();
+  const { data: nextDraws, isLoading: drawsLoading } = useNextDraws();
+  const { data: activeDraws = [] } = useActiveDraws();
   const { data: myEntries = [] } = useUserDrawEntries();
   const { data: recentWinners = [] } = useRecentWinners();
 
-  const weeklyDraw = activeDraws.find((d: Draw) => d.cadence === 'weekly') || null;
-  const monthlyDraw = activeDraws.find((d: Draw) => d.cadence === 'monthly') || null;
+  // Use /api/draws/next for weekly and monthly (guaranteed to be correct upcoming draws)
+  const weeklyDraw = nextDraws?.weekly || null;
+  const monthlyDraw = nextDraws?.monthly || null;
+  // Event draws still come from active draws (special/one_time cadence)
   const eventDraws = activeDraws.filter((d: Draw) => d.cadence === 'special' || d.cadence === 'one_time');
 
   const MOCK_WINNERS: Winner[] = [

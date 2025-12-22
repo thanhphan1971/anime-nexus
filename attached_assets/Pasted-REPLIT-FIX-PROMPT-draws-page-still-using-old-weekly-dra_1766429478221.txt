@@ -1,0 +1,44 @@
+REPLIT FIX PROMPT — /draws page still using old weekly draw (Dec 12/Dec 19). Fully unify /draws to new API.
+
+Current state:
+- Home PRIZE DRAWS cards look correct and use the new API.
+- /draws (“Crystal Sigil”) page still shows old weekly draw dates (Opens Dec 12, Draw Dec 19), shows “Drawing soon…” and “Entries Locked”.
+This means /draws is still using the legacy draw engine or legacy draw records and NOT the new /api/draws/next source of truth.
+
+Goal:
+- /draws page must use ONLY the new API data (same as Home).
+- Weekly must always show the NEXT upcoming Friday 7:00 PM America/Toronto.
+- Remove any legacy “Opens:” and “Draw:” UI that comes from old records (Dec 12/Dec 19 etc.)
+- Weekly countdown must not get stuck at “Drawing soon…” unless we are within the draw execution window (minutes around draw time).
+- Keep Winners Hall of Fame if it exists, but it must match the unified draw IDs.
+
+Required changes:
+
+A) Replace legacy draw data on /draws
+- Refactor the /draws page to fetch from:
+  - GET /api/draws/next (weekly + monthly)
+  - GET /api/draws/:id/recap (optional)
+  - POST /api/draws/:id/enter
+- Do NOT query old tables/old endpoints/old “open windows” logic for display.
+
+B) Weekly draw record correctness (server)
+- Ensure /api/draws/next always returns a weekly draw scheduled at NEXT Friday 19:00 America/Toronto.
+- If the DB contains only past weekly draws (like Dec 19), do NOT display them.
+- Upsert/create the next weekly draw record if missing.
+
+C) UI cleanup on /draws (weekly section)
+- Replace “Opens: …” / “Draw: …” legacy dates with:
+  - “Next Weekly Draw: <scheduled_at formatted in ET>”
+- Remove “Entries Locked” logic that comes from old date windows.
+- If a user already used their entries, show “All entries used” but still show the correct future countdown.
+- “Drawing soon…” should only show when remaining time <= 0 AND the draw is actually executing; otherwise show a real countdown.
+
+D) Verify monthly stays correct
+- Monthly on /draws should reflect:
+  - “S-Class gets 1 free entry”
+  - Additional entry costs 500 tokens
+- No “S-Class exclusive” hard lock.
+
+After implementation:
+- List exact files changed
+- Confirm /api/draws/next weekly scheduled_at equals next Friday 7:00 PM ET (America/Toronto), not Dec 19.
