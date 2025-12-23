@@ -136,7 +136,7 @@ function DrawCard({
     if (!user) return { text: "Sign In", disabled: true };
     if (isExecuted) return { text: "View Results", disabled: false, action: 'view' };
     if (isLocked) return { text: "Locked", disabled: true };
-    if (hasEntered && !canAddMore) return { text: "Entered", disabled: true, entered: true };
+    if (hasEntered && !canAddMore) return { text: "Entered ✓", disabled: true, entered: true, maxReached: true };
     
     // Monthly draw button text with token cost
     // Use freeEntriesRemaining for accurate S-Class free entry detection
@@ -246,6 +246,11 @@ function DrawCard({
                 </>
               )}
             </Button>
+            {buttonState.maxReached && (
+              <p className="mt-1 text-[10px] text-center text-muted-foreground">
+                Next entry available after draw completes
+              </p>
+            )}
           </div>
 
           {isMonthly && (

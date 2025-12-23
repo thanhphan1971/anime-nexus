@@ -323,14 +323,19 @@ function DrawSection({
       
       case 'max_entries':
         return (
-          <Button 
-            disabled
-            className={`${baseClass} text-white font-bold px-6 disabled:opacity-50`}
-            data-testid={`button-enter-${type}-draw`}
-          >
-            <Ticket className="h-4 w-4 mr-2" />
-            Max Entries Reached
-          </Button>
+          <div className="space-y-1">
+            <Button 
+              disabled
+              className="bg-green-600/50 text-white font-bold px-6 cursor-default w-full"
+              data-testid={`button-enter-${type}-draw`}
+            >
+              <Sparkles className="h-4 w-4 mr-2" />
+              Entered ✓
+            </Button>
+            <p className="text-[10px] text-center text-muted-foreground">
+              Next entry available after draw completes
+            </p>
+          </div>
         );
       
       case 'entered':
