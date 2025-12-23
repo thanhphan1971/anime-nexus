@@ -21,15 +21,20 @@ export function OnboardingWidget() {
   const { user } = useAuth();
   const { data: status, isLoading } = useOnboardingStatus();
   const dismissMutation = useDismissOnboarding();
-  const [dismissed, setDismissed] = useState(false);
+  const [locallyDismissed, setLocallyDismissed] = useState(false);
 
-  if (!user || isLoading || dismissed) return null;
+  if (!user || isLoading) return null;
   
   if (!status) return null;
 
-  const isCompleted = status.completed || (status.steps.claimFreeSummon && status.steps.earnFirstBadge);
+  // If server says completed (dismissed), don't show anything
+  if (status.completed) return null;
   
-  if (isCompleted && dismissed) return null;
+  // Local dismissal for immediate UI feedback while mutation runs
+  if (locallyDismissed) return null;
+
+  // Check if required steps are complete (step 1 + 2)
+  const stepsComplete = status.steps.claimFreeSummon && status.steps.earnFirstBadge;
 
   const steps: OnboardingStep[] = [
     {
@@ -59,11 +64,12 @@ export function OnboardingWidget() {
   const requiredCompleted = requiredSteps.filter(s => s.completed).length;
 
   const handleDismiss = () => {
-    setDismissed(true);
+    setLocallyDismissed(true);
     dismissMutation.mutate();
   };
 
-  if (isCompleted) {
+  // Show completion banner if steps are complete but not yet dismissed
+  if (stepsComplete) {
     return (
       <AnimatePresence>
         <motion.div
