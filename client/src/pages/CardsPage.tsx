@@ -165,20 +165,22 @@ export default function CardsPage() {
           <h1 className="text-2xl font-display font-bold neon-text">CARDS HUB</h1>
           <p className="text-xs text-muted-foreground">Summon rare anime cards, build your collection, and trade with others</p>
         </div>
-        <div className="flex items-center gap-4 w-full md:w-auto">
+        <div className="flex items-center gap-2 w-full md:w-auto flex-wrap md:flex-nowrap">
           <Button 
-            size="lg" 
+            size="sm" 
             onClick={() => setLocation("/cards/catalog")} 
             data-testid="button-view-catalog"
             className="bg-gradient-to-r from-purple-600 to-cyan-500 hover:from-purple-500 hover:to-cyan-400 text-white font-bold shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 transition-all hover:scale-105"
           >
-            <Book className="h-5 w-5 mr-2" /> View Catalog
+            <Book className="h-4 w-4 mr-1" /> Catalog
           </Button>
-          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 font-bold text-sm" data-testid="text-tokens">
-            <Coins className="h-4 w-4" /> {user?.tokens || 0}
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-black/40 rounded-lg whitespace-nowrap" data-testid="text-tokens">
+            <Coins className="h-4 w-4 text-yellow-400" />
+            <span className="font-mono font-bold text-yellow-400">{(user?.tokens || 0).toLocaleString()}</span>
+            <span className="text-xs text-muted-foreground">Balance</span>
           </div>
           {user?.isPremium && (
-            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 font-bold text-sm">
+            <div className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 font-bold text-sm whitespace-nowrap">
               <Crown className="h-4 w-4" /> S-Class
             </div>
           )}
