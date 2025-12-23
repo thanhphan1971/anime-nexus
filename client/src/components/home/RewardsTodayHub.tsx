@@ -223,9 +223,10 @@ export function RewardsTodayHub() {
             
             <div className="flex items-center gap-2">
               {user && (
-                <div className="flex flex-col items-center leading-tight">
-                  <span className="text-sm font-bold text-white">{user.tokens.toLocaleString()}</span>
-                  <span className="text-[10px] text-muted-foreground">Current Balance</span>
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-black/40 rounded-lg">
+                  <Coins className="h-4 w-4 text-yellow-400" />
+                  <span className="font-mono font-bold text-yellow-400">{user.tokens.toLocaleString()}</span>
+                  <span className="text-xs text-muted-foreground">Current Balance</span>
                 </div>
               )}
               
