@@ -72,6 +72,10 @@ export const users = pgTable("users", {
   stripeSubscriptionId: text("stripe_subscription_id"), // Active Stripe subscription ID
   // Handle change tracking (for cooldown)
   handleChangedAt: timestamp("handle_changed_at"), // When handle was last changed (30-day cooldown)
+  // Day-0 Onboarding tracking
+  onboardingCompleted: boolean("onboarding_completed").notNull().default(false), // Whether user has completed onboarding
+  firstSummonAt: timestamp("first_summon_at"), // When user performed their first summon (for Realmwalker badge)
+  firstShareAt: timestamp("first_share_at"), // When user shared their first pull (optional onboarding step)
 });
 
 // Posts table

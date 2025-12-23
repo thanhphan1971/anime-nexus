@@ -1,0 +1,82 @@
+REPLIT BUILD PROMPT — Day-0 Onboarding (60-Second Win)
+
+Goal:
+Implement a lightweight onboarding flow that gives new users a “win” in under 60 seconds,
+increases first-session retention, and disappears once completed.
+
+────────────────────────
+A) DETECTION
+────────────────────────
+- Add user flag: onboarding_completed (boolean, default false).
+- On Home page load:
+  - If onboarding_completed == false → show onboarding widget.
+  - If true → never show again.
+
+────────────────────────
+B) ONBOARDING WIDGET (HOME PAGE)
+────────────────────────
+Placement:
+- At the top of Home page (above Rewards).
+
+UI:
+Title: “Welcome to Aurelith”
+Subtitle: “Complete your first steps to enter the realm.”
+
+Checklist (render as steps with checkmarks):
+
+[ ] 1. Claim your free summon  
+[ ] 2. Earn your first badge  
+[ ] 3. Share your first pull (optional)
+
+Rules:
+- Steps auto-complete based on real actions (no manual buttons).
+- Step 3 is optional and should not block completion.
+
+────────────────────────
+C) STEP LOGIC
+────────────────────────
+
+Step 1 — Claim your free summon
+- Auto-complete when user performs their first summon (daily free or paid).
+- If user clicks “Claim Free Summon” from Rewards, this also counts.
+
+Step 2 — Earn your first badge
+- On first summon completion, auto-grant badge:
+  Badge code: REALMWALKER_I
+  Name: “Realmwalker I”
+  Description: “Completed your first summon in AniRealm.”
+- Mark step complete when badge is granted.
+
+Step 3 — Share your first pull (optional)
+- Complete if user shares a summon post via “Share to Feed”.
+- If skipped, onboarding can still complete after step 2.
+
+────────────────────────
+D) COMPLETION BEHAVIOR
+────────────────────────
+- When step 1 + step 2 are completed:
+  - Set onboarding_completed = true.
+  - Collapse onboarding widget into a small banner:
+    “Onboarding complete ✓ Welcome to the realm.”
+  - Banner is dismissible and disappears permanently when dismissed.
+
+────────────────────────
+E) SAFETY & UX
+────────────────────────
+- No personal info.
+- Works for minors.
+- No forced posting.
+- No blocking modals.
+
+────────────────────────
+ACCEPTANCE TESTS
+────────────────────────
+1) New user sees onboarding widget on Home.
+2) After first summon, step 1 + 2 complete automatically.
+3) “Realmwalker I” badge appears on profile.
+4) Onboarding widget collapses and never returns.
+5) Optional share does not block completion.
+
+After implementation:
+- List files changed.
+- Show onboarding widget text exactly as rendered.
