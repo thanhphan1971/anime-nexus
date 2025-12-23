@@ -107,6 +107,18 @@ export default function CardsPage() {
       setShareDismissed(false);
       await refreshUser();
       toast.success(`Summoned ${result.cards?.length || 1} card(s)!`);
+      
+      if (result.showPaidSummonReminder) {
+        setTimeout(() => {
+          toast.info(
+            "You've summoned a lot today.\nFree daily summons reset at 7:00 PM.",
+            {
+              description: "Weekly and monthly draws are capped for fairness.",
+              duration: 6000,
+            }
+          );
+        }, 1500);
+      }
     } catch (error: any) {
       toast.error(error.message || "Summon failed");
     }
