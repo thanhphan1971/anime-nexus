@@ -290,6 +290,12 @@ export interface IStorage {
   // Social proof
   getTrendingCards(limit?: number): Promise<any[]>;
   getTopCollectors(limit?: number): Promise<any[]>;
+  
+  // Onboarding operations
+  getOnboardingStatus(userId: string): Promise<{ completed: boolean; firstSummonAt: Date | null; firstShareAt: Date | null }>;
+  markFirstSummon(userId: string): Promise<void>;
+  markFirstShare(userId: string): Promise<void>;
+  completeOnboarding(userId: string): Promise<void>;
 }
 
 export class DbStorage implements IStorage {
@@ -1888,6 +1894,72 @@ export class DbStorage implements IStorage {
     );
     
     return collectorsWithDetails.filter(Boolean);
+  }
+
+  // Onboarding operations
+  async getOnboardingStatus(userId: string): Promise<{ completed: boolean; firstSummonAt: Date | null; firstShareAt: Date | null }> {
+    const result = await db
+      .select({
+        onboardingCompleted: users.onboardingCompleted,
+        firstSummonAt: users.firstSummonAt,
+        firstShareAt: users.firstShareAt,
+      })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    
+    if (!result[0]) {
+      return { completed: true, firstSummonAt: null, firstShareAt: null }; // Default to completed for unknown users
+    }
+    
+    return {
+      completed: result[0].onboardingCompleted,
+      firstSummonAt: result[0].firstSummonAt,
+      firstShareAt: result[0].firstShareAt,
+    };
+  }
+
+  async markFirstSummon(userId: string): Promise<void> {
+    const user = await this.getUser(userId);
+    if (!user || user.firstSummonAt) return; // Already marked
+    
+    await db
+      .update(users)
+      .set({ firstSummonAt: new Date() })
+      .where(eq(users.id, userId));
+    
+    // Auto-grant Realmwalker I badge on first summon
+    await this.grantBadge(userId, 'REALMWALKER_I', 'system', 'Completed your first summon in AniRealm');
+    
+    // Check if onboarding should be completed (step 1 + 2 done)
+    await this.checkOnboardingCompletion(userId);
+  }
+
+  async markFirstShare(userId: string): Promise<void> {
+    const user = await this.getUser(userId);
+    if (!user || user.firstShareAt) return; // Already marked
+    
+    await db
+      .update(users)
+      .set({ firstShareAt: new Date() })
+      .where(eq(users.id, userId));
+  }
+
+  async completeOnboarding(userId: string): Promise<void> {
+    await db
+      .update(users)
+      .set({ onboardingCompleted: true })
+      .where(eq(users.id, userId));
+  }
+
+  private async checkOnboardingCompletion(userId: string): Promise<void> {
+    // Check if user has completed step 1 (first summon) and step 2 (badge granted)
+    const hasBadge = await this.hasUserBadge(userId, 'REALMWALKER_I');
+    const user = await this.getUser(userId);
+    
+    if (user && user.firstSummonAt && hasBadge) {
+      await this.completeOnboarding(userId);
+    }
   }
 }
 
