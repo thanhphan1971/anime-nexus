@@ -76,6 +76,10 @@ export const users = pgTable("users", {
   onboardingCompleted: boolean("onboarding_completed").notNull().default(false), // Whether user has completed onboarding
   firstSummonAt: timestamp("first_summon_at"), // When user performed their first summon (for Realmwalker badge)
   firstShareAt: timestamp("first_share_at"), // When user shared their first pull (optional onboarding step)
+  // Paid summon tracking for soft reminders
+  paidSummonsToday: integer("paid_summons_today").notNull().default(0), // Number of paid summons today
+  paidSummonsResetAt: timestamp("paid_summons_reset_at"), // When paid summon counter resets (7:00 PM ET)
+  paidReminderShownToday: boolean("paid_reminder_shown_today").notNull().default(false), // Whether reminder was shown today
 });
 
 // Posts table

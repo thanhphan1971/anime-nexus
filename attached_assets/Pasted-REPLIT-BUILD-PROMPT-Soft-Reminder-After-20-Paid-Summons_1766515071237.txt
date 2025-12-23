@@ -1,0 +1,77 @@
+REPLIT BUILD PROMPT — Soft Reminder After 20+ Paid Summons (Non-blocking)
+
+Goal:
+After a user performs many paid summons in a single day, show a gentle reminder
+about daily free summon reset time.
+This must NOT block summoning or limit spending.
+
+Rules:
+- This is informational only.
+- No cooldowns.
+- No hard limits.
+- No modal jail.
+
+────────────────────────
+A) TRACK DAILY PAID SUMMON COUNT
+────────────────────────
+- Track number of PAID summons performed by a user per day.
+- Count resets at daily reset time (7:00 PM ET), same as free summons.
+
+You can:
+- Store a daily counter in DB (recommended), OR
+- Compute from summon logs for the current day.
+
+Variable:
+daily_paid_summons_count
+
+────────────────────────
+B) TRIGGER CONDITION
+────────────────────────
+- When daily_paid_summons_count >= 20
+- AND the reminder has not been shown yet today
+→ show reminder message.
+
+Ensure:
+- Reminder shows only ONCE per day per user.
+- Reset reminder eligibility at 7:00 PM ET.
+
+────────────────────────
+C) MESSAGE CONTENT (COPY MUST MATCH)
+────────────────────────
+Message text:
+“You’ve summoned a lot today.
+Free daily summons reset at 7:00 PM.”
+
+Optional small subtext:
+“Weekly and monthly draws are capped for fairness.”
+
+Tone:
+- Neutral
+- Informational
+- Non-judgmental
+
+────────────────────────
+D) UI PRESENTATION
+────────────────────────
+- Show as a toast, banner, or inline notice near summon results.
+- Must NOT block the summon result.
+- Must NOT require confirmation.
+- Auto-dismiss after a few seconds OR be dismissible.
+
+Do NOT:
+- Disable buttons
+- Require user action
+- Show repeatedly
+
+────────────────────────
+E) ACCEPTANCE TESTS
+────────────────────────
+1) User performs 19 paid summons → no message.
+2) User performs 20th paid summon → reminder appears.
+3) User continues summoning → reminder does NOT repeat.
+4) At 7:00 PM reset → counter and reminder eligibility reset.
+5) User can continue summoning normally at all times.
+
+After implementation:
+- List files changed.
+- Confirm where the daily counter is stored or computed.

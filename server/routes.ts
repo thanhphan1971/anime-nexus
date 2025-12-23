@@ -9,7 +9,7 @@ import bcrypt from "bcrypt";
 import { verifySupabaseToken, optionalSupabaseAuth } from "./lib/supabaseAuth";
 import { sql } from "drizzle-orm";
 import { z } from "zod";
-import { FREE_ODDS, PAID_ODDS, PREMIUM_PAID_ODDS, FREE_SUMMON_LIMITS, PAID_SUMMON_CONFIG, selectRarity, getNextResetTime, needsReset } from "./config/gachaOdds";
+import { FREE_ODDS, PAID_ODDS, PREMIUM_PAID_ODDS, FREE_SUMMON_LIMITS, PAID_SUMMON_CONFIG, PAID_SUMMON_REMINDER, selectRarity, getNextResetTime, getNext7PMETResetTime, needsReset } from "./config/gachaOdds";
 import { getDrawLockTime, getCooldownEndTime, getDrawCycleStatus } from "./drawCycle";
 import { fromZonedTime } from "date-fns-tz";
 
@@ -1000,13 +1000,49 @@ export async function registerRoutes(
         tokens: user.tokens - 100,
       });
       
+      // Track daily paid summons for soft reminder
+      let paidSummonsToday = user.paidSummonsToday || 0;
+      let paidResetAt = user.paidSummonsResetAt ? new Date(user.paidSummonsResetAt) : null;
+      let reminderShownToday = user.paidReminderShownToday || false;
+      
+      // Check if paid summon counter needs reset (7:00 PM ET)
+      if (needsReset(paidResetAt)) {
+        paidSummonsToday = 0;
+        paidResetAt = getNext7PMETResetTime();
+        reminderShownToday = false;
+        await storage.updateUser(user.id, {
+          paidSummonsToday: 0,
+          paidSummonsResetAt: paidResetAt,
+          paidReminderShownToday: false,
+        });
+      }
+      
+      // Increment paid summon counter
+      paidSummonsToday += 1;
+      await storage.updateUser(user.id, {
+        paidSummonsToday: paidSummonsToday,
+      });
+      
+      // Check if we should show the reminder (threshold reached and not shown yet today)
+      let showReminder = false;
+      if (paidSummonsToday >= PAID_SUMMON_REMINDER.THRESHOLD && !reminderShownToday) {
+        showReminder = true;
+        await storage.updateUser(user.id, {
+          paidReminderShownToday: true,
+        });
+      }
+      
       // Check and grant collection milestone badges
       const newBadges = await storage.checkAndGrantCollectionMilestones(user.id);
       
       // Mark first summon for onboarding (auto-grants Realmwalker I badge)
       await storage.markFirstSummon(user.id);
       
-      res.json({ cards: pulledCards, newBadges });
+      res.json({ 
+        cards: pulledCards, 
+        newBadges,
+        showPaidSummonReminder: showReminder,
+      });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

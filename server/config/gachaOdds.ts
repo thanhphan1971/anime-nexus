@@ -75,8 +75,35 @@ export function getNextResetTime(): Date {
   return tomorrow;
 }
 
+// Get the next 7:00 PM ET reset time for paid summon reminders
+export function getNext7PMETResetTime(): Date {
+  const now = new Date();
+  
+  // Convert to ET by creating a date in America/New_York timezone
+  const etNow = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+  const etHour = etNow.getHours();
+  
+  // Create reset time in ET
+  const resetET = new Date(etNow);
+  resetET.setHours(19, 0, 0, 0); // 7:00 PM
+  
+  // If current ET time is past 7:00 PM, set to tomorrow 7:00 PM
+  if (etHour >= 19) {
+    resetET.setDate(resetET.getDate() + 1);
+  }
+  
+  // Convert back to UTC by calculating the offset
+  const offset = now.getTime() - etNow.getTime();
+  return new Date(resetET.getTime() + offset);
+}
+
 // Check if reset is needed (compare current time with stored reset time)
 export function needsReset(resetAt: Date | null): boolean {
   if (!resetAt) return true;
   return new Date() >= new Date(resetAt);
 }
+
+// Paid summon reminder config
+export const PAID_SUMMON_REMINDER = {
+  THRESHOLD: 20, // Show reminder after this many paid summons
+};
