@@ -926,3 +926,35 @@ export function useSubscribeSClass() {
     },
   });
 }
+
+// ========== ONBOARDING API ==========
+
+export interface OnboardingStatus {
+  completed: boolean;
+  steps: {
+    claimFreeSummon: boolean;
+    earnFirstBadge: boolean;
+    shareFirstPull: boolean;
+  };
+  firstSummonAt: string | null;
+  firstShareAt: string | null;
+}
+
+export function useOnboardingStatus() {
+  return useQuery<OnboardingStatus>({
+    queryKey: ["onboarding"],
+    queryFn: () => apiCall("/api/onboarding/status"),
+    staleTime: 30000, // Cache for 30 seconds
+  });
+}
+
+export function useDismissOnboarding() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      apiCall("/api/onboarding/dismiss", { method: "POST" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["onboarding"] });
+    },
+  });
+}
