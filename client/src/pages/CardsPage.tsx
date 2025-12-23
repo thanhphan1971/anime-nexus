@@ -163,7 +163,7 @@ export default function CardsPage() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-card/30 p-4 rounded-xl border border-white/10 backdrop-blur-md sticky top-0 z-10">
         <div>
           <h1 className="text-2xl font-display font-bold neon-text">CARDS HUB</h1>
-          <p className="text-xs text-muted-foreground max-w-[180px]">Summon rare anime cards, build your collection, and trade with others</p>
+          <p className="text-xs text-muted-foreground max-w-[240px]">Summon rare anime cards, build your collection, and trade with others</p>
         </div>
         <Button 
           size="default" 
