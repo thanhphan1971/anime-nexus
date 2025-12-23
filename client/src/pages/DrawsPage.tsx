@@ -45,6 +45,8 @@ interface Draw {
   premiumEntriesPerUser: number;
   entryCost?: number;
   entryReason?: string;
+  paidEntryCostTokens?: number;
+  freeEntriesRemaining?: number;
 }
 
 type DrawButtonState = 'cooldown' | 'open' | 'entered' | 'max_entries' | 'locked' | 'next_cycle' | 'premium_only';
@@ -262,14 +264,15 @@ function DrawSection({
     : [{ name: 'Special Event Prize', type: 'special', icon: <Sparkles className="h-4 w-4" />, qty: '1 Winner' }];
 
   const prizes = isWeekly ? weeklyPrizes : isEvent ? eventPrizes : monthlyPrizes;
-  const monthlyEntryCost = draw?.entryCost ?? MONTHLY_ENTRY_TOKEN_COST;
+  // paidEntryCostTokens is always 100, regardless of whether user has free entry
+  const paidEntryCost = draw?.paidEntryCostTokens ?? MONTHLY_ENTRY_TOKEN_COST;
   const entryNote = isWeekly 
     ? `Free: 1 entry • S-Class: 2 entries`
     : isEvent
     ? `All users: ${draw?.maxEntriesPerUser || 1} ${(draw?.maxEntriesPerUser || 1) > 1 ? 'entries' : 'entry'}`
     : isPremium 
-      ? `S-Class: 1 free entry • Additional: ${monthlyEntryCost} tokens` 
-      : `Entry: ${monthlyEntryCost} tokens • S-Class: 1 free entry!`;
+      ? `S-Class: 1 free entry • Additional: ${paidEntryCost} tokens` 
+      : `Entry: ${paidEntryCost} tokens • S-Class: 1 free entry!`;
 
   const buttonState = getDrawButtonState(draw, entriesUsed, maxEntries, isPremium, type === 'monthly');
 
