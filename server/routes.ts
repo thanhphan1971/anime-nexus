@@ -271,6 +271,51 @@ export async function registerRoutes(
     const { password, ...userWithoutPassword } = user;
     res.json(userWithoutPassword);
   });
+
+  // ========== ONBOARDING ENDPOINTS ==========
+  
+  // Get onboarding status
+  app.get("/api/onboarding/status", verifySupabaseToken, async (req, res) => {
+    try {
+      if (!req.dbUser) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const status = await storage.getOnboardingStatus(req.dbUser.id);
+      const hasBadge = await storage.hasUserBadge(req.dbUser.id, 'REALMWALKER_I');
+      
+      res.json({
+        completed: status.completed,
+        steps: {
+          claimFreeSummon: !!status.firstSummonAt,
+          earnFirstBadge: hasBadge,
+          shareFirstPull: !!status.firstShareAt, // Optional step
+        },
+        firstSummonAt: status.firstSummonAt,
+        firstShareAt: status.firstShareAt,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Dismiss onboarding banner (called when user dismisses the completion banner)
+  app.post("/api/onboarding/dismiss", verifySupabaseToken, async (req, res) => {
+    try {
+      if (!req.dbUser) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      // Mark onboarding as completed (in case it wasn't already)
+      await storage.completeOnboarding(req.dbUser.id);
+      
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ========== END ONBOARDING ==========
   
   // User routes
   app.get("/api/users", async (req, res) => {
@@ -834,6 +879,9 @@ export async function registerRoutes(
         summonSource: source || 'paid',
       });
 
+      // Mark first share for onboarding (optional step)
+      await storage.markFirstShare(req.dbUser.id);
+
       res.json(post);
     } catch (error: any) {
       res.status(400).json({ error: error.message });
@@ -955,6 +1003,9 @@ export async function registerRoutes(
       // Check and grant collection milestone badges
       const newBadges = await storage.checkAndGrantCollectionMilestones(user.id);
       
+      // Mark first summon for onboarding (auto-grants Realmwalker I badge)
+      await storage.markFirstSummon(user.id);
+      
       res.json({ cards: pulledCards, newBadges });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -1064,6 +1115,9 @@ export async function registerRoutes(
       
       // Check and grant collection milestone badges
       const newBadges = await storage.checkAndGrantCollectionMilestones(user.id);
+      
+      // Mark first summon for onboarding (auto-grants Realmwalker I badge)
+      await storage.markFirstSummon(user.id);
       
       res.json({
         card: pulledCard,
