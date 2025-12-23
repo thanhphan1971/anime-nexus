@@ -163,24 +163,24 @@ export default function CardsPage() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-card/30 p-4 rounded-xl border border-white/10 backdrop-blur-md sticky top-0 z-10">
         <div>
           <h1 className="text-2xl font-display font-bold neon-text">CARDS HUB</h1>
-          <p className="text-xs text-muted-foreground">Summon rare anime cards, build your collection, and trade with others</p>
+          <p className="text-xs text-muted-foreground max-w-[180px]">Summon rare anime cards, build your collection, and trade with others</p>
         </div>
-        <div className="flex items-center gap-2 w-full md:w-auto flex-wrap md:flex-nowrap">
-          <Button 
-            size="sm" 
-            onClick={() => setLocation("/cards/catalog")} 
-            data-testid="button-view-catalog"
-            className="bg-gradient-to-r from-purple-600 to-cyan-500 hover:from-purple-500 hover:to-cyan-400 text-white font-bold shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 transition-all hover:scale-105"
-          >
-            <Book className="h-4 w-4 mr-1" /> Catalog
-          </Button>
+        <Button 
+          size="default" 
+          onClick={() => setLocation("/cards/catalog")} 
+          data-testid="button-view-catalog"
+          className="bg-gradient-to-r from-purple-600 to-cyan-500 hover:from-purple-500 hover:to-cyan-400 text-white font-bold text-base shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 transition-all hover:scale-105"
+        >
+          <Book className="h-5 w-5 mr-2" /> Catalog
+        </Button>
+        <div className="flex items-center gap-2">
           <div className="flex items-center gap-2 px-3 py-1.5 bg-black/40 rounded-lg whitespace-nowrap" data-testid="text-tokens">
             <Coins className="h-4 w-4 text-yellow-400" />
             <span className="font-mono font-bold text-yellow-400">{(user?.tokens || 0).toLocaleString()}</span>
-            <span className="text-xs text-muted-foreground">Balance</span>
+            <span className="text-xs text-muted-foreground">Current Balance</span>
           </div>
           {user?.isPremium && (
-            <div className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 font-bold text-sm whitespace-nowrap">
+            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 font-bold text-sm">
               <Crown className="h-4 w-4" /> S-Class
             </div>
           )}
