@@ -2,22 +2,21 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Check, Sparkles, Gift, Share2, X, ChevronRight } from "lucide-react";
+import { Check, Sparkles, Gift, Share2, X, Lock } from "lucide-react";
 import { useOnboardingStatus, useDismissOnboarding } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { useLocation } from "wouter";
 
 interface OnboardingStep {
   id: string;
   label: string;
+  description: string;
   completed: boolean;
+  locked: boolean;
   optional?: boolean;
-  action?: () => void;
   icon: React.ReactNode;
 }
 
 export function OnboardingWidget() {
-  const [, setLocation] = useLocation();
   const { user } = useAuth();
   const { data: status, isLoading } = useOnboardingStatus();
   const dismissMutation = useDismissOnboarding();
@@ -27,48 +26,62 @@ export function OnboardingWidget() {
   
   if (!status) return null;
 
-  // If server says completed (dismissed), don't show anything
   if (status.completed) return null;
   
-  // Local dismissal for immediate UI feedback while mutation runs
   if (locallyDismissed) return null;
 
-  // Check if required steps are complete (step 1 + 2)
-  const stepsComplete = status.steps.claimFreeSummon && status.steps.earnFirstBadge;
+  const step1Complete = status.steps.claimFreeSummon;
+  const step2Complete = status.steps.earnFirstBadge;
+  const step3Complete = status.steps.shareFirstPull;
+  
+  const stepsComplete = step1Complete && step2Complete;
 
   const steps: OnboardingStep[] = [
     {
       id: "summon",
       label: "Claim your free summon",
-      completed: status.steps.claimFreeSummon,
+      description: "Complete by claiming your free summon.",
+      completed: step1Complete,
+      locked: false,
       icon: <Gift className="h-4 w-4" />,
-      action: () => setLocation("/cards"),
     },
     {
       id: "badge",
       label: "Earn your first badge",
-      completed: status.steps.earnFirstBadge,
+      description: "Automatically earned after your first summon.",
+      completed: step2Complete,
+      locked: !step1Complete,
       icon: <Sparkles className="h-4 w-4" />,
     },
     {
       id: "share",
       label: "Share your first pull",
-      completed: status.steps.shareFirstPull,
+      description: "Share a summon to the feed.",
+      completed: step3Complete,
+      locked: !step1Complete,
       optional: true,
       icon: <Share2 className="h-4 w-4" />,
     },
   ];
 
-  const completedCount = steps.filter(s => s.completed).length;
   const requiredSteps = steps.filter(s => !s.optional);
   const requiredCompleted = requiredSteps.filter(s => s.completed).length;
+
+  const getProgressText = () => {
+    if (stepsComplete) {
+      return "Onboarding complete ✓";
+    }
+    if (requiredCompleted === 0) {
+      return "Complete 2 steps to enter the realm";
+    }
+    return `${requiredCompleted}/2 steps completed`;
+  };
 
   const handleDismiss = () => {
     setLocallyDismissed(true);
     dismissMutation.mutate();
   };
 
-  // Show completion banner if steps are complete but not yet dismissed
   if (stepsComplete) {
     return (
       <AnimatePresence>
@@ -121,7 +134,7 @@ export function OnboardingWidget() {
               Welcome to Aurelith
             </h3>
             <p className="text-sm text-muted-foreground mt-1">
-              Complete your first steps to enter the realm.
+              {getProgressText()}
             </p>
           </div>
 
@@ -132,48 +145,61 @@ export function OnboardingWidget() {
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: index * 0.1 }}
-                className={`flex items-center gap-3 p-2 rounded-lg transition-colors ${
+                className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
                   step.completed 
                     ? "bg-green-500/10" 
-                    : "bg-white/5 hover:bg-white/10"
+                    : step.locked
+                      ? "bg-white/5 opacity-50"
+                      : "bg-white/5"
                 }`}
               >
-                <div className={`h-6 w-6 rounded-full flex items-center justify-center ${
+                <div className={`h-6 w-6 rounded-full flex items-center justify-center shrink-0 ${
                   step.completed 
                     ? "bg-green-500/20 text-green-400" 
-                    : "bg-purple-500/20 text-purple-400"
+                    : step.locked
+                      ? "bg-gray-500/20 text-gray-500"
+                      : "bg-purple-500/20 text-purple-400"
                 }`}>
                   {step.completed ? (
                     <Check className="h-4 w-4" />
+                  ) : step.locked ? (
+                    <Lock className="h-3 w-3" />
                   ) : (
                     <span className="text-xs font-bold">{index + 1}</span>
                   )}
                 </div>
                 
-                <div className="flex-1 flex items-center gap-2">
-                  {step.icon}
-                  <span className={`text-sm ${
-                    step.completed ? "text-green-400 line-through opacity-70" : "text-white"
-                  }`}>
-                    {step.label}
-                  </span>
-                  {step.optional && (
-                    <span className="text-[10px] px-1.5 py-0.5 bg-gray-500/20 text-gray-400 rounded-full">
-                      optional
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    {step.icon}
+                    <span className={`text-sm font-medium ${
+                      step.completed 
+                        ? "text-green-400" 
+                        : step.locked
+                          ? "text-gray-500"
+                          : "text-white"
+                    }`}>
+                      {step.label}
                     </span>
-                  )}
+                    {step.optional && (
+                      <span className="text-[10px] px-1.5 py-0.5 bg-gray-500/20 text-gray-400 rounded-full">
+                        optional
+                      </span>
+                    )}
+                  </div>
+                  <p className={`text-xs mt-0.5 ${
+                    step.completed 
+                      ? "text-green-400/60" 
+                      : step.locked
+                        ? "text-gray-600"
+                        : "text-muted-foreground"
+                  }`}>
+                    {step.description}
+                  </p>
                 </div>
 
-                {!step.completed && step.action && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={step.action}
-                    className="h-7 px-2 text-purple-400 hover:text-purple-300 hover:bg-purple-500/20"
-                    data-testid={`button-onboarding-${step.id}`}
-                  >
-                    Go <ChevronRight className="h-3 w-3 ml-1" />
-                  </Button>
+                {step.completed && (
+                  <Check className="h-4 w-4 text-green-400 shrink-0" />
                 )}
               </motion.div>
             ))}
@@ -181,12 +207,12 @@ export function OnboardingWidget() {
 
           <div className="mt-3 pt-3 border-t border-white/10">
             <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>{requiredCompleted}/{requiredSteps.length} required steps completed</span>
+              <span>{getProgressText()}</span>
               <div className="flex gap-1">
-                {steps.map((step) => (
+                {requiredSteps.map((step) => (
                   <div
                     key={step.id}
-                    className={`h-1.5 w-4 rounded-full ${
+                    className={`h-1.5 w-6 rounded-full transition-colors ${
                       step.completed ? "bg-green-500" : "bg-white/20"
                     }`}
                   />
