@@ -302,7 +302,10 @@ export default function CardsPage() {
                     
                     <div className="mt-4 flex items-center gap-2 bg-yellow-500/10 px-3 py-1.5 rounded-full">
                       <Coins className="h-4 w-4 text-yellow-400" />
-                      <span className="font-bold text-white text-sm">{user?.tokens || 0} tokens</span>
+                      <div className="flex flex-col items-center leading-tight">
+                        <span className="font-bold text-white text-sm">{user?.tokens || 0}</span>
+                        <span className="text-[10px] text-yellow-400/80">Current Balance</span>
+                      </div>
                     </div>
                     
                     <Button 
