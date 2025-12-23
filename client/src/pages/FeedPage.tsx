@@ -20,6 +20,7 @@ import { RewardsTodayHub } from "@/components/home/RewardsTodayHub";
 import { DrawsSection } from "@/components/home/DrawsSection";
 import { TrendingCardsSection } from "@/components/home/TrendingCardsSection";
 import { TopCollectorsSection } from "@/components/home/TopCollectorsSection";
+import { OnboardingWidget } from "@/components/home/OnboardingWidget";
 
 export default function FeedPage() {
   const { data: posts, isLoading } = usePosts();
@@ -261,6 +262,9 @@ export default function FeedPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Day-0 Onboarding Widget - appears for new users */}
+      <OnboardingWidget />
 
       {/* Rewards Today Hub - Unified summons and draws */}
       <RewardsTodayHub />
