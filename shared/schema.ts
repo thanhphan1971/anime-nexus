@@ -436,9 +436,11 @@ export const purchaseRequests = pgTable("purchase_requests", {
   baseTokens: integer("base_tokens").notNull(),
   bonusTokens: integer("bonus_tokens").notNull().default(0),
   totalTokens: integer("total_tokens").notNull(),
+  childMessage: text("child_message"),
   status: text("status").notNull().default('PENDING_PARENT'),
   stripeCheckoutSessionId: text("stripe_checkout_session_id").unique(),
   stripePaymentIntentId: text("stripe_payment_intent_id").unique(),
+  expiresAt: timestamp("expires_at").notNull().default(sql`NOW() + INTERVAL '24 hours'`),
   requestedAt: timestamp("requested_at").notNull().defaultNow(),
   approvedAt: timestamp("approved_at"),
   deniedAt: timestamp("denied_at"),
@@ -446,6 +448,18 @@ export const purchaseRequests = pgTable("purchase_requests", {
   fulfilledAt: timestamp("fulfilled_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Parent Notifications - in-app notifications for parents
+export const parentNotifications = pgTable("parent_notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  type: text("type").notNull(), // PURCHASE_REQUEST, PURCHASE_APPROVED, PURCHASE_DECLINED, PURCHASE_COMPLETED, SYSTEM
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  metadata: jsonb("metadata"), // { purchaseRequestId, childId, tokenAmount, priceCents, currency, childName, etc. }
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  readAt: timestamp("read_at"),
 });
 
 // Token Ledger - idempotent token crediting with unique constraint
@@ -764,6 +778,12 @@ export const insertTokenLedgerSchema = createInsertSchema(tokenLedger).omit({
   createdAt: true,
 });
 
+export const insertParentNotificationSchema = createInsertSchema(parentNotifications).omit({
+  id: true,
+  createdAt: true,
+  readAt: true,
+});
+
 // Export types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -845,6 +865,9 @@ export type PurchaseRequest = typeof purchaseRequests.$inferSelect;
 
 export type InsertTokenLedger = z.infer<typeof insertTokenLedgerSchema>;
 export type TokenLedger = typeof tokenLedger.$inferSelect;
+
+export type InsertParentNotification = z.infer<typeof insertParentNotificationSchema>;
+export type ParentNotification = typeof parentNotifications.$inferSelect;
 
 export const insertSiteSettingSchema = createInsertSchema(siteSettings).omit({
   id: true,

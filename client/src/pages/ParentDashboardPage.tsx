@@ -20,6 +20,7 @@ import {
   Sparkles, ShoppingBag, UserPlus, Check, X, Eye,
   AlertTriangle, Clock, DollarSign, Bell, Lock, Unlock, Coins, Loader2
 } from "lucide-react";
+import ParentNotificationsDropdown from "@/components/ParentNotificationsDropdown";
 
 interface ParentalControls {
   purchasesEnabled: boolean;
@@ -242,14 +243,17 @@ export default function ParentDashboardPage() {
     <div className="space-y-6 pb-24">
       {/* Header */}
       <div className="bg-gradient-to-r from-blue-500/20 via-purple-500/20 to-pink-500/20 p-6 rounded-2xl border border-blue-500/30">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center shadow-lg">
-            <Shield className="h-6 w-6 text-white" />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center shadow-lg">
+              <Shield className="h-6 w-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-display font-bold text-blue-400 neon-text">PARENT DASHBOARD</h1>
+              <p className="text-muted-foreground text-sm">Manage your children's AniRealm accounts</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-2xl font-display font-bold text-blue-400 neon-text">PARENT DASHBOARD</h1>
-            <p className="text-muted-foreground text-sm">Manage your children's AniRealm accounts</p>
-          </div>
+          <ParentNotificationsDropdown />
         </div>
       </div>
 

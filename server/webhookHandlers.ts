@@ -1,5 +1,6 @@
 import { getStripeSync, getUncachableStripeClient } from './stripeClient';
 import { storage } from './storage';
+import { formatPrice, getEmailTemplate, sendEmail } from './lib/emailService';
 
 export class WebhookHandlers {
   static async processWebhook(payload: Buffer, signature: string): Promise<void> {
@@ -54,6 +55,8 @@ export class WebhookHandlers {
               if (!existingLedgerEntry) {
                 // Credit tokens to child
                 const child = await storage.getUser(childId);
+                const parent = await storage.getUser(purchaseRequest.parentUserId);
+                
                 if (child) {
                   await storage.updateUser(childId, {
                     tokens: child.tokens + totalTokens
@@ -71,6 +74,41 @@ export class WebhookHandlers {
                   await storage.fulfillPurchaseRequest(purchaseRequestId);
                   
                   console.log(`Webhook: Credited ${totalTokens} tokens to child ${childId} for request ${purchaseRequestId}`);
+                  
+                  // Create completion notification for parent
+                  if (parent) {
+                    const priceFormatted = formatPrice(purchaseRequest.unitAmountCents, purchaseRequest.currency);
+                    
+                    await storage.createParentNotification({
+                      userId: parent.id,
+                      type: 'PURCHASE_COMPLETED',
+                      title: 'Purchase completed!',
+                      body: `${totalTokens.toLocaleString()} tokens delivered to ${child.name || child.handle}'s account.`,
+                      metadata: {
+                        purchaseRequestId: purchaseRequestId,
+                        childId: child.id,
+                        childName: child.name || child.handle,
+                        tokenAmount: totalTokens,
+                        priceCents: purchaseRequest.unitAmountCents,
+                        currency: purchaseRequest.currency,
+                      },
+                    });
+                    
+                    // Send completion email to parent
+                    const emailTemplate = getEmailTemplate('purchase_completed', {
+                      parentName: parent.name || 'Parent',
+                      childName: child.name || child.handle || 'Your child',
+                      tokenAmount: totalTokens,
+                      price: priceFormatted,
+                    });
+                    
+                    sendEmail({
+                      to: parent.email,
+                      subject: emailTemplate.subject,
+                      html: emailTemplate.html,
+                      text: emailTemplate.text,
+                    }).catch(err => console.error('[Email] Failed to send completion email:', err));
+                  }
                 }
               } else {
                 // Already credited, ensure status is fulfilled

@@ -2756,12 +2756,20 @@ export async function registerRoutes(
         return res.status(401).json({ error: "Not authenticated" });
       }
       
-      const { packId, baseTokens, bonusTokens, totalTokens, unitAmountCents, currency } = req.body;
+      const { packId, baseTokens, bonusTokens, totalTokens, unitAmountCents, currency, childMessage } = req.body;
       
       // Get parent link for this child
       const parentLink = await storage.getParentLink(req.session.userId);
       if (!parentLink || parentLink.status !== 'active') {
         return res.status(400).json({ error: "No active parent link found" });
+      }
+      
+      // Get child and parent info for notifications
+      const child = await storage.getUser(req.session.userId);
+      const parent = await storage.getUser(parentLink.parentId);
+      
+      if (!child || !parent) {
+        return res.status(404).json({ error: "User not found" });
       }
       
       const request = await storage.createPurchaseRequest({
@@ -2773,7 +2781,44 @@ export async function registerRoutes(
         totalTokens,
         unitAmountCents,
         currency: currency || 'USD',
+        childMessage: childMessage || null,
       });
+      
+      // Create in-app notification for parent
+      const { formatPrice, getEmailTemplate, sendEmail } = await import('./lib/emailService');
+      const priceFormatted = formatPrice(unitAmountCents, currency || 'USD');
+      
+      await storage.createParentNotification({
+        userId: parentLink.parentId,
+        type: 'PURCHASE_REQUEST',
+        title: 'Purchase request pending',
+        body: `${child.name || child.handle} requested ${totalTokens.toLocaleString()} tokens for ${priceFormatted}. Review in Parent Dashboard.`,
+        metadata: {
+          purchaseRequestId: request.id,
+          childId: child.id,
+          childName: child.name || child.handle,
+          tokenAmount: totalTokens,
+          priceCents: unitAmountCents,
+          currency: currency || 'USD',
+          childMessage: childMessage || null,
+        },
+      });
+      
+      // Send email to parent (don't block on failure)
+      const emailTemplate = getEmailTemplate('purchase_request', {
+        parentName: parent.name || 'Parent',
+        childName: child.name || child.handle || 'Your child',
+        tokenAmount: totalTokens,
+        price: priceFormatted,
+        expiresAt: request.expiresAt,
+      });
+      
+      sendEmail({
+        to: parent.email,
+        subject: emailTemplate.subject,
+        html: emailTemplate.html,
+        text: emailTemplate.text,
+      }).catch(err => console.error('[Email] Failed to send purchase request email:', err));
       
       res.json({
         success: true,
@@ -2841,9 +2886,52 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Request is not awaiting parent response" });
       }
       
+      // Get user info for notifications
+      const parent = await storage.getUser(req.session.userId);
+      const child = await storage.getUser(purchaseRequest.childUserId);
+      
+      if (!parent || !child) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      const { formatPrice, getEmailTemplate, sendEmail } = await import('./lib/emailService');
+      const priceFormatted = formatPrice(purchaseRequest.unitAmountCents, purchaseRequest.currency);
+      
       // If denied, set status to rejected
       if (status === 'denied') {
         const updatedRequest = await storage.rejectPurchaseRequest(req.params.requestId);
+        
+        // Create notification for parent (confirmation)
+        await storage.createParentNotification({
+          userId: parent.id,
+          type: 'PURCHASE_DECLINED',
+          title: 'Purchase request declined',
+          body: `You declined ${child.name || child.handle}'s request for ${purchaseRequest.totalTokens.toLocaleString()} tokens.`,
+          metadata: {
+            purchaseRequestId: purchaseRequest.id,
+            childId: child.id,
+            childName: child.name || child.handle,
+            tokenAmount: purchaseRequest.totalTokens,
+            priceCents: purchaseRequest.unitAmountCents,
+            currency: purchaseRequest.currency,
+          },
+        });
+        
+        // Send email confirmation
+        const emailTemplate = getEmailTemplate('purchase_declined', {
+          parentName: parent.name || 'Parent',
+          childName: child.name || child.handle || 'Your child',
+          tokenAmount: purchaseRequest.totalTokens,
+          price: priceFormatted,
+        });
+        
+        sendEmail({
+          to: parent.email,
+          subject: emailTemplate.subject,
+          html: emailTemplate.html,
+          text: emailTemplate.text,
+        }).catch(err => console.error('[Email] Failed to send decline email:', err));
+        
         return res.json({
           success: true,
           request: updatedRequest,
@@ -2851,13 +2939,12 @@ export async function registerRoutes(
         });
       }
       
-      // If approved, create a Stripe checkout session for the parent to pay
-      const parent = await storage.getUser(req.session.userId);
-      const child = await storage.getUser(purchaseRequest.childUserId);
-      
-      if (!parent || !child) {
-        return res.status(404).json({ error: "User not found" });
+      // Check if request has expired
+      if (purchaseRequest.expiresAt && new Date() > new Date(purchaseRequest.expiresAt)) {
+        return res.status(400).json({ error: "This purchase request has expired" });
       }
+      
+      // If approved, create a Stripe checkout session for the parent to pay
       
       const { getUncachableStripeClient } = await import("./stripeClient");
       const stripe = await getUncachableStripeClient();
@@ -2950,6 +3037,68 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("Cancel checkout error:", error);
       res.status(400).json({ error: error.message });
+    }
+  });
+
+  // ============== PARENT NOTIFICATION ENDPOINTS ==============
+  
+  // Get parent notifications
+  app.get("/api/parent/notifications", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const unreadOnly = req.query.unreadOnly === 'true';
+      const limit = parseInt(req.query.limit as string) || 50;
+      
+      const notifications = await storage.getParentNotifications(req.session.userId, {
+        unreadOnly,
+        limit
+      });
+      
+      res.json(notifications);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Mark notifications as read
+  app.post("/api/parent/notifications/mark-read", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const { notificationIds, markAll } = req.body;
+      
+      if (markAll) {
+        await storage.markAllNotificationsRead(req.session.userId);
+      } else if (notificationIds && Array.isArray(notificationIds) && notificationIds.length > 0) {
+        await storage.markNotificationsRead(notificationIds);
+      } else {
+        return res.status(400).json({ error: "Provide notificationIds array or markAll: true" });
+      }
+      
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get unread notification count and pending purchase requests
+  app.get("/api/parent/notifications/unread-count", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const unreadCount = await storage.getUnreadNotificationCount(req.session.userId);
+      const pendingPurchaseRequests = await storage.getPendingPurchaseRequestCount(req.session.userId);
+      
+      res.json({ unreadCount, pendingPurchaseRequests });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
     }
   });
 

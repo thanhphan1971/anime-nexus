@@ -33,6 +33,8 @@ import {
   type InsertPurchaseRequest,
   type TokenLedger,
   type InsertTokenLedger,
+  type ParentNotification,
+  type InsertParentNotification,
   type SiteSetting,
   type WatchlistItem,
   type InsertWatchlistItem,
@@ -72,6 +74,7 @@ import {
   parentalControls,
   purchaseRequests,
   tokenLedger,
+  parentNotifications,
   siteSettings,
   watchlistItems,
   animeCache,
@@ -85,7 +88,7 @@ import {
   userBadges,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, sql, desc, ne, inArray, lte, lt, asc } from "drizzle-orm";
+import { eq, and, sql, desc, ne, inArray, lte, lt, asc, gt, isNull } from "drizzle-orm";
 
 export interface IStorage {
   // User operations
@@ -220,6 +223,14 @@ export interface IStorage {
   // Token ledger operations
   createTokenLedgerEntry(entry: InsertTokenLedger): Promise<TokenLedger>;
   getTokenLedgerByPurchaseRequest(purchaseRequestId: string): Promise<TokenLedger | undefined>;
+  
+  // Parent notification operations
+  createParentNotification(notification: InsertParentNotification): Promise<ParentNotification>;
+  getParentNotifications(userId: string, options?: { unreadOnly?: boolean; limit?: number }): Promise<ParentNotification[]>;
+  markNotificationsRead(notificationIds: string[]): Promise<void>;
+  markAllNotificationsRead(userId: string): Promise<void>;
+  getUnreadNotificationCount(userId: string): Promise<number>;
+  getPendingPurchaseRequestCount(parentId: string): Promise<number>;
   
   // Site settings operations
   getSiteSetting(key: string): Promise<string | undefined>;
@@ -1370,6 +1381,77 @@ export class DbStorage implements IStorage {
       .where(eq(tokenLedger.purchaseRequestId, purchaseRequestId))
       .limit(1);
     return result[0];
+  }
+
+  // Parent notification operations
+  async createParentNotification(notification: InsertParentNotification): Promise<ParentNotification> {
+    const result = await db.insert(parentNotifications).values(notification).returning();
+    return result[0];
+  }
+
+  async getParentNotifications(userId: string, options?: { unreadOnly?: boolean; limit?: number }): Promise<ParentNotification[]> {
+    const limit = options?.limit || 50;
+    
+    if (options?.unreadOnly) {
+      return await db
+        .select()
+        .from(parentNotifications)
+        .where(and(
+          eq(parentNotifications.userId, userId),
+          isNull(parentNotifications.readAt)
+        ))
+        .orderBy(desc(parentNotifications.createdAt))
+        .limit(limit);
+    }
+    
+    return await db
+      .select()
+      .from(parentNotifications)
+      .where(eq(parentNotifications.userId, userId))
+      .orderBy(desc(parentNotifications.createdAt))
+      .limit(limit);
+  }
+
+  async markNotificationsRead(notificationIds: string[]): Promise<void> {
+    if (notificationIds.length === 0) return;
+    await db
+      .update(parentNotifications)
+      .set({ readAt: new Date() })
+      .where(inArray(parentNotifications.id, notificationIds));
+  }
+
+  async markAllNotificationsRead(userId: string): Promise<void> {
+    await db
+      .update(parentNotifications)
+      .set({ readAt: new Date() })
+      .where(and(
+        eq(parentNotifications.userId, userId),
+        isNull(parentNotifications.readAt)
+      ));
+  }
+
+  async getUnreadNotificationCount(userId: string): Promise<number> {
+    const result = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(parentNotifications)
+      .where(and(
+        eq(parentNotifications.userId, userId),
+        isNull(parentNotifications.readAt)
+      ));
+    return Number(result[0]?.count || 0);
+  }
+
+  async getPendingPurchaseRequestCount(parentId: string): Promise<number> {
+    const now = new Date();
+    const result = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(purchaseRequests)
+      .where(and(
+        eq(purchaseRequests.parentUserId, parentId),
+        eq(purchaseRequests.status, 'PENDING_PARENT'),
+        gt(purchaseRequests.expiresAt, now)
+      ));
+    return Number(result[0]?.count || 0);
   }
 
   // Site settings operations
