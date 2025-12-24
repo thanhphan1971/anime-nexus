@@ -56,6 +56,8 @@ import {
   type InsertBadge,
   type UserBadge,
   type InsertUserBadge,
+  type AdminAuditLog,
+  type InsertAdminAuditLog,
   users,
   posts,
   postLikes,
@@ -86,6 +88,7 @@ import {
   gameActivityLog,
   badges,
   userBadges,
+  adminAuditLog,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql, desc, ne, inArray, lte, lt, asc, gt, isNull } from "drizzle-orm";
@@ -228,6 +231,14 @@ export interface IStorage {
   // Token ledger operations
   createTokenLedgerEntry(entry: InsertTokenLedger): Promise<TokenLedger>;
   getTokenLedgerByPurchaseRequest(purchaseRequestId: string): Promise<TokenLedger | undefined>;
+  
+  // Admin audit log operations
+  createAdminAuditLog(entry: InsertAdminAuditLog): Promise<AdminAuditLog>;
+  
+  // Admin purchase request operations
+  getPurchaseRequestsWithExceptions(status: string, limit: number): Promise<Array<PurchaseRequest & { child: User; parent: User; hasLedgerEntry: boolean }>>;
+  grantTokensForExpiredPayment(id: string, adminId: string): Promise<PurchaseRequest | undefined>;
+  markPurchaseResolved(id: string, adminId: string): Promise<PurchaseRequest | undefined>;
   
   // Parent notification operations
   createParentNotification(notification: InsertParentNotification): Promise<ParentNotification>;
@@ -1472,6 +1483,132 @@ export class DbStorage implements IStorage {
       .from(tokenLedger)
       .where(eq(tokenLedger.purchaseRequestId, purchaseRequestId))
       .limit(1);
+    return result[0];
+  }
+  
+  // Admin audit log operations
+  async createAdminAuditLog(entry: InsertAdminAuditLog): Promise<AdminAuditLog> {
+    const result = await db.insert(adminAuditLog).values(entry).returning();
+    return result[0];
+  }
+  
+  // Admin purchase request operations
+  async getPurchaseRequestsWithExceptions(status: string, limit: number): Promise<Array<PurchaseRequest & { child: User; parent: User; hasLedgerEntry: boolean }>> {
+    const requests = await db
+      .select()
+      .from(purchaseRequests)
+      .leftJoin(users, eq(purchaseRequests.childUserId, users.id))
+      .where(eq(purchaseRequests.status, status))
+      .orderBy(desc(purchaseRequests.createdAt))
+      .limit(limit);
+    
+    const results: Array<PurchaseRequest & { child: User; parent: User; hasLedgerEntry: boolean }> = [];
+    
+    for (const row of requests) {
+      if (!row.purchase_requests || !row.users) continue;
+      
+      const parent = await this.getUser(row.purchase_requests.parentUserId);
+      if (!parent) continue;
+      
+      const ledgerEntry = await this.getTokenLedgerByPurchaseRequest(row.purchase_requests.id);
+      
+      results.push({
+        ...row.purchase_requests,
+        child: row.users,
+        parent,
+        hasLedgerEntry: !!ledgerEntry,
+      });
+    }
+    
+    return results;
+  }
+  
+  async grantTokensForExpiredPayment(id: string, adminId: string): Promise<PurchaseRequest | undefined> {
+    const request = await this.getPurchaseRequestById(id);
+    if (!request || request.status !== 'EXPIRED_AFTER_PAYMENT') {
+      return undefined;
+    }
+    
+    // Check if tokens already granted (idempotent)
+    const existingLedger = await this.getTokenLedgerByPurchaseRequest(id);
+    if (existingLedger) {
+      return request; // Already granted
+    }
+    
+    // Credit tokens to child
+    const child = await this.getUser(request.childUserId);
+    if (!child) return undefined;
+    
+    await this.updateUser(request.childUserId, {
+      tokens: child.tokens + request.totalTokens
+    });
+    
+    // Record in token ledger with admin grant reason
+    await this.createTokenLedgerEntry({
+      userId: request.childUserId,
+      source: 'ADMIN_GRANT_EXPIRED_AFTER_PAYMENT',
+      purchaseRequestId: id,
+      deltaTokens: request.totalTokens,
+    });
+    
+    // Update status
+    const result = await db
+      .update(purchaseRequests)
+      .set({ 
+        status: 'PAID_ADMIN_GRANTED',
+        fulfilledAt: new Date(),
+        updatedAt: new Date()
+      })
+      .where(eq(purchaseRequests.id, id))
+      .returning();
+    
+    // Audit log
+    await this.createAdminAuditLog({
+      adminId,
+      action: 'GRANT_TOKENS',
+      targetType: 'purchase_request',
+      targetId: id,
+      details: {
+        previousStatus: request.status,
+        newStatus: 'PAID_ADMIN_GRANTED',
+        tokensGranted: request.totalTokens,
+        childId: request.childUserId,
+        parentId: request.parentUserId,
+      },
+    });
+    
+    return result[0];
+  }
+  
+  async markPurchaseResolved(id: string, adminId: string): Promise<PurchaseRequest | undefined> {
+    const request = await this.getPurchaseRequestById(id);
+    if (!request || request.status !== 'EXPIRED_AFTER_PAYMENT') {
+      return undefined;
+    }
+    
+    const result = await db
+      .update(purchaseRequests)
+      .set({ 
+        status: 'RESOLVED_NO_GRANT',
+        updatedAt: new Date()
+      })
+      .where(eq(purchaseRequests.id, id))
+      .returning();
+    
+    // Audit log
+    await this.createAdminAuditLog({
+      adminId,
+      action: 'MARK_RESOLVED',
+      targetType: 'purchase_request',
+      targetId: id,
+      details: {
+        previousStatus: request.status,
+        newStatus: 'RESOLVED_NO_GRANT',
+        childId: request.childUserId,
+        parentId: request.parentUserId,
+      },
+    });
+    
     return result[0];
   }
 

@@ -504,6 +504,17 @@ export const siteSettings = pgTable("site_settings", {
   updatedBy: varchar("updated_by").references(() => users.id, { onDelete: 'set null' }),
 });
 
+// Admin Audit Log - tracks admin actions for accountability
+export const adminAuditLog = pgTable("admin_audit_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  adminId: varchar("admin_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  action: text("action").notNull(), // GRANT_TOKENS, MARK_RESOLVED, etc.
+  targetType: text("target_type").notNull(), // purchase_request, user, etc.
+  targetId: varchar("target_id").notNull(),
+  details: jsonb("details"), // Additional context (old status, new status, etc.)
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 // Media - tracks uploaded files (no base64, just references)
 export const media = pgTable("media", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -778,6 +789,11 @@ export const insertTokenLedgerSchema = createInsertSchema(tokenLedger).omit({
   createdAt: true,
 });
 
+export const insertAdminAuditLogSchema = createInsertSchema(adminAuditLog).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertParentNotificationSchema = createInsertSchema(parentNotifications).omit({
   id: true,
   createdAt: true,
@@ -865,6 +881,9 @@ export type PurchaseRequest = typeof purchaseRequests.$inferSelect;
 
 export type InsertTokenLedger = z.infer<typeof insertTokenLedgerSchema>;
 export type TokenLedger = typeof tokenLedger.$inferSelect;
+
+export type InsertAdminAuditLog = z.infer<typeof insertAdminAuditLogSchema>;
+export type AdminAuditLog = typeof adminAuditLog.$inferSelect;
 
 export type InsertParentNotification = z.infer<typeof insertParentNotificationSchema>;
 export type ParentNotification = typeof parentNotifications.$inferSelect;

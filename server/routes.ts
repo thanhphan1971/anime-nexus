@@ -1742,6 +1742,93 @@ export async function registerRoutes(
     }
   });
 
+  // Admin Payment Exceptions routes
+  app.get("/api/admin/payments-exceptions", verifySupabaseToken, async (req, res) => {
+    try {
+      if (!req.dbUser?.isAdmin) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+      
+      const status = (req.query.status as string) || 'EXPIRED_AFTER_PAYMENT';
+      const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
+      
+      const requests = await storage.getPurchaseRequestsWithExceptions(status, limit);
+      
+      res.json(requests.map(r => ({
+        requestId: r.id,
+        status: r.status,
+        createdAt: r.createdAt,
+        expiresAt: r.expiresAt,
+        approvedAt: r.approvedAt,
+        paidAt: r.paidAt,
+        parent: {
+          id: r.parent.id,
+          username: r.parent.username,
+          email: r.parent.email,
+          name: r.parent.name,
+        },
+        child: {
+          id: r.child.id,
+          username: r.child.username,
+          handle: r.child.handle,
+          name: r.child.name,
+        },
+        tokenAmount: r.totalTokens,
+        priceCents: r.unitAmountCents,
+        currency: r.currency,
+        stripeCheckoutSessionId: r.stripeCheckoutSessionId,
+        stripePaymentIntentId: r.stripePaymentIntentId,
+        hasLedgerEntry: r.hasLedgerEntry,
+      })));
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  app.post("/api/admin/purchase-requests/:id/grant-tokens", verifySupabaseToken, async (req, res) => {
+    try {
+      if (!req.dbUser?.isAdmin) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+      
+      const result = await storage.grantTokensForExpiredPayment(req.params.id, req.dbUser.id);
+      
+      if (!result) {
+        return res.status(400).json({ error: "Cannot grant tokens for this request. Status may not be EXPIRED_AFTER_PAYMENT or tokens already granted." });
+      }
+      
+      res.json({
+        success: true,
+        request: result,
+        message: "Tokens granted successfully"
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  app.post("/api/admin/purchase-requests/:id/mark-resolved", verifySupabaseToken, async (req, res) => {
+    try {
+      if (!req.dbUser?.isAdmin) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+      
+      const result = await storage.markPurchaseResolved(req.params.id, req.dbUser.id);
+      
+      if (!result) {
+        return res.status(400).json({ error: "Cannot resolve this request. Status may not be EXPIRED_AFTER_PAYMENT." });
+      }
+      
+      res.json({
+        success: true,
+        request: result,
+        message: "Request marked as resolved"
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Prize routes
   app.get("/api/prizes", async (req, res) => {
     try {
