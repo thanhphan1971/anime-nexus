@@ -12,8 +12,9 @@ import {
   BarChart, Users, Database, Sparkles, Calendar, Plus, Upload, Save, 
   ShieldAlert, Ban, UserCheck, MessageSquare, Flag, Trash2, Settings, 
   Activity, Crown, Lock, Unlock, Eye, Search, Loader2, Trophy, Gift,
-  Clock, Play, Pause, X, Ticket, Coins
+  Clock, Play, Pause, X, Ticket, Coins, Shield, ExternalLink
 } from "lucide-react";
+import { Link } from "wouter";
 import { 
   Table, 
   TableBody, 
@@ -528,6 +529,41 @@ export default function AdminPage() {
               </Card>
             ))}
           </div>
+
+          <Card className="bg-card/40 border-white/10">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ExternalLink className="h-5 w-5" />
+                Quick Links
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <Link href="/admin/payments-exceptions">
+                  <button className="w-full p-4 rounded-lg border border-white/10 bg-black/20 hover:bg-black/40 transition-colors text-left" data-testid="link-payment-exceptions">
+                    <div className="flex items-center gap-3">
+                      <ShieldAlert className="h-6 w-6 text-orange-500" />
+                      <div>
+                        <p className="font-medium">Payment Exceptions</p>
+                        <p className="text-xs text-muted-foreground">Handle expired payments</p>
+                      </div>
+                    </div>
+                  </button>
+                </Link>
+                <Link href="/admin/security-metrics">
+                  <button className="w-full p-4 rounded-lg border border-white/10 bg-black/20 hover:bg-black/40 transition-colors text-left" data-testid="link-security-metrics">
+                    <div className="flex items-center gap-3">
+                      <Shield className="h-6 w-6 text-blue-500" />
+                      <div>
+                        <p className="font-medium">Security Metrics</p>
+                        <p className="text-xs text-muted-foreground">View blocked operations</p>
+                      </div>
+                    </div>
+                  </button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
              <Card className="bg-card/40 border-white/10">

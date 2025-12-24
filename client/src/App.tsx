@@ -21,6 +21,7 @@ import HelpPage from "@/pages/HelpPage";
 import CodeOfEthicsPage from "@/pages/CodeOfEthicsPage";
 import AdminPage from "@/pages/AdminPage";
 import AdminPaymentExceptionsPage from "@/pages/AdminPaymentExceptionsPage";
+import AdminSecurityMetricsPage from "@/pages/AdminSecurityMetricsPage";
 import DrawsPage from "@/pages/DrawsPage";
 import TokenShopPage from "@/pages/TokenShopPage";
 import ParentDashboardPage from "@/pages/ParentDashboardPage";
@@ -96,6 +97,7 @@ function Router() {
         <Route path="/ethics" component={CodeOfEthicsPage} />
         <Route path="/admin" component={AdminPage} />
         <Route path="/admin/payments-exceptions" component={AdminPaymentExceptionsPage} />
+        <Route path="/admin/security-metrics" component={AdminSecurityMetricsPage} />
         <Route path="/tokens" component={TokenShopPage} />
         <Route path="/parent" component={ParentDashboardPage} />
         <Route path="/game" component={GamePage} />
