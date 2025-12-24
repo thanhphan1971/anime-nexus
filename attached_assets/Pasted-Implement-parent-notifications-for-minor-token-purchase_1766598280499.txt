@@ -1,0 +1,214 @@
+Implement parent notifications for minor token purchase requests with BOTH:
+(1) In-app notifications + badge on parent dashboard
+(2) Email notifications to parent
+Ensure tokens are credited ONLY after: parent approves + Stripe payment succeeds + webhook verifies.
+
+DO NOT change existing purchase protection rules (minors cannot pay). Add missing pieces.
+
+========================
+A) DATABASE / MODELS
+========================
+1) Add table: notifications
+Fields:
+- id (uuid, PK)
+- userId (uuid, FK to users.id)  // the parent user
+- type (text)                    // "PURCHASE_REQUEST" | "PURCHASE_APPROVED" | "PURCHASE_DECLINED" | "SYSTEM"
+- title (text)
+- body (text)
+- metadata (jsonb)               // store purchaseRequestId, childId, tokenAmount, price, etc.
+- createdAt (timestamp, default now)
+- readAt (timestamp, nullable)
+
+Indexes:
+- (userId, readAt)
+- (userId, createdAt)
+
+2) Update purchase_requests table (or equivalent) to include:
+- expiresAt (timestamp) REQUIRED
+- status (text) if not present: "PENDING" | "APPROVED" | "DECLINED" | "PAID" | "EXPIRED"
+- parentId (uuid) REQUIRED (the linked parent)
+- childId (uuid) REQUIRED (the minor)
+- tokenAmount (int)
+- priceCents (int)
+- currency (text)
+- createdAt timestamp
+- approvedAt timestamp nullable
+- paidAt timestamp nullable
+- used boolean (optional if you already use status)
+
+Rules:
+- expiresAt = createdAt + 24 hours
+- Only one active PENDING request per child (optional but recommended)
+
+========================
+B) BACKEND — NOTIFICATION API
+========================
+Create endpoints (names can be adapted to your routing, but keep behavior):
+
+1) GET /api/parent/notifications
+Auth required (parent session).
+Returns latest notifications sorted desc.
+Support query params:
+- unreadOnly=true
+- limit=20
+
+2) POST /api/parent/notifications/mark-read
+Body: { notificationIds: string[] } OR { markAll: true }
+Sets readAt=now for those notifications.
+
+3) GET /api/parent/notifications/unread-count
+Returns: { unreadCount: number, pendingPurchaseRequests: number }
+
+pendingPurchaseRequests should count purchase_requests where parentId=currentUser AND status="PENDING" AND expiresAt > now
+
+========================
+C) BACKEND — PURCHASE REQUEST CREATION (MINOR SIDE)
+========================
+When minor creates a purchase request (your existing route e.g. POST /api/parent/purchase-request or /api/minor/purchase-request):
+1) Validate:
+- user is minor
+- has linked parentId
+- tokenAmount and price are valid bundle options
+- enforce rate-limit: child can have at most 1 active PENDING request at a time (or max 3 pending)
+
+2) Create purchase_request:
+- status="PENDING"
+- expiresAt = now + 24 hours
+- parentId, childId, tokenAmount, priceCents, currency
+Return requestId and a human-friendly code if you use codes.
+
+3) Create IN-APP notification for parent:
+type="PURCHASE_REQUEST"
+title="Purchase request pending"
+body="Your child requested {tokenAmount} tokens for {priceFormatted}. Approve or decline in the Parent Dashboard."
+metadata = { purchaseRequestId, childId, tokenAmount, priceCents, currency }
+
+4) Send EMAIL notification to parent (see section E):
+Subject: "AniRealm: Purchase approval needed"
+Include:
+- child display name
+- token amount
+- price
+- expiration time
+- strong CTA: "Open Parent Dashboard to approve"
+DO NOT include a one-click approve link unless parent must log in. Safer: link to the dashboard, then approve inside app.
+
+========================
+D) BACKEND — APPROVE / DECLINE (PARENT SIDE)
+========================
+Parent dashboard should show pending requests and allow Approve or Decline.
+
+1) POST /api/parent/purchase-request/:id/approve
+Auth required (parent).
+Validate:
+- request exists
+- request.parentId == current parent
+- status=="PENDING"
+- expiresAt > now
+If valid:
+- set status="APPROVED"
+- approvedAt=now
+- create Stripe Checkout Session FOR PARENT (adult account)
+- store stripeCheckoutSessionId on request
+Return checkoutUrl.
+
+2) POST /api/parent/purchase-request/:id/decline
+Validate same checks.
+Set status="DECLINED"
+Create parent in-app notification: type="PURCHASE_DECLINED"
+Optionally create child-facing in-app notification (if you have child notifications) that request was declined.
+Also send email confirmation to parent (optional).
+
+IMPORTANT: tokens are NOT granted on approve. Tokens only granted on webhook payment success.
+
+========================
+E) EMAIL SENDING (RESEND OR SENDGRID)
+========================
+Implement transactional email. Use ONE provider. Preferred: Resend.
+
+1) Add env vars (names only):
+- EMAIL_PROVIDER="resend"
+- RESEND_API_KEY
+- EMAIL_FROM="AniRealm <no-reply@yourdomain>"
+- APP_BASE_URL="https://yourapp..."
+Optional:
+- EMAIL_REPLY_TO
+
+2) Create server utility:
+sendEmail({ to, subject, html, text })
+Handle failures gracefully:
+- Log error
+- Still keep in-app notification working
+Do NOT block purchase request creation if email fails; instead show “Email may be delayed, check Parent Dashboard.”
+
+Templates:
+a) Purchase Request Created (to parent)
+b) Purchase Approved (to parent)
+c) Purchase Declined (to parent)
+d) Purchase Completed (to parent + optionally child)
+
+========================
+F) STRIPE WEBHOOK — FINAL TOKEN CREDIT (AUTHORITATIVE)
+========================
+In webhook handler (checkout.session.completed OR payment_intent.succeeded):
+1) Verify Stripe signature ALWAYS. If webhook secret missing, fail hard in production.
+2) Extract purchaseRequestId from metadata (must be set when creating checkout session).
+3) Load purchase_request and validate:
+- status must be "APPROVED" (or "PENDING" if you allow direct pay, but you should require APPROVED)
+- parentId matches payer customer if you store that
+- not already paid/credited
+4) Mark request status="PAID", paidAt=now
+5) Credit tokens to CHILD account ONLY here:
+- add token ledger entry (idempotent)
+- increment balance
+6) Create in-app notification to parent:
+type="PURCHASE_APPROVED" or "SYSTEM"
+title="Purchase completed"
+body="Tokens were delivered to your child’s account."
+7) Send email to parent confirming completion
+
+Idempotency:
+- If webhook repeats, do nothing if ledger entry already exists.
+
+========================
+G) FRONTEND — PARENT BADGE + NOTIFICATIONS UI
+========================
+1) Parent Dashboard: show a top banner + badge count:
+- "You have {pendingCount} pending purchase request(s)."
+- Button: "Review"
+
+2) Add bell icon in header for parent users:
+- Show unread count badge
+- Clicking opens notifications drawer/page:
+  - list notifications
+  - mark read
+
+3) On Parent Dashboard load:
+- call /api/parent/notifications/unread-count
+- call /api/parent/purchase-requests?status=PENDING (or equivalent)
+
+4) Approval flow:
+- Approve -> opens Stripe checkoutUrl
+- After returning, dashboard shows request as “Paid” once webhook confirms
+
+========================
+H) COPY REQUIREMENTS (UI TEXT)
+========================
+Minor side (request screen):
+- “A parent must approve purchases. Tokens are delivered only after payment is confirmed.”
+
+Parent side:
+- “Approving will open Stripe checkout. Tokens are delivered after payment confirmation.”
+
+========================
+I) TESTS / MANUAL TEST PLAN
+========================
+Add minimal manual test steps in a README section:
+1) Create minor, link to parent
+2) Minor requests tokens -> parent gets in-app notification + email
+3) Parent approves -> Stripe checkout opens
+4) Complete payment -> webhook credits tokens to child
+5) Parent receives completion email + in-app notification
+6) Expired request cannot be approved
+7) Non-parent cannot approve
+8) Webhook cannot be spoofed (signature required)
