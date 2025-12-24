@@ -515,6 +515,23 @@ export const adminAuditLog = pgTable("admin_audit_log", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Security Metrics Events - tracks blocked requests/approvals/webhooks for ops monitoring
+export const securityMetricsEvents = pgTable("security_metrics_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventType: text("event_type").notNull(), // REQUEST_BLOCKED, APPROVAL_BLOCKED, WEBHOOK_BLOCKED, REQUEST_CREATED, APPROVAL_STARTED, WEBHOOK_CREDITED
+  reason: text("reason").notNull(), // DAILY_LIMIT, MONTHLY_LIMIT, REQUEST_EXPIRED, PURCHASES_DISABLED, etc.
+  parentId: varchar("parent_id"),
+  childId: varchar("child_id"),
+  purchaseRequestId: varchar("purchase_request_id"),
+  priceCents: integer("price_cents"),
+  tokenAmount: integer("token_amount"),
+  metadata: jsonb("metadata"), // Keep small: {route, status, nodeEnv} etc. NO secrets.
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export type SecurityMetricsEvent = typeof securityMetricsEvents.$inferSelect;
+export type InsertSecurityMetricsEvent = typeof securityMetricsEvents.$inferInsert;
+
 // Media - tracks uploaded files (no base64, just references)
 export const media = pgTable("media", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

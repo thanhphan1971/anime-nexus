@@ -1,0 +1,161 @@
+REPLIT PATCH PROMPT — Prompt 3: Security Metrics Logging (Blocked Requests/Approvals/Webhook Blocks) + Admin Metrics View
+
+Goal:
+Add lightweight, database-backed security/ops metrics so we can detect abuse and tune defaults.
+Track and review:
+- blocked minor purchase requests (limits/disabled/no parent link/etc)
+- blocked parent approvals (expired/limits/not parent/invalid status)
+- blocked webhook credits (expired after payment, signature fail, invalid status, misconfig)
+
+DO NOT change existing business logic except to add metric logging lines.
+DO NOT log secrets or raw Stripe payloads.
+
+========================================================
+A) DATABASE: security_metrics_events
+========================================================
+1) Create table: security_metrics_events
+Fields:
+- id (uuid PK default gen_random_uuid())
+- eventType (text, not null)  // "REQUEST_BLOCKED" | "APPROVAL_BLOCKED" | "WEBHOOK_BLOCKED" | "REQUEST_CREATED" | "APPROVAL_STARTED" | "WEBHOOK_CREDITED"
+- reason (text, not null)     // e.g. "DAILY_LIMIT" | "MONTHLY_LIMIT" | "REQUEST_EXPIRED" | "PURCHASES_DISABLED" | "NOT_PARENT" | "INVALID_STATUS" | "SIGNATURE_FAIL" | "MISSING_WEBHOOK_SECRET" | "EXPIRED_AFTER_PAYMENT" | "ALREADY_CREDITED"
+- parentId (uuid, nullable)
+- childId (uuid, nullable)
+- purchaseRequestId (uuid, nullable)
+- priceCents (int, nullable)
+- tokenAmount (int, nullable)
+- metadata (jsonb, nullable)  // keep small: {route, status, nodeEnv} etc. NO secrets.
+- createdAt (timestamp, not null default now())
+
+Indexes:
+- idx_security_metrics_type_reason_created (eventType, reason, createdAt)
+- idx_security_metrics_created (createdAt)
+- idx_security_metrics_purchaseRequestId (purchaseRequestId)
+
+2) Add a small helper (DB insert) function:
+logSecurityEvent({ eventType, reason, parentId, childId, purchaseRequestId, priceCents, tokenAmount, metadata })
+
+Ensure it NEVER throws fatally:
+- wrap in try/catch
+- log to console on failure
+
+========================================================
+B) INSTRUMENTATION: where to log events
+========================================================
+Add calls to logSecurityEvent in these exact places:
+
+1) Minor purchase request creation endpoint
+When request creation is BLOCKED, log eventType="REQUEST_BLOCKED" with reason:
+- "PURCHASES_DISABLED"
+- "NO_PARENT_LINK"
+- "DAILY_LIMIT"
+- "MONTHLY_LIMIT"
+- "TOO_MANY_PENDING"
+- "INVALID_BUNDLE"
+Include parentId/childId if known, tokenAmount/priceCents if known.
+
+When request is successfully created, log:
+eventType="REQUEST_CREATED", reason="OK"
+
+2) Parent approval/respond endpoint
+When approval/decline is BLOCKED, log eventType="APPROVAL_BLOCKED" with reason:
+- "REQUEST_EXPIRED"
+- "INVALID_STATUS"
+- "NOT_PARENT"
+- "DAILY_LIMIT"
+- "MONTHLY_LIMIT"
+- "ALREADY_PAID"
+Include purchaseRequestId, parentId, childId, priceCents/tokenAmount.
+
+When parent clicks approve and checkout is created successfully, log:
+eventType="APPROVAL_STARTED", reason="OK"
+
+3) Stripe webhook handler
+When webhook processing is BLOCKED or refuses to credit tokens, log eventType="WEBHOOK_BLOCKED" with reason:
+- "SIGNATURE_FAIL" (constructEvent throws)
+- "MISSING_WEBHOOK_SECRET" (if this path exists; production should exit earlier, but log if encountered)
+- "INVALID_STATUS"
+- "REQUEST_NOT_FOUND"
+- "EXPIRED_AFTER_PAYMENT"
+- "ALREADY_CREDITED"
+Include purchaseRequestId, parentId, childId, tokenAmount/priceCents if available.
+Metadata can include: {stripeEventType, nodeEnv}
+
+When webhook credits tokens successfully, log:
+eventType="WEBHOOK_CREDITED", reason="OK"
+
+========================================================
+C) ADMIN METRICS API (READ-ONLY)
+========================================================
+Admin-only server-side authorization required (reuse your existing req.dbUser?.isAdmin guard).
+
+Endpoints:
+
+1) GET /api/admin/metrics/blocked?days=7
+Returns JSON grouped by day + reason for:
+- REQUEST_BLOCKED
+- APPROVAL_BLOCKED
+- WEBHOOK_BLOCKED
+Structure example:
+{
+  "rangeDays": 7,
+  "series": [
+    {"day":"2025-12-18","eventType":"REQUEST_BLOCKED","reason":"DAILY_LIMIT","count":12},
+    ...
+  ],
+  "totalsByReason": [
+    {"eventType":"APPROVAL_BLOCKED","reason":"REQUEST_EXPIRED","count":5},
+    ...
+  ]
+}
+
+2) GET /api/admin/metrics/overview?days=7
+Returns totals:
+- totalRequestCreated
+- totalApprovalStarted
+- totalWebhookCredited
+- totalBlockedByType
+- topReasons (top 10)
+
+========================================================
+D) ADMIN UI: /admin/metrics (simple table)
+========================================================
+Create an admin-only page /admin/metrics:
+- Shows last 7 days (dropdown 7/14/30)
+- Shows three sections:
+  1) Totals: REQUEST_CREATED, APPROVAL_STARTED, WEBHOOK_CREDITED
+  2) Blocked totals by type (REQUEST_BLOCKED, APPROVAL_BLOCKED, WEBHOOK_BLOCKED)
+  3) Table: eventType + reason + count (Top reasons)
+No charts required.
+
+Ensure:
+- Admin check is server-side
+- Non-admin sees 403
+
+========================================================
+E) PRIVACY / SAFETY RULES
+========================================================
+- Do NOT store emails, names, or raw Stripe payloads in metrics
+- Only store user IDs and request IDs
+- Keep metadata minimal
+
+========================================================
+F) OUTPUT REQUIREMENTS
+========================================================
+After implementing, output:
+1) Schema/migration for security_metrics_events
+2) The logSecurityEvent helper file
+3) Diff snippets showing where logging was inserted in:
+   - minor purchase request creation
+   - parent approval/respond
+   - webhook handler
+4) Admin endpoints
+5) Admin UI page
+
+========================================================
+G) MANUAL TEST CHECKLIST (Add to README)
+========================================================
+1) Trigger a daily limit block -> confirm a REQUEST_BLOCKED row exists with reason DAILY_LIMIT
+2) Trigger an expired approval block -> confirm APPROVAL_BLOCKED reason REQUEST_EXPIRED
+3) Trigger webhook EXPIRED_AFTER_PAYMENT path -> confirm WEBHOOK_BLOCKED reason EXPIRED_AFTER_PAYMENT
+4) Complete a normal purchase -> confirm WEBHOOK_CREDITED OK
+5) Verify /admin/metrics is admin-only (non-admin gets 403)

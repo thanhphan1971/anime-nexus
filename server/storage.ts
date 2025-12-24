@@ -58,6 +58,8 @@ import {
   type InsertUserBadge,
   type AdminAuditLog,
   type InsertAdminAuditLog,
+  type SecurityMetricsEvent,
+  type InsertSecurityMetricsEvent,
   users,
   posts,
   postLikes,
@@ -89,6 +91,7 @@ import {
   badges,
   userBadges,
   adminAuditLog,
+  securityMetricsEvents,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql, desc, ne, inArray, lte, lt, asc, gt, isNull } from "drizzle-orm";
@@ -234,6 +237,11 @@ export interface IStorage {
   
   // Admin audit log operations
   createAdminAuditLog(entry: InsertAdminAuditLog): Promise<AdminAuditLog>;
+  
+  // Security metrics operations
+  logSecurityEvent(event: InsertSecurityMetricsEvent): Promise<void>;
+  getSecurityMetricsBlocked(days: number): Promise<{ series: Array<{ day: string; eventType: string; reason: string; count: number }>; totalsByReason: Array<{ eventType: string; reason: string; count: number }> }>;
+  getSecurityMetricsOverview(days: number): Promise<{ totalRequestCreated: number; totalApprovalStarted: number; totalWebhookCredited: number; totalBlockedByType: Record<string, number>; topReasons: Array<{ eventType: string; reason: string; count: number }> }>;
   
   // Admin purchase request operations
   getPurchaseRequestsWithExceptions(status: string, limit: number): Promise<Array<PurchaseRequest & { child: User; parent: User; hasLedgerEntry: boolean }>>;
@@ -1490,6 +1498,101 @@ export class DbStorage implements IStorage {
   async createAdminAuditLog(entry: InsertAdminAuditLog): Promise<AdminAuditLog> {
     const result = await db.insert(adminAuditLog).values(entry).returning();
     return result[0];
+  }
+  
+  // Security metrics operations - non-throwing for safety
+  async logSecurityEvent(event: InsertSecurityMetricsEvent): Promise<void> {
+    try {
+      await db.insert(securityMetricsEvents).values(event);
+    } catch (error) {
+      console.error('[SecurityMetrics] Failed to log event:', event.eventType, event.reason, error);
+    }
+  }
+  
+  async getSecurityMetricsBlocked(days: number): Promise<{ series: Array<{ day: string; eventType: string; reason: string; count: number }>; totalsByReason: Array<{ eventType: string; reason: string; count: number }> }> {
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+    
+    const blockedTypes = ['REQUEST_BLOCKED', 'APPROVAL_BLOCKED', 'WEBHOOK_BLOCKED'];
+    
+    const series = await db
+      .select({
+        day: sql<string>`DATE(${securityMetricsEvents.createdAt})::text`,
+        eventType: securityMetricsEvents.eventType,
+        reason: securityMetricsEvents.reason,
+        count: sql<number>`COUNT(*)::int`,
+      })
+      .from(securityMetricsEvents)
+      .where(and(
+        inArray(securityMetricsEvents.eventType, blockedTypes),
+        sql`${securityMetricsEvents.createdAt} >= ${startDate}`
+      ))
+      .groupBy(sql`DATE(${securityMetricsEvents.createdAt})`, securityMetricsEvents.eventType, securityMetricsEvents.reason)
+      .orderBy(sql`DATE(${securityMetricsEvents.createdAt})` as any);
+    
+    const totalsByReason = await db
+      .select({
+        eventType: securityMetricsEvents.eventType,
+        reason: securityMetricsEvents.reason,
+        count: sql<number>`COUNT(*)::int`,
+      })
+      .from(securityMetricsEvents)
+      .where(and(
+        inArray(securityMetricsEvents.eventType, blockedTypes),
+        sql`${securityMetricsEvents.createdAt} >= ${startDate}`
+      ))
+      .groupBy(securityMetricsEvents.eventType, securityMetricsEvents.reason)
+      .orderBy(desc(sql`COUNT(*)`));
+    
+    return { series, totalsByReason };
+  }
+  
+  async getSecurityMetricsOverview(days: number): Promise<{ totalRequestCreated: number; totalApprovalStarted: number; totalWebhookCredited: number; totalBlockedByType: Record<string, number>; topReasons: Array<{ eventType: string; reason: string; count: number }> }> {
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+    
+    const counts = await db
+      .select({
+        eventType: securityMetricsEvents.eventType,
+        count: sql<number>`COUNT(*)::int`,
+      })
+      .from(securityMetricsEvents)
+      .where(sql`${securityMetricsEvents.createdAt} >= ${startDate}`)
+      .groupBy(securityMetricsEvents.eventType);
+    
+    const countMap: Record<string, number> = {};
+    for (const row of counts) {
+      countMap[row.eventType] = row.count;
+    }
+    
+    const blockedTypes = ['REQUEST_BLOCKED', 'APPROVAL_BLOCKED', 'WEBHOOK_BLOCKED'];
+    const totalBlockedByType: Record<string, number> = {};
+    for (const t of blockedTypes) {
+      totalBlockedByType[t] = countMap[t] || 0;
+    }
+    
+    const topReasons = await db
+      .select({
+        eventType: securityMetricsEvents.eventType,
+        reason: securityMetricsEvents.reason,
+        count: sql<number>`COUNT(*)::int`,
+      })
+      .from(securityMetricsEvents)
+      .where(and(
+        inArray(securityMetricsEvents.eventType, blockedTypes),
+        sql`${securityMetricsEvents.createdAt} >= ${startDate}`
+      ))
+      .groupBy(securityMetricsEvents.eventType, securityMetricsEvents.reason)
+      .orderBy(desc(sql`COUNT(*)`))
+      .limit(10);
+    
+    return {
+      totalRequestCreated: countMap['REQUEST_CREATED'] || 0,
+      totalApprovalStarted: countMap['APPROVAL_STARTED'] || 0,
+      totalWebhookCredited: countMap['WEBHOOK_CREDITED'] || 0,
+      totalBlockedByType,
+      topReasons,
+    };
   }
   
   // Admin purchase request operations
