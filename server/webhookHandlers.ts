@@ -67,6 +67,15 @@ export class WebhookHandlers {
             
             if (!purchaseRequest) {
               console.error(`Webhook: Purchase request ${purchaseRequestId} not found`);
+              
+              // Log blocked webhook for metrics - request not found
+              await storage.logSecurityEvent({
+                eventType: 'WEBHOOK_BLOCKED',
+                reason: 'REQUEST_NOT_FOUND',
+                purchaseRequestId: purchaseRequestId,
+                metadata: { stripeEventType: event.type },
+              });
+              
               return;
             }
             
@@ -171,6 +180,17 @@ export class WebhookHandlers {
               } else {
                 // Already credited, ensure status is fulfilled
                 await storage.fulfillPurchaseRequest(purchaseRequestId);
+                
+                // Log blocked webhook for metrics - duplicate/already credited
+                await storage.logSecurityEvent({
+                  eventType: 'WEBHOOK_BLOCKED',
+                  reason: 'ALREADY_CREDITED',
+                  parentId: purchaseRequest.parentUserId,
+                  childId: childId,
+                  purchaseRequestId: purchaseRequestId,
+                  metadata: { stripeEventType: event.type },
+                });
+                
                 console.log(`Webhook: Skipped duplicate credit for request ${purchaseRequestId}`);
               }
             }
@@ -180,6 +200,18 @@ export class WebhookHandlers {
     } catch (error: any) {
       // Don't throw - let stripe-sync continue processing even if our handler fails
       console.error('Minor token purchase webhook error:', error.message);
+      
+      // Log blocked webhook for metrics - signature failure or other error
+      // Non-blocking: logSecurityEvent is wrapped in try/catch
+      await storage.logSecurityEvent({
+        eventType: 'WEBHOOK_BLOCKED',
+        reason: 'SIGNATURE_FAIL',
+        metadata: { 
+          nodeEnv: process.env.NODE_ENV,
+          route: '/api/stripe/webhook',
+          errorMessage: error.message?.slice(0, 200), // Truncate for safety
+        },
+      });
     }
   }
 }
