@@ -1,0 +1,70 @@
+I need to VERIFY that the following 3 critical fixes are fully implemented.
+DO NOT change or refactor code.
+ONLY show me the current implementation so it can be audited.
+
+CRITICAL FIXES TO VERIFY:
+1) Stripe webhook signature is REQUIRED in production (no insecure JSON fallback).
+2) Purchase request expiration (expiresAt) is enforced everywhere.
+3) Daily and monthly spending limits are enforced server-side.
+
+========================
+A) WEBHOOK SIGNATURE VERIFICATION
+========================
+1) Show the FULL Stripe webhook handler file(s), including:
+- how raw body is read
+- how the Stripe signature is verified
+- what happens if STRIPE_WEBHOOK_SECRET is missing
+- any dev-only fallback logic
+
+Include:
+- file paths
+- complete function bodies
+- environment variable names used
+
+========================
+B) PURCHASE REQUEST EXPIRATION ENFORCEMENT
+========================
+Show the code for ALL places where purchase requests are handled:
+
+1) Parent approval / respond endpoint
+   - Show how expiresAt is checked
+   - Show what happens when a request is expired
+   - Show status transitions (PENDING → EXPIRED / APPROVED / DECLINED)
+
+2) Stripe webhook handler
+   - Show how expiresAt is checked BEFORE crediting tokens
+   - Show what happens if payment arrives after expiration
+
+3) Any cleanup logic
+   - Scheduled jobs, middleware, or queries that mark old requests as expired
+
+========================
+C) DAILY & MONTHLY SPEND LIMIT ENFORCEMENT
+========================
+1) Show the server-side code that runs when a MINOR creates a purchase request:
+- Where parental spending limits are loaded
+- How dailySpendLimit and monthlySpendLimit are calculated
+- The database queries used to compute daily/monthly totals
+- The exact rejection logic when limits are exceeded
+
+2) Show whether spend limits are ALSO re-checked when:
+- A parent approves a request (important edge case)
+
+========================
+D) DATABASE SCHEMA / MODELS
+========================
+Paste the relevant schema or ORM models for:
+- users (age, accountType, parentId)
+- parental controls / spending limits
+- purchase_requests (status, expiresAt)
+- transactions or token ledger (used to calculate spend)
+
+========================
+E) FLOW TRACE (SHORT)
+========================
+Provide a short step-by-step trace (with endpoint names) for:
+1) Minor requests purchase
+2) Parent approves
+3) Stripe webhook credits tokens
+
+Output everything with clear headings and code blocks so it can be copied for external audit.
