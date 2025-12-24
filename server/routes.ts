@@ -3063,6 +3063,16 @@ export async function registerRoutes(
       // CRITICAL #2: Check expiry and mark as expired if past due
       if (purchaseRequest.expiresAt && new Date() > new Date(purchaseRequest.expiresAt)) {
         await storage.expirePurchaseRequest(req.params.requestId);
+        await storage.logSecurityEvent({
+          eventType: 'APPROVAL_BLOCKED',
+          reason: 'REQUEST_EXPIRED',
+          parentId: req.session.userId,
+          childId: purchaseRequest.childUserId,
+          purchaseRequestId: purchaseRequest.id,
+          priceCents: purchaseRequest.unitAmountCents,
+          tokenAmount: purchaseRequest.totalTokens,
+          metadata: { route: '/api/parent/purchase-request/:requestId/respond' },
+        });
         return res.status(400).json({ 
           code: "REQUEST_EXPIRED", 
           error: "This request has expired. Ask your child to request again." 
@@ -3127,6 +3137,16 @@ export async function registerRoutes(
       if (controls) {
         const dailySpent = await storage.getChildDailySpend(purchaseRequest.childUserId);
         if (controls.dailySpendLimit && (dailySpent + purchaseRequest.unitAmountCents) > controls.dailySpendLimit) {
+          await storage.logSecurityEvent({
+            eventType: 'APPROVAL_BLOCKED',
+            reason: 'DAILY_LIMIT',
+            parentId: req.session.userId,
+            childId: purchaseRequest.childUserId,
+            purchaseRequestId: purchaseRequest.id,
+            priceCents: purchaseRequest.unitAmountCents,
+            tokenAmount: purchaseRequest.totalTokens,
+            metadata: { route: '/api/parent/purchase-request/:requestId/respond', dailySpent, limit: controls.dailySpendLimit },
+          });
           return res.status(403).json({ 
             code: "DAILY_LIMIT", 
             error: "Approval blocked: Daily spending limit would be exceeded." 
@@ -3135,6 +3155,16 @@ export async function registerRoutes(
         
         const monthlySpent = await storage.getChildMonthlySpend(purchaseRequest.childUserId);
         if (controls.monthlySpendLimit && (monthlySpent + purchaseRequest.unitAmountCents) > controls.monthlySpendLimit) {
+          await storage.logSecurityEvent({
+            eventType: 'APPROVAL_BLOCKED',
+            reason: 'MONTHLY_LIMIT',
+            parentId: req.session.userId,
+            childId: purchaseRequest.childUserId,
+            purchaseRequestId: purchaseRequest.id,
+            priceCents: purchaseRequest.unitAmountCents,
+            tokenAmount: purchaseRequest.totalTokens,
+            metadata: { route: '/api/parent/purchase-request/:requestId/respond', monthlySpent, limit: controls.monthlySpendLimit },
+          });
           return res.status(403).json({ 
             code: "MONTHLY_LIMIT", 
             error: "Approval blocked: Monthly spending limit would be exceeded." 
@@ -3191,6 +3221,18 @@ export async function registerRoutes(
       
       // Update the purchase request with stripe session info (status becomes CHECKOUT_CREATED)
       await storage.approvePurchaseRequest(purchaseRequest.id, session.id);
+      
+      // Log successful approval start for metrics
+      await storage.logSecurityEvent({
+        eventType: 'APPROVAL_STARTED',
+        reason: 'SUCCESS',
+        parentId: parent.id,
+        childId: child.id,
+        purchaseRequestId: purchaseRequest.id,
+        priceCents: purchaseRequest.unitAmountCents,
+        tokenAmount: purchaseRequest.totalTokens,
+        metadata: { route: '/api/parent/purchase-request/:requestId/respond' },
+      });
       
       res.json({
         success: true,
