@@ -7,6 +7,10 @@ import MemoryStore from "memorystore";
 import { runMigrations } from 'stripe-replit-sync';
 import { getStripeSync } from "./stripeClient";
 import { WebhookHandlers } from "./webhookHandlers";
+import { enforceProductionConfig } from "./configGuard";
+
+// CRITICAL: Validate production config before anything else
+enforceProductionConfig();
 
 const app = express();
 const httpServer = createServer(app);
