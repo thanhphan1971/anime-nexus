@@ -51,7 +51,6 @@ export default function AdminSecurityMetricsPage() {
   const error = overviewError || blockedError;
 
   const totalBlocked = overview ? Object.values(overview.totalBlockedByType).reduce((a, b) => a + b, 0) : 0;
-  const totalSuccess = overview ? (overview.totalRequestCreated + overview.totalApprovalStarted + overview.totalWebhookCredited) : 0;
 
   const getReasonLabel = (reason: string) => {
     const labels: Record<string, string> = {
@@ -128,17 +127,17 @@ export default function AdminSecurityMetricsPage() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card data-testid="card-total-success">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <Card data-testid="card-webhooks-credited">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                   <CheckCircle className="h-4 w-4 text-green-500" />
-                  Successful Operations
+                  Completed Purchases
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-green-500">{totalSuccess.toLocaleString()}</div>
-                <p className="text-xs text-muted-foreground mt-1">Last {days} days</p>
+                <div className="text-2xl font-bold text-green-500">{overview?.totalWebhookCredited.toLocaleString() || 0}</div>
+                <p className="text-xs text-muted-foreground mt-1">Tokens delivered</p>
               </CardContent>
             </Card>
 
@@ -168,16 +167,33 @@ export default function AdminSecurityMetricsPage() {
               </CardContent>
             </Card>
 
-            <Card data-testid="card-webhooks-credited">
+            <Card data-testid="card-approvals-started">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                  <TrendingDown className="h-4 w-4 text-purple-500" />
-                  Webhooks Credited
+                  <TrendingUp className="h-4 w-4 text-yellow-500" />
+                  Approvals Started
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{overview?.totalWebhookCredited.toLocaleString() || 0}</div>
-                <p className="text-xs text-muted-foreground mt-1">Successful credits</p>
+                <div className="text-2xl font-bold">{overview?.totalApprovalStarted.toLocaleString() || 0}</div>
+                <p className="text-xs text-muted-foreground mt-1">Checkout initiated</p>
+              </CardContent>
+            </Card>
+
+            <Card data-testid="card-conversion-rate">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <TrendingDown className="h-4 w-4 text-purple-500" />
+                  Conversion Rate
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {overview && overview.totalRequestCreated > 0 
+                    ? ((overview.totalWebhookCredited / overview.totalRequestCreated) * 100).toFixed(1) + '%'
+                    : '—'}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">Requests → Completed</p>
               </CardContent>
             </Card>
           </div>
