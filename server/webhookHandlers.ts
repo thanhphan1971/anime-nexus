@@ -75,6 +75,19 @@ export class WebhookHandlers {
               // Payment received after expiration - mark for manual review
               console.error(`ALERT: Payment received after expiry for request ${purchaseRequestId}. Manual review needed.`);
               await storage.markPurchaseExpiredAfterPayment(purchaseRequestId, session.payment_intent as string);
+              
+              // Log blocked webhook for metrics
+              await storage.logSecurityEvent({
+                eventType: 'WEBHOOK_BLOCKED',
+                reason: 'REQUEST_EXPIRED',
+                parentId: purchaseRequest.parentUserId,
+                childId: childId,
+                purchaseRequestId: purchaseRequestId,
+                priceCents: purchaseRequest.unitAmountCents,
+                tokenAmount: totalTokens,
+                metadata: { paymentIntent: session.payment_intent },
+              });
+              
               return; // DO NOT credit tokens
             }
             
@@ -105,6 +118,18 @@ export class WebhookHandlers {
                   
                   // Mark request as fulfilled
                   await storage.fulfillPurchaseRequest(purchaseRequestId);
+                  
+                  // Log successful token credit for metrics
+                  await storage.logSecurityEvent({
+                    eventType: 'WEBHOOK_CREDITED',
+                    reason: 'SUCCESS',
+                    parentId: purchaseRequest.parentUserId,
+                    childId: childId,
+                    purchaseRequestId: purchaseRequestId,
+                    priceCents: purchaseRequest.unitAmountCents,
+                    tokenAmount: totalTokens,
+                    metadata: { paymentIntent: session.payment_intent },
+                  });
                   
                   console.log(`Webhook: Credited ${totalTokens} tokens to child ${childId} for request ${purchaseRequestId}`);
                   
