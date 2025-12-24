@@ -1,0 +1,100 @@
+I need to VERIFY the implementation of the admin support view for EXPIRED_AFTER_PAYMENT.
+DO NOT change or refactor code.
+ONLY show the existing implementation so it can be audited.
+
+========================
+A) ADMIN AUTHORIZATION (CRITICAL)
+========================
+1) Show the middleware or guard that enforces admin-only access.
+   - Include file paths.
+   - Show how admin role/flag is checked server-side.
+2) Show where this guard is applied to:
+   - /api/admin/payments-exceptions
+   - /api/admin/purchase-requests/:id/grant-tokens
+   - /api/admin/purchase-requests/:id/mark-resolved
+
+Confirm non-admin users receive 403.
+
+========================
+B) PAYMENTS EXCEPTIONS READ ENDPOINT
+========================
+1) Show the full code for:
+   GET /api/admin/payments-exceptions
+2) Confirm:
+   - It filters by status=EXPIRED_AFTER_PAYMENT
+   - Results are ordered by newest
+   - Pagination or limit is applied
+3) Show the exact fields returned, including:
+   - purchaseRequestId
+   - status
+   - createdAt, expiresAt, approvedAt, paidAt
+   - parentId + parent email
+   - childId + child display name
+   - tokenAmount, priceCents, currency
+   - stripeCheckoutSessionId / paymentIntentId
+   - whether a token ledger entry already exists
+
+========================
+C) ADMIN ACTION — GRANT TOKENS
+========================
+1) Show the full code for:
+   POST /api/admin/purchase-requests/:id/grant-tokens
+2) Verify and show:
+   - Status check (must be EXPIRED_AFTER_PAYMENT)
+   - Idempotency (cannot grant twice)
+   - Token ledger entry creation with reason:
+     "ADMIN_GRANT_EXPIRED_AFTER_PAYMENT"
+   - Status update to PAID_ADMIN_GRANTED
+   - Admin audit log entry (adminId, action, timestamp)
+3) Show error behavior if:
+   - Request already resolved
+   - Tokens already credited
+   - Admin is not authorized
+
+========================
+D) ADMIN ACTION — MARK RESOLVED (NO GRANT)
+========================
+1) Show the full code for:
+   POST /api/admin/purchase-requests/:id/mark-resolved
+2) Verify:
+   - Status updated to RESOLVED_NO_GRANT
+   - Admin audit log entry written
+   - Idempotent behavior
+
+========================
+E) ADMIN AUDIT LOG
+========================
+1) Show the schema/model for admin_audit_log.
+2) Show where audit logs are written for:
+   - Grant tokens
+   - Mark resolved
+3) Confirm audit logs include:
+   - adminId
+   - action
+   - target purchaseRequestId
+   - metadata
+   - createdAt
+
+========================
+F) ADMIN UI (SUPPORT VIEW)
+========================
+1) Show the admin UI component/page:
+   - route (e.g. /admin/payments-exceptions)
+   - how data is fetched
+2) Confirm UI shows:
+   - Table of EXPIRED_AFTER_PAYMENT requests
+   - Grant Tokens button
+   - Mark Resolved button
+   - Confirmation modal for granting tokens
+3) Confirm UI does NOT expose these actions to non-admin users.
+
+========================
+G) FLOW TRACE (SHORT)
+========================
+Provide a short step-by-step trace for:
+1) Payment expires after approval
+2) Stripe webhook marks EXPIRED_AFTER_PAYMENT
+3) Admin reviews in support view
+4) Admin grants tokens OR marks resolved
+
+Output everything with headings and code blocks so it can be externally audited.
