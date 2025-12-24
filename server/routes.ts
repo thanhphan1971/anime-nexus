@@ -2871,6 +2871,15 @@ export async function registerRoutes(
       if (controls) {
         // Check if purchases are enabled
         if (!controls.purchasesEnabled) {
+          await storage.logSecurityEvent({
+            eventType: 'REQUEST_BLOCKED',
+            reason: 'PURCHASES_DISABLED',
+            parentId: parentLink.parentId,
+            childId: req.session.userId,
+            priceCents: unitAmountCents,
+            tokenAmount: totalTokens,
+            metadata: { route: '/api/parent/purchase-request' },
+          });
           return res.status(403).json({ 
             code: "PURCHASES_DISABLED", 
             error: "Purchases are disabled by your parent. Ask your parent to enable purchases." 
@@ -2881,6 +2890,15 @@ export async function registerRoutes(
         const dailySpent = await storage.getChildDailySpend(req.session.userId);
         if (controls.dailySpendLimit && (dailySpent + unitAmountCents) > controls.dailySpendLimit) {
           const remainingCents = Math.max(0, controls.dailySpendLimit - dailySpent);
+          await storage.logSecurityEvent({
+            eventType: 'REQUEST_BLOCKED',
+            reason: 'DAILY_LIMIT',
+            parentId: parentLink.parentId,
+            childId: req.session.userId,
+            priceCents: unitAmountCents,
+            tokenAmount: totalTokens,
+            metadata: { route: '/api/parent/purchase-request', dailySpent, limit: controls.dailySpendLimit },
+          });
           return res.status(403).json({ 
             code: "DAILY_LIMIT", 
             error: `Daily spending limit would be exceeded. You have $${(remainingCents / 100).toFixed(2)} remaining today.` 
@@ -2891,6 +2909,15 @@ export async function registerRoutes(
         const monthlySpent = await storage.getChildMonthlySpend(req.session.userId);
         if (controls.monthlySpendLimit && (monthlySpent + unitAmountCents) > controls.monthlySpendLimit) {
           const remainingCents = Math.max(0, controls.monthlySpendLimit - monthlySpent);
+          await storage.logSecurityEvent({
+            eventType: 'REQUEST_BLOCKED',
+            reason: 'MONTHLY_LIMIT',
+            parentId: parentLink.parentId,
+            childId: req.session.userId,
+            priceCents: unitAmountCents,
+            tokenAmount: totalTokens,
+            metadata: { route: '/api/parent/purchase-request', monthlySpent, limit: controls.monthlySpendLimit },
+          });
           return res.status(403).json({ 
             code: "MONTHLY_LIMIT", 
             error: `Monthly spending limit would be exceeded. You have $${(remainingCents / 100).toFixed(2)} remaining this month.` 
@@ -2908,6 +2935,18 @@ export async function registerRoutes(
         unitAmountCents,
         currency: currency || 'USD',
         childMessage: childMessage || null,
+      });
+      
+      // Log successful request creation for metrics
+      await storage.logSecurityEvent({
+        eventType: 'REQUEST_CREATED',
+        reason: 'SUCCESS',
+        parentId: parentLink.parentId,
+        childId: req.session.userId,
+        purchaseRequestId: request.id,
+        priceCents: unitAmountCents,
+        tokenAmount: totalTokens,
+        metadata: { route: '/api/parent/purchase-request' },
       });
       
       // Create in-app notification for parent
