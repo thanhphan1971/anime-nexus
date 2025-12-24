@@ -1828,6 +1828,37 @@ export async function registerRoutes(
       res.status(500).json({ error: error.message });
     }
   });
+  
+  // Security Metrics API endpoints (admin-only)
+  app.get("/api/admin/security-metrics/overview", verifySupabaseToken, async (req, res) => {
+    try {
+      if (!req.dbUser?.isAdmin) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+      
+      const days = parseInt(req.query.days as string) || 30;
+      const overview = await storage.getSecurityMetricsOverview(days);
+      
+      res.json(overview);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  app.get("/api/admin/security-metrics/blocked", verifySupabaseToken, async (req, res) => {
+    try {
+      if (!req.dbUser?.isAdmin) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+      
+      const days = parseInt(req.query.days as string) || 30;
+      const blocked = await storage.getSecurityMetricsBlocked(days);
+      
+      res.json(blocked);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
 
   // Prize routes
   app.get("/api/prizes", async (req, res) => {
