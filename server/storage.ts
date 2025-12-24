@@ -219,6 +219,11 @@ export interface IStorage {
   markPurchasePaid(id: string, stripePaymentIntentId: string): Promise<PurchaseRequest | undefined>;
   fulfillPurchaseRequest(id: string): Promise<PurchaseRequest | undefined>;
   getChildPendingPurchaseRequests(childId: string): Promise<PurchaseRequest[]>;
+  expirePurchaseRequest(id: string): Promise<PurchaseRequest | undefined>;
+  markPurchaseExpiredAfterPayment(id: string, stripePaymentIntentId: string): Promise<PurchaseRequest | undefined>;
+  expireOldPurchaseRequests(): Promise<number>;
+  getChildDailySpend(childId: string): Promise<number>;
+  getChildMonthlySpend(childId: string): Promise<number>;
   
   // Token ledger operations
   createTokenLedgerEntry(entry: InsertTokenLedger): Promise<TokenLedger>;
@@ -1366,6 +1371,93 @@ export class DbStorage implements IStorage {
       .where(eq(purchaseRequests.id, id))
       .returning();
     return result[0];
+  }
+  
+  async expirePurchaseRequest(id: string): Promise<PurchaseRequest | undefined> {
+    const result = await db
+      .update(purchaseRequests)
+      .set({ 
+        status: 'EXPIRED',
+        updatedAt: new Date()
+      })
+      .where(eq(purchaseRequests.id, id))
+      .returning();
+    return result[0];
+  }
+  
+  async markPurchaseExpiredAfterPayment(id: string, stripePaymentIntentId: string): Promise<PurchaseRequest | undefined> {
+    const result = await db
+      .update(purchaseRequests)
+      .set({ 
+        status: 'EXPIRED_AFTER_PAYMENT',
+        stripePaymentIntentId,
+        updatedAt: new Date()
+      })
+      .where(eq(purchaseRequests.id, id))
+      .returning();
+    return result[0];
+  }
+  
+  async expireOldPurchaseRequests(): Promise<number> {
+    // Expire requests still pending parent approval
+    const pendingResult = await db
+      .update(purchaseRequests)
+      .set({ 
+        status: 'EXPIRED',
+        updatedAt: new Date()
+      })
+      .where(and(
+        eq(purchaseRequests.status, 'PENDING_PARENT'),
+        sql`${purchaseRequests.expiresAt} < NOW()`
+      ))
+      .returning();
+    
+    // Also expire checkout sessions that were never completed
+    const checkoutResult = await db
+      .update(purchaseRequests)
+      .set({ 
+        status: 'EXPIRED',
+        updatedAt: new Date()
+      })
+      .where(and(
+        eq(purchaseRequests.status, 'CHECKOUT_CREATED'),
+        sql`${purchaseRequests.expiresAt} < NOW()`
+      ))
+      .returning();
+    
+    return pendingResult.length + checkoutResult.length;
+  }
+  
+  async getChildDailySpend(childId: string): Promise<number> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const result = await db
+      .select({ total: sql<number>`COALESCE(SUM(${purchaseRequests.unitAmountCents}), 0)` })
+      .from(purchaseRequests)
+      .where(and(
+        eq(purchaseRequests.childUserId, childId),
+        eq(purchaseRequests.status, 'FULFILLED'),
+        sql`${purchaseRequests.fulfilledAt} >= ${today}`
+      ));
+    
+    return Number(result[0]?.total || 0);
+  }
+  
+  async getChildMonthlySpend(childId: string): Promise<number> {
+    const now = new Date();
+    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    
+    const result = await db
+      .select({ total: sql<number>`COALESCE(SUM(${purchaseRequests.unitAmountCents}), 0)` })
+      .from(purchaseRequests)
+      .where(and(
+        eq(purchaseRequests.childUserId, childId),
+        eq(purchaseRequests.status, 'FULFILLED'),
+        sql`${purchaseRequests.fulfilledAt} >= ${firstDayOfMonth}`
+      ));
+    
+    return Number(result[0]?.total || 0);
   }
 
   // Token ledger operations

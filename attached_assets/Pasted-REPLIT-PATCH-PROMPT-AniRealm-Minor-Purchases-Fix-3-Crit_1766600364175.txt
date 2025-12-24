@@ -1,0 +1,150 @@
+REPLIT PATCH PROMPT — AniRealm Minor Purchases: Fix 3 Critical Issues (Webhook Signature, Expiry Enforcement, Spend Limits)
+
+Goal:
+Patch the existing minor→parent approval→Stripe→webhook token delivery flow to fix 3 critical security/compliance gaps:
+
+CRITICAL #1) Webhook signature must be REQUIRED in production (no JSON fallback).
+CRITICAL #2) Purchase request expiry must be enforced everywhere (approve/respond + webhook).
+CRITICAL #3) Daily/monthly spend limits must be enforced server-side when creating a purchase request.
+
+DO NOT change the UI design unless needed to show an error message.
+DO NOT change the existing “minors can’t pay / parent must approve / webhook credits tokens” architecture.
+Add tests or a simple manual test checklist at the end.
+
+========================================================
+A) CRITICAL #1 — REQUIRE STRIPE WEBHOOK SIGNATURE IN PROD
+========================================================
+1) Locate the Stripe webhook handler (e.g. /api/stripe/webhook, /api/webhooks/stripe, or similar).
+You currently do something like:
+
+if (STRIPE_WEBHOOK_SECRET) constructEvent(...) else JSON.parse(...)
+
+PATCH IT so:
+- In production, if STRIPE_WEBHOOK_SECRET is missing, the handler returns 500 and DOES NOT parse payload.
+- In dev, you may optionally allow JSON.parse ONLY if an explicit env flag is set.
+
+Implement this behavior:
+
+const isProd = process.env.NODE_ENV === "production";
+const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+if (isProd && !webhookSecret) {
+  console.error("Missing STRIPE_WEBHOOK_SECRET in production");
+  return res.status(500).send("Webhook misconfigured");
+}
+
+if (!webhookSecret) {
+  // dev-only escape hatch, only if explicitly enabled
+  if (process.env.ALLOW_INSECURE_STRIPE_WEBHOOKS !== "true") {
+    return res.status(400).send("Missing webhook secret");
+  }
+  event = JSON.parse(rawBody.toString("utf8"));
+} else {
+  event = stripe.webhooks.constructEvent(rawBody, sigHeader, webhookSecret);
+}
+
+2) Add env var name(s) to docs:
+- STRIPE_WEBHOOK_SECRET (required in prod)
+- ALLOW_INSECURE_STRIPE_WEBHOOKS (optional, dev only; default false)
+
+3) Confirm that ALL token-crediting logic remains inside verified webhook event handling only.
+
+========================================================
+B) CRITICAL #2 — ENFORCE PURCHASE REQUEST EXPIRY EVERYWHERE
+========================================================
+Assumption: purchase_requests has expiresAt (timestamp) and status values like PENDING_PARENT, APPROVED, DECLINED, PAID, EXPIRED.
+
+1) In the parent “respond/approve” endpoint (e.g. POST /api/parent/purchase-requests/:id/respond):
+Add server-side expiry checks BEFORE approving or declining:
+
+- If now > expiresAt and status is PENDING_PARENT, then:
+  - set status = EXPIRED
+  - return 400 with message: "Request expired. Ask your child to request again."
+
+- If status is already EXPIRED, PAID, DECLINED:
+  - return 400 with message "Request is no longer active."
+
+2) In the webhook handler, before crediting tokens:
+- Load purchase_request by id from Stripe metadata
+- If now > expiresAt AND status != PAID:
+  - set status = EXPIRED (or keep APPROVED but mark expired)
+  - DO NOT credit tokens
+  - return 200 to Stripe (so Stripe doesn’t retry forever), but log error:
+    "Paid after expiration — manual review needed"
+(Optionally: if payment happened after expiration, mark a flag for manual customer support. Don’t auto-credit.)
+
+3) Add a small scheduled cleanup (optional):
+- On any parent dashboard load or notifications fetch, run:
+  UPDATE purchase_requests SET status='EXPIRED' WHERE status='PENDING_PARENT' AND expiresAt < now();
+
+If you have cron/automations, you can add a daily cleanup job, but not required.
+
+========================================================
+C) CRITICAL #3 — ENFORCE DAILY/MONTHLY SPEND LIMITS SERVER-SIDE
+========================================================
+You already store parental controls like:
+- dailySpendLimitCents
+- monthlySpendLimitCents
+(and possibly enablePurchases boolean)
+
+Implement enforcement at the server route that creates a minor purchase request.
+
+1) Identify the request creation route (minor side), e.g. POST /api/minor/purchase-requests or /api/parent/purchase-request.
+Add:
+
+- Ensure requester is a MINOR account.
+- Ensure minor has linked parentId.
+- Load parental controls for that parent (and/or per-child controls if you store them per child).
+- If purchases disabled -> reject.
+
+2) Compute spend totals from transactions table or token_purchases table (server-side):
+- dailySpentCents = SUM(priceCents) for this child (or parent+child) for current day (local or UTC day; pick one and document).
+- monthlySpentCents = SUM(priceCents) for this child for current calendar month.
+
+Use PAID/COMPLETED only (i.e., successful Stripe payments), not pending requests.
+
+3) Enforce:
+- If dailySpendLimitCents is not null and dailySpentCents + requestedPriceCents > dailySpendLimitCents -> reject 403 with message:
+  "Daily limit reached. Ask your parent."
+- If monthlySpendLimitCents is not null and monthlySpentCents + requestedPriceCents > monthlySpendLimitCents -> reject 403 with message:
+  "Monthly limit reached. Ask your parent."
+
+4) Also enforce at approval time (belt-and-suspenders):
+In parent approve endpoint, re-check limits again (in case spending happened between request and approval). If exceeded, block approval.
+
+5) Return structured error codes for UI:
+{ code: "DAILY_LIMIT", message: "..." }
+{ code: "MONTHLY_LIMIT", message: "..." }
+{ code: "PURCHASES_DISABLED", message: "..." }
+{ code: "REQUEST_EXPIRED", message: "..." }
+
+========================================================
+D) UPDATE PARENT/MINOR UI COPY (MINIMAL)
+========================================================
+1) If create request is blocked by limits, show a clean message:
+- "Your parent’s spending limit would be exceeded. Try a smaller pack or ask your parent."
+
+2) If parent tries to approve an expired request:
+- "This request expired. Ask your child to request again."
+
+No other UI changes.
+
+========================================================
+E) MANUAL TEST CHECKLIST (ADD TO README)
+========================================================
+1) PROD SAFETY:
+- Remove STRIPE_WEBHOOK_SECRET in production mode -> webhook must fail (no token credit).
+2) EXPIRY:
+- Create request with expiresAt in past -> parent approval fails; request marked EXPIRED.
+- Pay after expiry (simulate) -> webhook does NOT credit tokens; logs for review.
+3) LIMITS:
+- Set daily limit to $10; attempt $9.99 then another $9.99 -> second request blocked.
+- Set monthly limit to $20; ensure third purchase blocks.
+4) REGRESSION:
+- Happy path: minor requests -> parent approves -> Stripe pay -> webhook credits exactly once.
+
+Deliverables:
+- Updated webhook handler with required signature checks in prod
+- Updated purchase request creation with spend limit checks
+- Updated parent approval endpoint with expiry + limit checks
+- Updated README test checklist

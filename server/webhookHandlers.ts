@@ -21,17 +21,37 @@ export class WebhookHandlers {
     await this.handleMinorTokenPurchase(payload, signature);
   }
   
+  /**
+   * CRITICAL #1: Verify Stripe webhook signature
+   * - In production, STRIPE_WEBHOOK_SECRET is REQUIRED
+   * - In dev, JSON fallback only allowed if ALLOW_INSECURE_STRIPE_WEBHOOKS=true
+   */
+  static verifyWebhookSignature(payload: Buffer, signature: string, stripe: any): any {
+    const isProd = process.env.NODE_ENV === 'production';
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    
+    if (isProd && !webhookSecret) {
+      throw new Error('CRITICAL: Missing STRIPE_WEBHOOK_SECRET in production - webhook rejected');
+    }
+    
+    if (!webhookSecret) {
+      // Dev-only escape hatch
+      if (process.env.ALLOW_INSECURE_STRIPE_WEBHOOKS !== 'true') {
+        throw new Error('Missing STRIPE_WEBHOOK_SECRET. Set ALLOW_INSECURE_STRIPE_WEBHOOKS=true for dev testing.');
+      }
+      console.warn('[Webhook] WARNING: Processing unverified webhook in dev mode');
+      return JSON.parse(payload.toString());
+    }
+    
+    return stripe.webhooks.constructEvent(payload, signature, webhookSecret);
+  }
+  
   static async handleMinorTokenPurchase(payload: Buffer, signature: string): Promise<void> {
     try {
       const stripe = await getUncachableStripeClient();
-      const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
       
-      let event;
-      if (webhookSecret) {
-        event = stripe.webhooks.constructEvent(payload, signature, webhookSecret);
-      } else {
-        event = JSON.parse(payload.toString());
-      }
+      // CRITICAL #1: Verify webhook signature (required in production)
+      const event = this.verifyWebhookSignature(payload, signature, stripe);
       
       if (event.type === 'checkout.session.completed') {
         const session = event.data.object;
@@ -45,7 +65,20 @@ export class WebhookHandlers {
           if (purchaseRequestId && childId && totalTokens && session.payment_status === 'paid') {
             const purchaseRequest = await storage.getPurchaseRequestById(purchaseRequestId);
             
-            if (purchaseRequest && purchaseRequest.status === 'CHECKOUT_CREATED') {
+            if (!purchaseRequest) {
+              console.error(`Webhook: Purchase request ${purchaseRequestId} not found`);
+              return;
+            }
+            
+            // CRITICAL #2: Check if request has expired BEFORE crediting tokens
+            if (purchaseRequest.expiresAt && new Date() > new Date(purchaseRequest.expiresAt)) {
+              // Payment received after expiration - mark for manual review
+              console.error(`ALERT: Payment received after expiry for request ${purchaseRequestId}. Manual review needed.`);
+              await storage.markPurchaseExpiredAfterPayment(purchaseRequestId, session.payment_intent as string);
+              return; // DO NOT credit tokens
+            }
+            
+            if (purchaseRequest.status === 'CHECKOUT_CREATED') {
               // Mark as paid
               await storage.markPurchasePaid(purchaseRequestId, session.payment_intent as string);
               

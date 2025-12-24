@@ -2623,6 +2623,12 @@ export async function registerRoutes(
       }
       
       const parentId = req.session.userId;
+      
+      // Cleanup expired purchase requests in the background
+      storage.expireOldPurchaseRequests().catch(err => 
+        console.error('[Cleanup] Failed to expire old requests:', err)
+      );
+      
       const children = await storage.getLinkedChildren(parentId);
       
       // Get parental controls for each child
@@ -2761,7 +2767,7 @@ export async function registerRoutes(
       // Get parent link for this child
       const parentLink = await storage.getParentLink(req.session.userId);
       if (!parentLink || parentLink.status !== 'active') {
-        return res.status(400).json({ error: "No active parent link found" });
+        return res.status(400).json({ code: "NO_PARENT_LINK", error: "No active parent link found" });
       }
       
       // Get child and parent info for notifications
@@ -2770,6 +2776,39 @@ export async function registerRoutes(
       
       if (!child || !parent) {
         return res.status(404).json({ error: "User not found" });
+      }
+      
+      // CRITICAL #3: Enforce parental controls and spend limits
+      const controls = await storage.getControlsForChild(req.session.userId);
+      
+      if (controls) {
+        // Check if purchases are enabled
+        if (!controls.purchasesEnabled) {
+          return res.status(403).json({ 
+            code: "PURCHASES_DISABLED", 
+            error: "Purchases are disabled by your parent. Ask your parent to enable purchases." 
+          });
+        }
+        
+        // Check daily spend limit
+        const dailySpent = await storage.getChildDailySpend(req.session.userId);
+        if (controls.dailySpendLimit && (dailySpent + unitAmountCents) > controls.dailySpendLimit) {
+          const remainingCents = Math.max(0, controls.dailySpendLimit - dailySpent);
+          return res.status(403).json({ 
+            code: "DAILY_LIMIT", 
+            error: `Daily spending limit would be exceeded. You have $${(remainingCents / 100).toFixed(2)} remaining today.` 
+          });
+        }
+        
+        // Check monthly spend limit
+        const monthlySpent = await storage.getChildMonthlySpend(req.session.userId);
+        if (controls.monthlySpendLimit && (monthlySpent + unitAmountCents) > controls.monthlySpendLimit) {
+          const remainingCents = Math.max(0, controls.monthlySpendLimit - monthlySpent);
+          return res.status(403).json({ 
+            code: "MONTHLY_LIMIT", 
+            error: `Monthly spending limit would be exceeded. You have $${(remainingCents / 100).toFixed(2)} remaining this month.` 
+          });
+        }
       }
       
       const request = await storage.createPurchaseRequest({
@@ -2881,9 +2920,27 @@ export async function registerRoutes(
         return res.status(403).json({ error: "Not authorized to respond to this request" });
       }
       
+      // CRITICAL #2: Check if request is already processed or inactive
+      const inactiveStatuses = ['EXPIRED', 'FULFILLED', 'REJECTED', 'PAID', 'EXPIRED_AFTER_PAYMENT'];
+      if (inactiveStatuses.includes(purchaseRequest.status)) {
+        return res.status(400).json({ 
+          code: "REQUEST_INACTIVE", 
+          error: "This request is no longer active." 
+        });
+      }
+      
       // Only allow response if pending_parent
       if (purchaseRequest.status !== 'PENDING_PARENT') {
         return res.status(400).json({ error: "Request is not awaiting parent response" });
+      }
+      
+      // CRITICAL #2: Check expiry and mark as expired if past due
+      if (purchaseRequest.expiresAt && new Date() > new Date(purchaseRequest.expiresAt)) {
+        await storage.expirePurchaseRequest(req.params.requestId);
+        return res.status(400).json({ 
+          code: "REQUEST_EXPIRED", 
+          error: "This request has expired. Ask your child to request again." 
+        });
       }
       
       // Get user info for notifications
@@ -2939,13 +2996,27 @@ export async function registerRoutes(
         });
       }
       
-      // Check if request has expired
-      if (purchaseRequest.expiresAt && new Date() > new Date(purchaseRequest.expiresAt)) {
-        return res.status(400).json({ error: "This purchase request has expired" });
+      // CRITICAL #3: Belt-and-suspenders - Re-check spend limits at approval time
+      const controls = await storage.getControlsForChild(purchaseRequest.childUserId);
+      if (controls) {
+        const dailySpent = await storage.getChildDailySpend(purchaseRequest.childUserId);
+        if (controls.dailySpendLimit && (dailySpent + purchaseRequest.unitAmountCents) > controls.dailySpendLimit) {
+          return res.status(403).json({ 
+            code: "DAILY_LIMIT", 
+            error: "Approval blocked: Daily spending limit would be exceeded." 
+          });
+        }
+        
+        const monthlySpent = await storage.getChildMonthlySpend(purchaseRequest.childUserId);
+        if (controls.monthlySpendLimit && (monthlySpent + purchaseRequest.unitAmountCents) > controls.monthlySpendLimit) {
+          return res.status(403).json({ 
+            code: "MONTHLY_LIMIT", 
+            error: "Approval blocked: Monthly spending limit would be exceeded." 
+          });
+        }
       }
       
       // If approved, create a Stripe checkout session for the parent to pay
-      
       const { getUncachableStripeClient } = await import("./stripeClient");
       const stripe = await getUncachableStripeClient();
       
