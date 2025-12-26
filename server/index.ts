@@ -15,6 +15,16 @@ enforceProductionConfig();
 const app = express();
 const httpServer = createServer(app);
 
+// CRITICAL: Fast HEAD response for Replit's port detection probe
+// Must be registered IMMEDIATELY after app creation, before any async operations
+app.use((req, res, next) => {
+  if (req.method === "HEAD") {
+    res.status(200).end();
+    return;
+  }
+  next();
+});
+
 declare module "express-session" {
   interface SessionData {
     userId: string;
@@ -158,56 +168,53 @@ app.use((req, res, next) => {
   next();
 });
 
-(async () => {
-  // Seed database on startup
-  const { seedDatabase } = await import("./seed");
-  await seedDatabase();
-  
-  await registerRoutes(httpServer, app);
+// CRITICAL: Start listening IMMEDIATELY to satisfy Replit port detection
+// All heavy initialization happens AFTER we're listening
+const port = parseInt(process.env.PORT || "5000", 10);
+httpServer.listen(
+  {
+    port,
+    host: "0.0.0.0",
+    reusePort: true,
+  },
+  () => {
+    log(`serving on port ${port}`);
+    
+    // Now do all the async initialization
+    (async () => {
+      try {
+        // Seed database on startup
+        const { seedDatabase } = await import("./seed");
+        await seedDatabase();
+        
+        await registerRoutes(httpServer, app);
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
+        app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+          const status = err.status || err.statusCode || 500;
+          const message = err.message || "Internal Server Error";
 
-    res.status(status).json({ message });
-    throw err;
-  });
+          res.status(status).json({ message });
+          throw err;
+        });
 
-  // Fast HEAD response for Replit's port detection probe
-  // Must be added BEFORE Vite middleware to avoid hanging
-  app.use((req, res, next) => {
-    if (req.method === "HEAD") {
-      res.status(200).end();
-      return;
-    }
-    next();
-  });
+        // Setup static serving or Vite dev server
+        if (process.env.NODE_ENV === "production") {
+          serveStatic(app);
+        } else {
+          const { setupVite } = await import("./vite");
+          await setupVite(httpServer, app);
+        }
 
-  // Setup static serving or Vite dev server BEFORE listen
-  if (process.env.NODE_ENV === "production") {
-    serveStatic(app);
-  } else {
-    const { setupVite } = await import("./vite");
-    await setupVite(httpServer, app);
-  }
-
-  // ALWAYS serve the app on the port specified in the environment variable PORT
-  // Other ports are firewalled. Default to 5000 if not specified.
-  // Listen AFTER all middleware/routes are registered
-  const port = parseInt(process.env.PORT || "5000", 10);
-  httpServer.listen(
-    {
-      port,
-      host: "0.0.0.0",
-      reusePort: true,
-    },
-    () => {
-      log(`serving on port ${port}`);
-      
-      // Initialize Stripe in background (non-blocking) AFTER server is ready
-      initStripe().catch(err => {
-        console.error('Stripe initialization error:', err);
-      });
-    },
-  );
-})();
+        // Initialize Stripe in background (non-blocking)
+        initStripe().catch(err => {
+          console.error('Stripe initialization error:', err);
+        });
+        
+        log('Server fully initialized');
+      } catch (err) {
+        console.error('Server initialization error:', err);
+        process.exit(1);
+      }
+    })();
+  },
+);
