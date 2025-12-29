@@ -172,3 +172,52 @@ S-Class will NEVER:
 6. Grant exclusive relic power
 
 These constraints are permanent and cannot be overridden by feature flags.
+
+## Supabase Security Model (Production)
+
+**RLS Access Control**
+The `profiles` table uses Row Level Security with restricted access:
+- **Owner**: Can SELECT, UPDATE, DELETE their own profile (full access to all fields)
+- **Approved Parents**: Can SELECT linked minor profiles (via `is_approved_parent()` function)
+- **Admins**: Can SELECT, UPDATE all profiles (via `is_admin()` function)
+- **Public**: NO direct access to profiles table
+
+**Public Profile View**
+For public profile lookups, use the `public_profiles` view which exposes ONLY safe fields:
+- id, handle, username, display_name, avatar_url, bio
+- age_band (child/teen/adult - NOT birth_date)
+- tokens, followers, following
+- is_premium, is_admin
+- anime_interests, theme, created_at
+
+**Protected Fields (NEVER exposed publicly)**
+- email, parent_email
+- birth_date (only age_band is public)
+- stripe_customer_id, stripe_subscription_id
+- access_source, access_expires_at
+
+**Parent Link Verification**
+- `getParentLink()` only returns links with `status='active'`
+- Parents must have approved link before accessing minor's sensitive data
+- Server-side enforcement via API routes, not client-side
+
+## Media Storage
+
+**Development (Default)**
+- Uses Supabase Storage for media uploads
+- Set `MEDIA_PROVIDER=supabase` (default)
+
+**Production (R2)**
+- Uses Cloudflare R2 for media at scale
+- Set `MEDIA_PROVIDER=r2` and configure R2 credentials:
+  - `CLOUDFLARE_R2_ACCOUNT_ID`
+  - `CLOUDFLARE_R2_ACCESS_KEY_ID`
+  - `CLOUDFLARE_R2_SECRET_ACCESS_KEY`
+  - `CLOUDFLARE_R2_BUCKET_NAME`
+  - `CLOUDFLARE_R2_PUBLIC_URL`
+
+**Storage Paths**
+- Avatars: `avatars/{userId}/{timestamp}-{uniqueId}.{ext}`
+- Posts: `posts/{userId}/{timestamp}-{uniqueId}.{ext}`
+- Stories: `stories/{userId}/{timestamp}-{uniqueId}.{ext}`
+- Cards: `cards/{timestamp}-{uniqueId}.{ext}`
