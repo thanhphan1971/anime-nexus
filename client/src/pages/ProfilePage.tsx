@@ -559,7 +559,12 @@ export default function ProfilePage() {
                  </div>
                  {isOwnProfile && profileUser.birthDate && (
                    <div className="flex items-center gap-2" data-testid="text-birthdate">
-                     <Cake className="h-4 w-4" /> Born {new Date(profileUser.birthDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                     <Cake className="h-4 w-4" /> Born {(() => {
+                       const dateStr = profileUser.birthDate.toString().split('T')[0];
+                       const [year, month, day] = dateStr.split('-');
+                       const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+                       return `${months[parseInt(month) - 1]} ${parseInt(day)}, ${year}`;
+                     })()}
                    </div>
                  )}
                  {isOwnProfile && (
