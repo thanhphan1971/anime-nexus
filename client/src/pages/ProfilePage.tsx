@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Slider } from "@/components/ui/slider";
-import { Settings, MapPin, Link as LinkIcon, Calendar, Loader2, Crown, Upload, Sparkles, Globe, ZoomIn, Check, X, Copy, ExternalLink, Award, Target, Lock } from "lucide-react";
+import { Settings, MapPin, Link as LinkIcon, Calendar, Loader2, Crown, Upload, Sparkles, Globe, ZoomIn, Check, X, Copy, ExternalLink, Award, Target, Lock, Cake } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAuth } from "@/context/AuthContext";
 import { usePosts, useUpdateUser, useUserByHandle, useUser, usePresetAvatars, useUpdateAvatar, useUserProfile } from "@/lib/api";
@@ -557,6 +557,11 @@ export default function ProfilePage() {
                  <div className="flex items-center gap-2">
                    <Calendar className="h-4 w-4" /> Joined {profileUser.createdAt ? formatDistanceToNow(new Date(profileUser.createdAt), { addSuffix: true }) : 'recently'}
                  </div>
+                 {isOwnProfile && profileUser.birthDate && (
+                   <div className="flex items-center gap-2" data-testid="text-birthdate">
+                     <Cake className="h-4 w-4" /> Born {new Date(profileUser.birthDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                   </div>
+                 )}
                  {isOwnProfile && (
                    <Link href="/settings">
                      <div className="flex items-center gap-2 cursor-pointer hover:text-primary transition-colors" data-testid="link-settings">
