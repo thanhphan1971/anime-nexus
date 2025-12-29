@@ -28,6 +28,8 @@ export const users = pgTable("users", {
   animeInterests: text("anime_interests").array().default(sql`ARRAY[]::text[]`),
   theme: text("theme").default('cyberpunk'),
   birthDate: timestamp("birth_date"),
+  birthYear: integer("birth_year"), // For privacy - only year stored for age calculation
+  ageBand: text("age_band").default('adult'), // 'child' (<13), 'teen' (13-17), 'adult' (18+)
   isMinor: boolean("is_minor").notNull().default(false),
   parentEmail: text("parent_email"),
   parentalConsentGiven: boolean("parental_consent_given").notNull().default(false),

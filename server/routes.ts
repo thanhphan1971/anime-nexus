@@ -9,6 +9,7 @@ import bcrypt from "bcrypt";
 import { verifySupabaseToken, optionalSupabaseAuth } from "./lib/supabaseAuth";
 import { sql } from "drizzle-orm";
 import { z } from "zod";
+import { calculateAgeBand, canViewFullProfile } from "./lib/dbAdapter";
 import { FREE_ODDS, PAID_ODDS, PREMIUM_PAID_ODDS, FREE_SUMMON_LIMITS, PAID_SUMMON_CONFIG, PAID_SUMMON_REMINDER, selectRarity, getNextResetTime, getNext7PMETResetTime, needsReset } from "./config/gachaOdds";
 import { getDrawLockTime, getCooldownEndTime, getDrawCycleStatus } from "./drawCycle";
 import { fromZonedTime } from "date-fns-tz";
@@ -52,8 +53,25 @@ export async function registerRoutes(
       if (!user) {
         return res.status(404).json({ error: "Profile not found" });
       }
+      
       const { password, ...profile } = user;
-      res.json(profile);
+      
+      // Check if requester can see full profile (owner or approved parent)
+      const requesterId = req.dbUser?.id;
+      const approvedParentLink = user.isMinor ? await storage.getParentLink(user.id) : undefined;
+      const canViewFull = canViewFullProfile(requesterId, user.id, approvedParentLink?.parentId);
+      
+      // Calculate ageBand from birthDate if not set
+      const ageBand = user.ageBand || calculateAgeBand(user.birthDate);
+      
+      if (canViewFull) {
+        // Owner or parent - return full profile including birthDate
+        res.json({ ...profile, ageBand });
+      } else {
+        // Public view - hide sensitive fields
+        const { birthDate, email, parentEmail, ...publicProfile } = profile;
+        res.json({ ...publicProfile, ageBand });
+      }
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -90,6 +108,12 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Email already in use" });
       }
       
+      // Calculate age-related fields from birthDate
+      const parsedBirthDate = birthDate ? new Date(birthDate) : undefined;
+      const ageBand = calculateAgeBand(parsedBirthDate || null);
+      const birthYear = parsedBirthDate ? parsedBirthDate.getFullYear() : undefined;
+      const calculatedIsMinor = ageBand === 'child' || ageBand === 'teen';
+      
       // Create profile with Supabase user ID
       const user = await storage.createUserWithId(id, {
         email,
@@ -100,8 +124,10 @@ export async function registerRoutes(
         bio: bio || "New to AniRealm",
         animeInterests: animeInterests || [],
         theme: theme || "cyberpunk",
-        birthDate: birthDate ? new Date(birthDate) : undefined,
-        isMinor: isMinor || false,
+        birthDate: parsedBirthDate,
+        birthYear,
+        ageBand,
+        isMinor: calculatedIsMinor,
         parentEmail,
         password: '', // No local password for Supabase Auth users
       });

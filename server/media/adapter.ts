@@ -34,7 +34,14 @@ export function getMediaAdapter(): MediaAdapter {
   const provider = process.env.MEDIA_PROVIDER || 'supabase';
   
   if (provider === 'r2') {
-    throw new Error('R2 adapter not yet implemented. Set MEDIA_PROVIDER=supabase for beta.');
+    // Check if R2 is configured
+    if (!process.env.CLOUDFLARE_R2_ACCOUNT_ID) {
+      console.warn('[Media] R2 requested but not configured, falling back to Supabase');
+      const { SupabaseStorageAdapter } = require('./supabaseStorageAdapter');
+      return new SupabaseStorageAdapter();
+    }
+    const { R2StorageAdapter } = require('./r2StorageAdapter');
+    return new R2StorageAdapter();
   }
   
   const { SupabaseStorageAdapter } = require('./supabaseStorageAdapter');

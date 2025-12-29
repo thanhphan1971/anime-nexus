@@ -1,0 +1,129 @@
+You are the CTO for AniRealm. Implement the most secure + best-cost user data architecture.
+
+GOALS (non-negotiable)
+1) Supabase Postgres is the ONLY production database for user/account/app data.
+   - Local PostgreSQL is DEV-ONLY. In production, the app must not read/write local DB.
+2) Enforce Row Level Security (RLS) on ALL user tables.
+3) Do NOT store full birthdate publicly. Store age_band or birth_year and is_minor.
+   - Only the user themselves + linked parent + admin can see full birthdate (if we keep it at all).
+4) Media (card images, avatars, posts) must be stored outside Postgres.
+   - Use Cloudflare R2 (preferred). DB stores URLs only.
+
+DELIVERABLES
+A) Database schema (Supabase SQL migration) with:
+   - profiles
+   - parent_links
+   - purchase_requests
+   - notifications
+   - (optional) media_assets table that stores URLs + metadata (NO blobs)
+B) RLS policies for each table (strict).
+C) Server API routes updated to read/write Supabase only.
+D) Frontend Profile page updated to fetch from /api/profiles/:id and display age_band (and optionally show birthdate only to self/parent).
+E) Remove/disable any code paths that read/write the local DB when NODE_ENV=production.
+F) Acceptance tests checklist.
+
+DATA MODEL (define exactly like this)
+1) public.profiles
+   - id uuid PRIMARY KEY references auth.users(id) on delete cascade
+   - handle text UNIQUE NOT NULL
+   - display_name text
+   - avatar_url text
+   - birth_year int (nullable)  OR age_band text CHECK (age_band in ('child','teen','adult'))  (choose ONE; recommended age_band)
+   - is_minor boolean NOT NULL DEFAULT false
+   - created_at timestamptz NOT NULL DEFAULT now()
+   - updated_at timestamptz NOT NULL DEFAULT now()
+
+2) public.parent_links
+   - id uuid pk default gen_random_uuid()
+   - minor_id uuid references auth.users(id) on delete cascade
+   - parent_id uuid references auth.users(id) on delete cascade
+   - status text CHECK (status in ('pending','approved','revoked')) NOT NULL DEFAULT 'pending'
+   - created_at timestamptz default now()
+   - approved_at timestamptz
+   - UNIQUE(minor_id, parent_id)
+
+3) public.purchase_requests
+   - id uuid pk default gen_random_uuid()
+   - minor_id uuid references auth.users(id) on delete cascade
+   - parent_id uuid references auth.users(id) on delete cascade
+   - token_amount int NOT NULL
+   - price_cents int NOT NULL
+   - currency text NOT NULL DEFAULT 'cad'
+   - status text CHECK (status in ('pending','approved','rejected','expired')) NOT NULL DEFAULT 'pending'
+   - created_at timestamptz default now()
+   - decided_at timestamptz
+   - decision_reason text
+
+4) public.notifications
+   - id uuid pk default gen_random_uuid()
+   - recipient_id uuid references auth.users(id) on delete cascade
+   - type text NOT NULL  -- e.g. 'PARENT_PURCHASE_REQUEST','PARENT_LINK_REQUEST'
+   - payload jsonb NOT NULL DEFAULT '{}'::jsonb
+   - read_at timestamptz
+   - created_at timestamptz default now()
+
+SECURITY / RLS POLICIES (must implement)
+Enable RLS on all 4 tables.
+
+profiles:
+- Anyone can SELECT only safe public fields (id, handle, display_name, avatar_url, age_band, is_minor). No birth_year if you choose that path unless you treat it as safe.
+- Owner can UPDATE their own profile (display_name, avatar_url, age_band/birth_year, is_minor derived).
+- Only owner can SELECT full row if it contains sensitive data (if birth_year exists).
+- If we need “parent can view minor’s sensitive fields”, allow parent SELECT when an approved parent_links exists.
+
+parent_links:
+- INSERT: only minor can create link request (minor_id must equal auth.uid()).
+- SELECT: only the minor OR the parent involved can see the link.
+- UPDATE status to approved/revoked: only parent_id = auth.uid() can approve/revoke.
+
+purchase_requests:
+- INSERT: only minor can create request (minor_id=auth.uid()) AND must reference an approved parent link.
+- SELECT: only minor_id or parent_id can view.
+- UPDATE: only parent can approve/reject (parent_id=auth.uid()) and only if status='pending'.
+
+notifications:
+- INSERT: server-side or DB trigger only; client should not be able to insert arbitrary notifications.
+- SELECT: only recipient_id=auth.uid()
+- UPDATE: only recipient can mark read_at
+
+IMPLEMENTATION DETAILS
+1) Signup flow:
+- After Supabase Auth signup, create profiles row with id=user.id.
+- Store handle + display_name + avatar_url + age_band (or birth_year) + is_minor.
+- Do NOT rely on auth metadata for these fields.
+
+2) Profile API:
+- /api/profiles/:id must select from public.profiles.
+- Return fields needed by UI.
+- If requester is the owner or approved parent, include extra fields (if any).
+- Otherwise return only safe public fields.
+
+3) Remove “local database” in production:
+- Add a single DB adapter layer so all reads/writes go through Supabase when NODE_ENV=production.
+- If local DB exists, it may be used only when NODE_ENV != 'production' AND an explicit flag USE_LOCAL_DB=true.
+
+4) R2 media:
+- Implement upload flow using presigned URLs (server generates, client uploads directly).
+- Store returned public URL in profiles.avatar_url and other media tables.
+- Do not proxy files through the server.
+
+ACCEPTANCE TESTS (must pass)
+- A) New signup creates profiles row in Supabase; profile shows age_band/is_minor.
+- B) Confirm email ON in prod still works; unverified users cannot sign in.
+- C) Parent link request: minor creates pending link; parent sees notification; parent approves; status=approved.
+- D) Purchase request: minor creates request; parent sees in-app notification; parent approves; status updates correctly; only involved users can read.
+- E) RLS: Try to fetch another user’s private fields—must be blocked.
+- F) Production: local DB not used (log/guard proves it).
+
+OUTPUT REQUIRED FROM YOU
+1) The Supabase SQL migration script (tables + indexes + RLS + policies).
+2) The exact code changes (file paths) you made:
+   - DB adapter
+   - /api/profiles/:id route
+   - signup handler to insert into profiles
+   - parent link + purchase request endpoints
+   - notifications insertion approach (trigger or server)
+   - R2 presigned upload endpoint
+3) Short “how to test” steps (5 minutes).
+
+Do NOT hand-wave. Implement it and show the exact diffs/patches.
