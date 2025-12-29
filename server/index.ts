@@ -13,6 +13,31 @@ import { enforceProductionConfig } from "./configGuard";
 enforceProductionConfig();
 
 const app = express();
+let frontendReady = false;
+// FIRST: Replit port detection probe
+app.use((req, res, next) => {
+  if (req.method === "HEAD") {
+    res.status(200).end();
+    return;
+  }
+  next();
+});
+
+// THEN: startup placeholder for Preview
+app.use((req, res, next) => {
+  if (!frontendReady && req.method === "GET" && !req.path.startsWith("/api")) {
+    return res.status(200).send("Starting AniRealm...");
+  }
+  next();
+});
+
+app.use((req, res, next) => {
+  if (!frontendReady && req.method === "GET" && !req.path.startsWith("/api")) {
+    return res.status(200).send("Starting AniRealm...");
+  }
+  next();
+});
+
 const httpServer = createServer(app);
 
 // CRITICAL: Fast HEAD response for Replit's port detection probe
@@ -24,6 +49,7 @@ app.use((req, res, next) => {
   }
   next();
 });
+
 
 declare module "express-session" {
   interface SessionData {
@@ -186,24 +212,26 @@ httpServer.listen(
         // Seed database on startup
         const { seedDatabase } = await import("./seed");
         await seedDatabase();
-        
-        await registerRoutes(httpServer, app);
 
-        app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-          const status = err.status || err.statusCode || 500;
-          const message = err.message || "Internal Server Error";
+await registerRoutes(httpServer, app);
 
-          res.status(status).json({ message });
-          throw err;
-        });
+app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  const status = err.status || err.statusCode || 500;
+  const message = err.message || "Internal Server Error";
+  res.status(status).json({ message });
+});
 
-        // Setup static serving or Vite dev server
-        if (process.env.NODE_ENV === "production") {
-          serveStatic(app);
-        } else {
-          const { setupVite } = await import("./vite");
-          await setupVite(httpServer, app);
-        }
+// Setup static serving or Vite dev server AFTER API routes
+if (process.env.NODE_ENV === "production") {
+  serveStatic(app);
+} else {
+  const { setupVite } = await import("./vite");
+  await setupVite(httpServer, app);
+}
+
+frontendReady = true;
+
+
 
         // Initialize Stripe in background (non-blocking)
         initStripe().catch(err => {
