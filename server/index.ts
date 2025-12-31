@@ -14,6 +14,12 @@ enforceProductionConfig();
 
 const app = express();
 let frontendReady = false;
+// Health check (for Replit + external access)
+app.get("/api/health", (_req, res) => {
+  res.status(200).json({ ok: true });
+});
+
+
 // FIRST: Replit port detection probe
 app.use((req, res, next) => {
   if (req.method === "HEAD") {
@@ -31,17 +37,10 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use((req, res, next) => {
-  if (!frontendReady && req.method === "GET" && !req.path.startsWith("/api")) {
-    return res.status(200).send("Starting AniRealm...");
-  }
-  next();
-});
 
 const httpServer = createServer(app);
 
-// CRITICAL: Fast HEAD response for Replit's port detection probe
-// Must be registered IMMEDIATELY after app creation, before any async operations
+
 app.use((req, res, next) => {
   if (req.method === "HEAD") {
     res.status(200).end();
