@@ -5441,7 +5441,7 @@ export async function registerRoutes(
         mode: 'subscription',
         success_url: `${baseUrl}/premium?success=true`,
         cancel_url: `${baseUrl}/premium?canceled=true`,
-        automatic_tax: { enabled: true },
+        
         customer_update: {
           address: 'auto',
         },
