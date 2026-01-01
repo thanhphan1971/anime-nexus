@@ -42,7 +42,7 @@ Payment Page Requirements (pre-checkout confirmation)
 IMPORTANT: Users must see cancellation rules again before paying.
 Implement ONE of these (choose the best fit with current codebase):
 
-Option A (Preferred): Pre-checkout page we control
+Option A (Preferred): Pre-checkoutF page we control
 - Create a page like /checkout?plan=sclass_monthly or /checkout?plan=sclass_yearly
 - This page shows:
   - Selected plan summary (Monthly or Yearly)

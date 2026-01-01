@@ -1,4 +1,4 @@
-import { getStripeSync, getUncachableStripeClient } from './stripeClient';
+
 import { storage } from './storage';
 import { formatPrice, getEmailTemplate, sendEmail } from './lib/emailService';
 
@@ -14,7 +14,7 @@ export class WebhookHandlers {
     }
 
     // Let stripe-sync handle subscription events
-    const sync = await getStripeSync();
+    
     await sync.processWebhook(payload, signature);
     
     // Also handle minor token purchase events
