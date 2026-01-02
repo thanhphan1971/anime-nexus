@@ -124,36 +124,8 @@ app.use(
 );
 app.use(express.urlencoded({ extended: false, limit: "10mb" }));
 
-// 3) Checkout endpoint (your frontend calls this)
-app.post("/api/stripe/checkout", async (req, res) => {
-  try {
-    const { priceId, userId } = req.body as { priceId: string; userId?: string };
-
-    if (!priceId) return res.status(400).json({ error: "Missing priceId" });
-
-    const baseUrl = process.env.APP_BASE_URL;
-    if (!baseUrl) return res.status(500).json({ error: "Missing APP_BASE_URL" });
-
-    const session = await stripe.checkout.sessions.create({
-      mode: "subscription",
-      line_items: [{ price: priceId, quantity: 1 }],
-     ...(userId ? { client_reference_id: userId } : {}),
-
-      success_url: `${baseUrl}/account?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${baseUrl}/account?checkout=cancel`,
-    });
-
-    return res.json({ url: session.url });
-  } catch (e: any) {
-    console.error("Checkout error FULL:", e);
-    return res.status(500).json({
-      error: "Failed to create checkout session",
-      message: e?.message || String(e),
-      type: e?.type,
-      code: e?.code,
-    });
-  }
-});
+// 3) Checkout endpoint moved to routes.ts - this is just a placeholder for webhook order
+// The actual checkout endpoint with plan mapping is in server/routes.ts
 
 // =====================================================
 // Sessions
