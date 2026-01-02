@@ -26,6 +26,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { icon: PlayCircle, label: "Watch List", path: "/watchlist" },
     { icon: PlusSquare, label: "Create", path: "/create" },
     { icon: User, label: "Profile", path: `/profile/${user.id}` },
+    { icon: Settings, label: "Account", path: "/account" },
     { icon: Crown, label: "S-Class", path: "/sclass" },
     { icon: HelpCircle, label: "Help", path: "/help" },
     { icon: Shield, label: "Parent Controls", path: "/parent" },
