@@ -3239,8 +3239,7 @@ export async function registerRoutes(
       }
       
       // If approved, create a Stripe checkout session for the parent to pay
-      const { getUncachableStripeClient } = await import("./stripeClient");
-      const stripe = await getUncachableStripeClient();
+      const { stripe } = await import("./stripeClient");
       
       // Ensure parent has a Stripe customer ID
       let customerId = parent.stripeCustomerId;
@@ -5413,8 +5412,7 @@ app.get("/api/stripe/products", async (_req, res) => {
         return res.status(400).json({ error: "Plan or price ID required" });
       }
 
-      const { getUncachableStripeClient } = await import("./stripeClient");
-      const stripe = await getUncachableStripeClient();
+      const { stripe } = await import("./stripeClient");
 
       let customerId = user.stripeCustomerId;
       
@@ -5492,8 +5490,7 @@ app.get("/api/stripe/products", async (_req, res) => {
         return res.status(400).json({ error: "No billing account found" });
       }
 
-      const { getUncachableStripeClient } = await import("./stripeClient");
-      const stripe = await getUncachableStripeClient();
+      const { stripe } = await import("./stripeClient");
 
       const baseUrl = `https://${process.env.REPLIT_DOMAINS?.split(',')[0]}`;
       
