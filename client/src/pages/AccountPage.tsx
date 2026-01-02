@@ -16,6 +16,7 @@ export default function AccountPage() {
   const { user, refreshUser } = useAuth();
   const [, setLocation] = useLocation();
   const [accessToken, setAccessToken] = useState<string>("");
+  const [isTokenLoading, setIsTokenLoading] = useState(true);
   const [isLoadingPortal, setIsLoadingPortal] = useState(false);
   const [isLoadingCheckout, setIsLoadingCheckout] = useState<string | null>(null);
   const [checkoutStatus, setCheckoutStatus] = useState<"success" | "cancel" | null>(null);
@@ -24,10 +25,18 @@ export default function AccountPage() {
 
   useEffect(() => {
     const getToken = async () => {
-      const supabase = await getSupabase();
-      const { data } = await supabase.auth.getSession();
-      if (data.session?.access_token) {
-        setAccessToken(data.session.access_token);
+      try {
+        const supabase = await getSupabase();
+        const { data } = await supabase.auth.getSession();
+        if (data.session?.access_token) {
+          setAccessToken(data.session.access_token);
+        } else {
+          console.warn("No access token in session");
+        }
+      } catch (error) {
+        console.error("Failed to get session:", error);
+      } finally {
+        setIsTokenLoading(false);
       }
     };
     getToken();
@@ -48,8 +57,10 @@ export default function AccountPage() {
   }, [refreshUser]);
 
   const handleSubscribe = async (plan: "monthly" | "yearly") => {
+    console.log("Subscribe clicked:", plan, "accessToken exists:", !!accessToken);
+    
     if (!accessToken) {
-      toast.error("Please log in again");
+      toast.error("Please log in again to subscribe");
       return;
     }
 
@@ -333,25 +344,29 @@ export default function AccountPage() {
               <div className="grid grid-cols-2 gap-3">
                 <Button
                   onClick={() => handleSubscribe("monthly")}
-                  disabled={isLoadingCheckout !== null}
+                  disabled={isLoadingCheckout !== null || isTokenLoading}
                   className="bg-primary hover:bg-primary/80"
                   data-testid="button-subscribe-monthly"
                 >
-                  {isLoadingCheckout === "monthly" ? (
+                  {isTokenLoading ? (
                     "Loading..."
+                  ) : isLoadingCheckout === "monthly" ? (
+                    "Redirecting..."
                   ) : (
                     <>Monthly $9.99</>
                   )}
                 </Button>
                 <Button
                   onClick={() => handleSubscribe("yearly")}
-                  disabled={isLoadingCheckout !== null}
+                  disabled={isLoadingCheckout !== null || isTokenLoading}
                   variant="outline"
                   className="border-yellow-500/50 text-yellow-400 hover:bg-yellow-500/10"
                   data-testid="button-subscribe-yearly"
                 >
-                  {isLoadingCheckout === "yearly" ? (
+                  {isTokenLoading ? (
                     "Loading..."
+                  ) : isLoadingCheckout === "yearly" ? (
+                    "Redirecting..."
                   ) : (
                     <>Yearly $79.99</>
                   )}
