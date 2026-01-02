@@ -64,7 +64,14 @@ export default function AccountPage() {
       return;
     }
 
+    if (isLoadingCheckout) {
+      console.log("Already loading, ignoring click");
+      return;
+    }
+
     setIsLoadingCheckout(plan);
+    console.log("Starting checkout request...");
+    
     try {
       const response = await fetch("/api/stripe/checkout", {
         method: "POST",
@@ -75,17 +82,23 @@ export default function AccountPage() {
         body: JSON.stringify({ plan }),
       });
 
+      console.log("Checkout response status:", response.status);
       const data = await response.json();
+      console.log("Checkout response data:", data);
+      
       if (!response.ok) {
         throw new Error(data.error || "Failed to create checkout session");
       }
 
       if (data.url) {
+        console.log("Redirecting to:", data.url);
         window.location.href = data.url;
+      } else {
+        throw new Error("No checkout URL returned");
       }
     } catch (error: any) {
+      console.error("Checkout error:", error);
       toast.error(error.message || "Failed to start checkout");
-    } finally {
       setIsLoadingCheckout(null);
     }
   };
