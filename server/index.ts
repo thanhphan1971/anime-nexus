@@ -1,21 +1,13 @@
-import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes";
-import { serveStatic } from "./static";
-import { createServer } from "http";
-import session from "express-session";
-import MemoryStore from "memorystore";
-import { enforceProductionConfig } from "./configGuard";
 
-import Stripe from "stripe";
-import { stripe } from "./stripeClient";
-
-// CRITICAL: Validate production config before anything else
-enforceProductionConfig();
-
-const app = express();
-let frontendReady = false;
 
 const httpServer = createServer(app);
+// 🔍 DEBUG: verify which environment the server is actually using
+console.log("SUPABASE_URL =", process.env.SUPABASE_URL);
+console.log("APP_BASE_URL =", process.env.APP_BASE_URL);
+console.log(
+  "STRIPE_SECRET_KEY starts with =",
+  (process.env.STRIPE_SECRET_KEY || "").slice(0, 8)
+);
 
 // -----------------------------
 // Types
