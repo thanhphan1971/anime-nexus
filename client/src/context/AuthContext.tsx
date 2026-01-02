@@ -26,6 +26,14 @@ interface Profile {
   sclassWelcomeRewardClaimed?: boolean;
   sclassJoinedAt?: string;
   handleChangedAt?: string;
+  isMinor?: boolean;
+  ageBand?: string;
+  parentEmail?: string;
+  parentalConsentGiven?: boolean;
+  subscriptionStatus?: string;
+  subscriptionPlan?: string;
+  premiumEndDate?: string;
+  stripeCustomerId?: string;
 }
 
 interface AuthContextType {

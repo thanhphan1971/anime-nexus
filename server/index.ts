@@ -1,3 +1,19 @@
+import express, { type Request, Response, NextFunction } from "express";
+import { registerRoutes } from "./routes";
+import { serveStatic } from "./static";
+import { createServer } from "http";
+import session from "express-session";
+import MemoryStore from "memorystore";
+import { enforceProductionConfig } from "./configGuard";
+
+import Stripe from "stripe";
+import { stripe } from "./stripeClient";
+
+// Validate config early (keeps production sane)
+enforceProductionConfig();
+
+const app = express();
+let frontendReady = false;
 
 
 const httpServer = createServer(app);
@@ -121,15 +137,21 @@ app.post("/api/stripe/checkout", async (req, res) => {
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       line_items: [{ price: priceId, quantity: 1 }],
-      client_reference_id: userId,
-      success_url: `${baseUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${baseUrl}/checkout/cancel`,
+     ...(userId ? { client_reference_id: userId } : {}),
+
+      success_url: `${baseUrl}/account?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${baseUrl}/account?checkout=cancel`,
     });
 
     return res.json({ url: session.url });
   } catch (e: any) {
-    console.error("Checkout error:", e?.message || e);
-    return res.status(500).json({ error: "Failed to create checkout session" });
+    console.error("Checkout error FULL:", e);
+    return res.status(500).json({
+      error: "Failed to create checkout session",
+      message: e?.message || String(e),
+      type: e?.type,
+      code: e?.code,
+    });
   }
 });
 

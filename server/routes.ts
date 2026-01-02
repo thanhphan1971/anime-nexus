@@ -347,8 +347,14 @@ export async function registerRoutes(
   app.get("/api/users", async (req, res) => {
     try {
       const users = await storage.getAllUsers();
-      const usersWithoutPasswords = users.map(({ password, ...user }) => user);
-      res.json(usersWithoutPasswords);
+      const sanitizedUsers = users.map(user => {
+        const { password, email, parentEmail, birthDate, stripeCustomerId, stripeSubscriptionId, ...publicUser } = user;
+        return {
+          ...publicUser,
+          ageBand: user.ageBand || calculateAgeBand(birthDate ? new Date(birthDate) : null),
+        };
+      });
+      res.json(sanitizedUsers);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -360,8 +366,11 @@ export async function registerRoutes(
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
-      const { password, ...userWithoutPassword } = user;
-      res.json(userWithoutPassword);
+      const { password, email, parentEmail, birthDate, stripeCustomerId, stripeSubscriptionId, ...publicUser } = user;
+      res.json({
+        ...publicUser,
+        ageBand: user.ageBand || calculateAgeBand(birthDate ? new Date(birthDate) : null),
+      });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -5344,53 +5353,34 @@ export async function registerRoutes(
   });
 
   // Get S-Class subscription products and prices
-  app.get("/api/stripe/products", async (req, res) => {
-    try {
-      const result = await db.execute(sql`
-        SELECT 
-          p.id as product_id,
-          p.name as product_name,
-          p.description as product_description,
-          pr.id as price_id,
-          pr.unit_amount,
-          pr.currency,
-          pr.recurring,
-          pr.metadata as price_metadata
-        FROM stripe.products p
-        LEFT JOIN stripe.prices pr ON pr.product = p.id AND pr.active = true
-        WHERE p.active = true AND p.name = 'S-Class Membership'
-        ORDER BY pr.unit_amount ASC
-      `);
-      
-      const rows = result.rows as any[];
-      
-      if (rows.length === 0) {
-        return res.json({ products: [], prices: [] });
-      }
-
-      const product = {
-        id: rows[0].product_id,
-        name: rows[0].product_name,
-        description: rows[0].product_description,
-      };
-      
-      const prices = rows
-        .filter(row => row.price_id)
-        .map(row => ({
-          id: row.price_id,
-          unitAmount: row.unit_amount,
-          currency: row.currency,
-          recurring: row.recurring,
-          metadata: row.price_metadata,
-          interval: row.recurring?.interval || 'month',
-        }));
-
-      res.json({ product, prices });
-    } catch (error: any) {
-      console.error("Error fetching Stripe products:", error);
-      res.status(500).json({ error: "Failed to fetch products" });
-    }
+  
+    // Get S-Class subscription products and prices
+app.get("/api/stripe/products", async (_req, res) => {
+  return res.json({
+    product: {
+      name: "S-Class Membership",
+      description:
+        "Premium Access to AniRealm - Unlock additional daily game entries, higher token caps, extra draw entries, and exclusive perks.",
+    },
+    prices: [
+      {
+        id: "price_1SkuHDRdxAAD3924utTKVVEA", // $9.99 monthly
+        unitAmount: 999,
+        currency: "usd",
+        interval: "month",
+        recurring: { interval: "month" },
+      },
+      {
+        id: "price_1SlFUbRdxAAD392445O8ScqK", // $79.99 yearly
+        unitAmount: 7999,
+        currency: "usd",
+        interval: "year",
+        recurring: { interval: "year" },
+      },
+    ],
   });
+});
+
 
   // Create checkout session for S-Class subscription
   app.post("/api/stripe/checkout", verifySupabaseToken, async (req, res) => {
@@ -5410,9 +5400,17 @@ export async function registerRoutes(
         }
       }
 
-      const { priceId } = req.body;
-      if (!priceId) {
-        return res.status(400).json({ error: "Price ID required" });
+      const { priceId, plan } = req.body;
+      
+      // Map plan names to Stripe price IDs
+      const PRICE_IDS: Record<string, string> = {
+        monthly: "price_1SkuHDRdxAAD3924utTKVVEA",
+        yearly: "price_1SlFUbRdxAAD392445O8ScqK",
+      };
+      
+      const selectedPriceId = priceId || (plan ? PRICE_IDS[plan] : null);
+      if (!selectedPriceId) {
+        return res.status(400).json({ error: "Plan or price ID required" });
       }
 
       const { getUncachableStripeClient } = await import("./stripeClient");
@@ -5437,10 +5435,10 @@ export async function registerRoutes(
       const session = await stripe.checkout.sessions.create({
         customer: customerId,
         payment_method_types: ['card'],
-        line_items: [{ price: priceId, quantity: 1 }],
+        line_items: [{ price: selectedPriceId, quantity: 1 }],
         mode: 'subscription',
-        success_url: `${baseUrl}/premium?success=true`,
-        cancel_url: `${baseUrl}/premium?canceled=true`,
+        success_url: `${baseUrl}/account?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${baseUrl}/account?checkout=cancel`,
         
         customer_update: {
           address: 'auto',
@@ -5501,7 +5499,7 @@ export async function registerRoutes(
       
       const session = await stripe.billingPortal.sessions.create({
         customer: user.stripeCustomerId,
-        return_url: `${baseUrl}/premium`,
+        return_url: `${baseUrl}/account`,
       });
 
       res.json({ url: session.url });
