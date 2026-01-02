@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Slider } from "@/components/ui/slider";
-import { Settings, MapPin, Link as LinkIcon, Calendar, Loader2, Crown, Upload, Sparkles, Globe, ZoomIn, Check, X, Copy, ExternalLink, Award, Target, Lock, Cake } from "lucide-react";
+import { Settings, MapPin, Link as LinkIcon, Calendar, Loader2, Crown, Upload, Sparkles, Globe, ZoomIn, Check, X, Copy, ExternalLink, Award, Target, Lock } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAuth } from "@/context/AuthContext";
 import { usePosts, useUpdateUser, useUserByHandle, useUser, usePresetAvatars, useUpdateAvatar, useUserProfile } from "@/lib/api";
@@ -555,22 +555,16 @@ export default function ProfilePage() {
                    <Copy className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-muted-foreground hover:text-primary" onClick={copyProfileLink} />
                  </div>
                  <div className="flex items-center gap-2">
-                   <Calendar className="h-4 w-4" /> Joined {profileUser.createdAt ? formatDistanceToNow(new Date(profileUser.createdAt), { addSuffix: true }) : 'recently'}
+                   <Calendar className="h-4 w-4" /> Joined {profileUser.createdAt ? (() => {
+                     const date = new Date(profileUser.createdAt);
+                     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                     return `${months[date.getMonth()]} ${date.getFullYear()}`;
+                   })() : 'recently'}
                  </div>
-                 {isOwnProfile && profileUser.birthDate && (
-                   <div className="flex items-center gap-2" data-testid="text-birthdate">
-                     <Cake className="h-4 w-4" /> Born {(() => {
-                       const dateStr = profileUser.birthDate.toString().split('T')[0];
-                       const [year, month, day] = dateStr.split('-');
-                       const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-                       return `${months[parseInt(month) - 1]} ${parseInt(day)}, ${year}`;
-                     })()}
-                   </div>
-                 )}
                  {isOwnProfile && (
-                   <Link href="/settings">
-                     <div className="flex items-center gap-2 cursor-pointer hover:text-primary transition-colors" data-testid="link-settings">
-                       <Settings className="h-4 w-4" /> Account Settings
+                   <Link href="/account">
+                     <div className="flex items-center gap-2 cursor-pointer hover:text-primary transition-colors" data-testid="link-account">
+                       <Settings className="h-4 w-4" /> Account
                      </div>
                    </Link>
                  )}
@@ -582,7 +576,7 @@ export default function ProfilePage() {
                </div>
 
                {/* Stats */}
-               <div className="grid grid-cols-3 gap-4 pt-4 border-t border-white/10">
+               <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/10">
                  <div className="text-center">
                    <p className="text-2xl font-bold text-primary" data-testid="text-followers">{profileUser.followers || 0}</p>
                    <p className="text-xs text-muted-foreground">Followers</p>
@@ -590,10 +584,6 @@ export default function ProfilePage() {
                  <div className="text-center">
                    <p className="text-2xl font-bold text-primary" data-testid="text-following">{profileUser.following || 0}</p>
                    <p className="text-xs text-muted-foreground">Following</p>
-                 </div>
-                 <div className="text-center">
-                   <p className="text-2xl font-bold text-yellow-500" data-testid="text-tokens">{profileUser.tokens || 0}</p>
-                   <p className="text-xs text-muted-foreground">Tokens</p>
                  </div>
                </div>
 

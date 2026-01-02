@@ -1,0 +1,57 @@
+TASK: Move sensitive/private user data OFF the public Profile page and into a new private Account page (owner-only).
+
+GOAL
+- Public Profile (shareable) shows only safe/public info.
+- Private Account (/account) shows sensitive info only to the logged-in user (the owner).
+- No other user should ever see sensitive fields for someone else.
+
+DEFINE SENSITIVE (MUST NOT APPEAR PUBLICLY)
+Remove from public Profile for everyone except the owner (but ideally not even shown there at all):
+- birthDate / birthYear / “Born …” / ageBand / isMinor (anything age/minor related)
+- email, parentEmail, parentalConsentGiven (any family/consent fields)
+- tokens balance (e.g., “5000 Tokens”)
+- Stripe fields: stripeCustomerId, stripeSubscriptionId, subscriptionStatus, subscriptionType, premiumStartDate, premiumEndDate, accessSource, accessExpiresAt
+- any “Account Settings” section that exposes private details
+- location if it could be real (keep only if user explicitly sets it public; default OFF)
+- “Joined X days ago” should become less precise (e.g., “Joined Dec 2025”)
+
+WHAT PROFILE SHOULD KEEP (PUBLIC SAFE)
+- avatar, name, handle (@...), bio
+- level
+- followers/following counts
+- interests (animeInterests)
+- posts/media/likes
+- badges/achievements (but do NOT reveal token balance or exact high-value inventory)
+- shareable profile URL (anirealm.net/@handle)
+
+IMPLEMENTATION REQUIREMENTS
+1) Create a new page/route: /account
+   - Private/owner-only. If not logged in, redirect to login (or existing auth flow).
+2) Account page should show:
+   - Email
+   - Birthdate / age band / minor status (internal only)
+   - Tokens balance
+   - Subscription status + plan type + renewal/end date
+   - Admin-grant access notice (accessSource/accessExpiresAt) if present
+   - Parent email + consent flags if applicable
+   - Buttons:
+     - “Manage Billing” → calls POST /api/stripe/portal and redirects to returned url
+     - “Subscribe Monthly/Yearly” if not premium and not admin-granted access
+3) Update Stripe success/cancel redirect to a REAL route:
+   - In /api/stripe/checkout:
+     success_url = `${baseUrl}/account?checkout=success&session_id={CHECKOUT_SESSION_ID}`
+     cancel_url  = `${baseUrl}/account?checkout=cancel`
+   - Do NOT redirect to /premium (currently 404).
+4) Update Profile page:
+   - Remove “Born …” line
+   - Remove “Tokens” line
+   - Remove “Account Settings” section from public profile
+   - Add a simple “Account” button visible ONLY to the owner that links to /account
+5) Security checks:
+   - Ensure Profile API responses used for public viewing do not include sensitive fields OR the UI never renders them unless viewer is owner.
+   - Implement/confirm an “isOwner” check (viewerUserId === profileUserId) and use it to hide owner-only controls.
+
+DELIVERABLE
+- Public Profile shows only safe fields.
+- Private /account page contains all sensitive fields and billing controls.
+- Stripe checkout returns to /account without 404.
