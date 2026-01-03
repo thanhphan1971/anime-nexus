@@ -60,7 +60,8 @@ export default function AccountPage() {
   };
     
 const isAdminGranted = sclassStatus?.accessSource === "admin_grant";
-const isSClass = false; // TEMP: only for testing the 409 guard
+const isSClass = Boolean(user?.isPremium) || Boolean(isAdminGranted);
+
 
 
   const statusBadge = () => {
