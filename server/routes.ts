@@ -5383,7 +5383,7 @@ app.get("/api/stripe/products", async (_req, res) => {
 });
 
 
-  // Create checkout session for S-Class subscription
+// Create checkout session for S-Class subscription
 app.post("/api/stripe/checkout", verifySupabaseToken, async (req, res) => {
   try {
     const user = await storage.getUserBySupabaseId(req.supabaseUser!.id);
@@ -5419,25 +5419,22 @@ app.post("/api/stripe/checkout", verifySupabaseToken, async (req, res) => {
 
     const { stripe } = await import("./stripeClient");
 
-    let customerId = user.stripeCustomerId as string | null;
+    let customerId = user.stripeCustomerId;
 
     // Verify customer exists in Stripe, create new one if not
     if (customerId) {
       try {
         const existingCustomer = await stripe.customers.retrieve(customerId);
         if ((existingCustomer as any).deleted) {
-          console.log(`Stripe customer ${customerId} is deleted, creating new one`);
           customerId = null;
         }
       } catch (e: any) {
         if (e.code === "resource_missing" || e.statusCode === 404) {
-          console.log(`Stripe customer ${customerId} not found, creating new one`);
           customerId = null;
         } else {
-          console.error(`Stripe customer verification failed:`, e.message);
           return res
             .status(500)
-            .json({ error: "Unable to verify billing account. Please try again." });
+            .json({ error: "Unable to verify billing account." });
         }
       }
     }
@@ -5452,10 +5449,22 @@ app.post("/api/stripe/checkout", verifySupabaseToken, async (req, res) => {
       });
       customerId = customer.id;
 
-      // Also clear any stale subscription ID when creating a new customer
       await storage.updateUser(user.id, {
         stripeCustomerId: customerId,
         stripeSubscriptionId: null,
+      });
+    }
+
+    // 🚫 DUPLICATE SUBSCRIPTION GUARD (CRITICAL)
+    const activeSubs = await stripe.subscriptions.list({
+      customer: customerId,
+      status: "active",
+      limit: 1,
+    });
+
+    if (activeSubs.data.length > 0) {
+      return res.status(409).json({
+        error: "You already have an active subscription. Use Manage Billing.",
       });
     }
 
