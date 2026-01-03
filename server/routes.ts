@@ -3273,8 +3273,10 @@ export async function registerRoutes(
           quantity: 1,
         }],
         mode: 'payment',
-        success_url: `${baseUrl}/parent?payment_success=true&request_id=${purchaseRequest.id}&session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${baseUrl}/parent?payment_canceled=true&request_id=${purchaseRequest.id}`,
+        success_url: `${baseUrl}/account?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+
+        cancel_url: `${baseUrl}/account?checkout=cancel`,
+
         metadata: {
           purchaseRequestId: purchaseRequest.id,
           parentId: parent.id,
@@ -5460,7 +5462,6 @@ app.get("/api/stripe/products", async (_req, res) => {
         mode: 'subscription',
         success_url: `${baseUrl}/account?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${baseUrl}/account?checkout=cancel`,
-        
         customer_update: {
           address: 'auto',
         },

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import { User, Mail, Shield, Crown, CreditCard, Calendar, CheckCircle, XCircle, AlertCircle, ExternalLink } from "lucide-react";
+import { User, Mail, Shield, Crown, CreditCard, Calendar, CheckCircle, XCircle, AlertCircle, ExternalLink, ArrowLeft } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -160,6 +160,17 @@ export default function AccountPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6 pb-12">
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => window.history.back()}
+        className="mb-2"
+        data-testid="button-back"
+      >
+        <ArrowLeft className="h-4 w-4 mr-2" />
+        Back
+      </Button>
+      
       <div className="text-center space-y-2">
         <h1 className="text-3xl font-display font-bold neon-text" data-testid="text-account-title">
           My Account
