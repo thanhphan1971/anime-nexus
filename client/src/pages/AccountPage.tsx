@@ -1,6 +1,18 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import { User, Mail, Shield, Crown, CreditCard, Calendar, CheckCircle, XCircle, AlertCircle, ExternalLink, ArrowLeft } from "lucide-react";
+import {
+  User,
+  Mail,
+  Shield,
+  Crown,
+  CreditCard,
+  Calendar,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+  ExternalLink,
+  ArrowLeft,
+} from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +27,7 @@ import { formatInTimeZone } from "date-fns-tz";
 export default function AccountPage() {
   const { user, refreshUser } = useAuth();
   const [, setLocation] = useLocation();
+
   const [accessToken, setAccessToken] = useState<string>("");
   const [isTokenLoading, setIsTokenLoading] = useState(true);
   const [isLoadingPortal, setIsLoadingPortal] = useState(false);
@@ -23,16 +36,15 @@ export default function AccountPage() {
 
   const { data: sclassStatus } = useSClassStatus();
 
+  // 1) Get Supabase access token once (used for protected /api routes)
   useEffect(() => {
     const getToken = async () => {
       try {
         const supabase = await getSupabase();
         const { data } = await supabase.auth.getSession();
-        if (data.session?.access_token) {
-          setAccessToken(data.session.access_token);
-        } else {
-          console.warn("No access token in session");
-        }
+        const token = data.session?.access_token || "";
+        setAccessToken(token);
+        if (!token) console.warn("No access token in session");
       } catch (error) {
         console.error("Failed to get session:", error);
       } finally {
@@ -42,23 +54,47 @@ export default function AccountPage() {
     getToken();
   }, []);
 
+  // 2) Handle Stripe redirect params
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+
     if (params.get("checkout") === "success") {
       setCheckoutStatus("success");
       toast.success("Welcome to S-Class! Your subscription is now active.");
       refreshUser();
       window.history.replaceState({}, "", "/account");
-    } else if (params.get("checkout") === "cancel") {
+      return;
+    }
+
+    if (params.get("checkout") === "cancel") {
       setCheckoutStatus("cancel");
       toast.info("Checkout was canceled. You can try again anytime.");
       window.history.replaceState({}, "", "/account");
     }
   }, [refreshUser]);
 
+  // 3) Sync Stripe -> DB after login so subscription doesn't vanish after logout/login
+  useEffect(() => {
+    const sync = async () => {
+      if (!accessToken) return;
+
+      await fetch("/api/stripe/subscription", {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      // Pull updated DB state into UI
+      await refreshUser();
+    };
+
+    sync().catch((err) => console.error("Failed to sync subscription:", err));
+  }, [accessToken, refreshUser]);
+
   const handleSubscribe = async (plan: "monthly" | "yearly") => {
     console.log("Subscribe clicked:", plan, "accessToken exists:", !!accessToken);
-    
+
     if (!accessToken) {
       toast.error("Please log in again to subscribe");
       return;
@@ -71,9 +107,11 @@ export default function AccountPage() {
 
     setIsLoadingCheckout(plan);
     console.log("Starting checkout request...");
-    
+
     try {
       const response = await fetch("/api/stripe/checkout", {
+        // keep your existing checkout fetch body below this line
+
         method: "POST",
         headers: {
           "Content-Type": "application/json",
