@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import {
-  User,
+  User as UserIcon,
   Mail,
   Shield,
   Crown,
@@ -13,11 +13,19 @@ import {
   ExternalLink,
   ArrowLeft,
 } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+
 import { useAuth } from "@/context/AuthContext";
 import { useSClassStatus } from "@/lib/api";
 import { getSupabase } from "@/lib/supabaseClient";
@@ -30,16 +38,58 @@ export default function AccountPage() {
 
   const [accessToken, setAccessToken] = useState<string>("");
   const [isTokenLoading, setIsTokenLoading] = useState(true);
+
   const [isLoadingPortal, setIsLoadingPortal] = useState(false);
-  const [isLoadingCheckout, setIsLoadingCheckout] = useState<string | null>(null);
+  const [isLoadingCheckout, setIsLoadingCheckout] = useState<"monthly" | "yearly" | null>(null);
+
   const [checkoutStatus, setCheckoutStatus] = useState<"success" | "cancel" | null>(null);
 
   const { data: sclassStatus } = useSClassStatus();
 
-  // ✅ prevents infinite subscription sync loop
+  // Prevent infinite sync loop
   const didSyncRef = useRef(false);
 
-  // 1) Get Supabase access token once (used for protected /api routes)
+  // ---------- helpers ----------
+  const formatDate = (iso?: string | null) => {
+    if (!iso) return "—";
+    try {
+      return formatInTimeZone(new Date(iso), "America/Toronto", "MMM d, yyyy • h:mm a");
+    } catch {
+      return iso;
+    }
+  };
+
+  const isAdminGranted = sclassStatus?.accessSource === "admin_grant";
+  const isSClass = Boolean(user?.isPremium) || Boolean(isAdminGranted);
+
+  const statusBadge = () => {
+    if (isAdminGranted) {
+      return (
+        <Badge className="bg-blue-500/20 text-blue-300 border border-blue-500/30">
+          Admin Granted
+        </Badge>
+      );
+    }
+    if (user?.isPremium) {
+      return (
+        <Badge className="bg-green-500/20 text-green-300 border border-green-500/30">
+          Active
+        </Badge>
+      );
+    }
+    return (
+      <Badge variant="secondary" className="bg-white/10 text-muted-foreground">
+        Free
+      </Badge>
+    );
+  };
+
+  // ---------- 1) redirect if logged out ----------
+  useEffect(() => {
+    if (!user) setLocation("/login");
+  }, [user, setLocation]);
+
+  // ---------- 2) Get Supabase access token ----------
   useEffect(() => {
     const getToken = async () => {
       try {
@@ -47,12 +97,13 @@ export default function AccountPage() {
         const { data } = await supabase.auth.getSession();
         const token = data.session?.access_token || "";
         setAccessToken(token);
-        if (!token) console.warn("No access token in session");
 
-        // allow sync to run once when token becomes available/changes
+        // allow sync once token is available
         didSyncRef.current = false;
-      } catch (error) {
-        console.error("Failed to get session:", error);
+
+        if (!token) console.warn("[AccountPage] No access token in session");
+      } catch (err) {
+        console.error("[AccountPage] Failed to get session:", err);
       } finally {
         setIsTokenLoading(false);
       }
@@ -60,152 +111,143 @@ export default function AccountPage() {
     getToken();
   }, []);
 
-  // 2) Handle Stripe redirect params
+  // ---------- 3) Handle ?checkout=success|cancel ----------
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
+    try {
+      const params = new URLSearchParams(window.location.search);
 
-    if (params.get("checkout") === "success") {
-      setCheckoutStatus("success");
-      toast.success("Welcome to S-Class! Your subscription is now active.");
-      refreshUser();
-      window.history.replaceState({}, "", "/account");
-      return;
-    }
+      if (params.get("checkout") === "success") {
+        setCheckoutStatus("success");
+        toast.success("Subscription activated!");
+        refreshUser();
+        window.history.replaceState({}, "", "/account");
+        return;
+      }
 
-    if (params.get("checkout") === "cancel") {
-      setCheckoutStatus("cancel");
-      toast.info("Checkout was canceled. You can try again anytime.");
-      window.history.replaceState({}, "", "/account");
+      if (params.get("checkout") === "cancel") {
+        setCheckoutStatus("cancel");
+        toast.info("Checkout canceled.");
+        window.history.replaceState({}, "", "/account");
+      }
+    } catch (err) {
+      console.error("[AccountPage] Failed to read checkout params:", err);
     }
   }, [refreshUser]);
 
-  // 3) Sync Stripe -> DB after login (RUN ONCE per token, no infinite loop)
+  // ---------- 4) Sync Stripe -> DB once per token ----------
   useEffect(() => {
     const sync = async () => {
       if (!accessToken) return;
-      if (didSyncRef.current) return; // ✅ stops the spam
+      if (didSyncRef.current) return;
+
       didSyncRef.current = true;
 
-      await fetch("/api/stripe/subscription", {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
+      try {
+        const res = await fetch("/api/stripe/subscription", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+          credentials: "include",
+        });
 
-      // Pull updated DB state into UI
-      await refreshUser();
+        if (!res.ok) {
+          const text = await res.text().catch(() => "");
+          console.warn("[AccountPage] subscription sync failed:", res.status, text);
+          didSyncRef.current = false;
+          return;
+        }
+
+        await refreshUser();
+      } catch (err) {
+        console.error("[AccountPage] Failed to sync subscription:", err);
+        didSyncRef.current = false;
+      }
     };
 
-    sync().catch((err) => {
-      console.error("Failed to sync subscription:", err);
-      // allow retry if it failed
-      didSyncRef.current = false;
-    });
-  }, [accessToken]); // ✅ IMPORTANT: do NOT include refreshUser here
+    sync();
+  }, [accessToken, refreshUser]);
 
+  // ---------- actions ----------
   const handleSubscribe = async (plan: "monthly" | "yearly") => {
-    console.log("Subscribe clicked:", plan, "accessToken exists:", !!accessToken);
-
     if (!accessToken) {
-      toast.error("Please log in again to subscribe");
+      toast.error("Please log in again to subscribe.");
       return;
     }
 
-    if (isLoadingCheckout) {
-      console.log("Already loading, ignoring click");
-      return;
-    }
+    if (isLoadingCheckout) return;
 
     setIsLoadingCheckout(plan);
-    console.log("Starting checkout request...");
 
     try {
-      const response = await fetch("/api/stripe/checkout", {
+      const res = await fetch("/api/stripe/checkout", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${accessToken}`,
         },
+        credentials: "include",
         body: JSON.stringify({ plan }),
       });
 
-      console.log("Checkout response status:", response.status);
-      const data = await response.json();
-      console.log("Checkout response data:", data);
+      const data = await res.json().catch(() => ({} as any));
 
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to create checkout session");
+      if (!res.ok) {
+        throw new Error(data?.error || "Failed to create checkout session");
       }
 
-      if (data.url) {
-        console.log("Redirecting to:", data.url);
-        window.location.href = data.url;
-      } else {
+      if (!data?.url) {
         throw new Error("No checkout URL returned");
       }
-    } catch (error: any) {
-      console.error("Checkout error:", error);
-      toast.error(error.message || "Failed to start checkout");
+
+      window.location.href = data.url;
+    } catch (err: any) {
+      console.error("[AccountPage] checkout error:", err);
+      toast.error(err?.message || "Checkout failed");
+    } finally {
       setIsLoadingCheckout(null);
     }
   };
 
   const handleManageBilling = async () => {
     if (!accessToken) {
-      toast.error("Please log in again");
+      toast.error("Please log in again to manage billing.");
       return;
     }
 
+    if (isLoadingPortal) return;
+
     setIsLoadingPortal(true);
+
     try {
-      const response = await fetch("/api/stripe/portal", {
+      const res = await fetch("/api/stripe/portal", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
           Authorization: `Bearer ${accessToken}`,
         },
+        credentials: "include",
       });
 
+      const data = await res.json().catch(() => ({} as any));
 
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to open billing portal");
+      if (!res.ok) {
+        throw new Error(data?.error || "Portal failed");
       }
 
-      if (data.url) {
-        window.location.href = data.url;
+      if (!data?.url) {
+        throw new Error("Billing portal did not return a URL");
       }
-    } catch (error: any) {
-      toast.error(error.message || "Failed to open billing portal");
+
+      window.location.href = data.url;
+    } catch (err: any) {
+      console.error("[AccountPage] portal error:", err);
+      toast.error(err?.message || "Failed to open billing portal");
     } finally {
       setIsLoadingPortal(false);
     }
   };
 
-  useEffect(() => {
-    if (!user) {
-      setLocation("/login");
-    }
-  }, [user, setLocation]);
-
-  if (!user) {
-    return null;
-  }
-
-  const isAdminGranted = sclassStatus?.accessSource === "admin_grant";
-  const isSClass = user.isPremium || isAdminGranted;
-  const subscriptionStatus = user.subscriptionStatus || "none";
-  const isCanceledPendingExpiry = subscriptionStatus === "canceled_pending_expiry";
-
-  const formatDate = (date: string | Date | null | undefined) => {
-    if (!date) return "N/A";
-    try {
-      return formatInTimeZone(new Date(date), "America/Toronto", "MMM d, yyyy");
-    } catch {
-      return "N/A";
-    }
-  };
+  if (!user) return null;
 
   return (
     <div className="max-w-2xl mx-auto space-y-6 pb-12">
@@ -219,70 +261,53 @@ export default function AccountPage() {
         <ArrowLeft className="h-4 w-4 mr-2" />
         Back
       </Button>
-      
+
       <div className="text-center space-y-2">
         <h1 className="text-3xl font-display font-bold neon-text" data-testid="text-account-title">
           My Account
         </h1>
-        <p className="text-muted-foreground">Private account settings and billing</p>
+        <p className="text-muted-foreground" data-testid="text-account-subtitle">
+          Private account settings and billing
+        </p>
       </div>
 
       {checkoutStatus === "success" && (
         <Alert className="border-green-500/50 bg-green-500/10">
           <CheckCircle className="h-4 w-4 text-green-500" />
-          <AlertTitle>Subscription Activated!</AlertTitle>
-          <AlertDescription>
-            Welcome to S-Class! Your premium benefits are now active.
+          <AlertDescription className="text-sm">
+            Subscription activated successfully.
           </AlertDescription>
         </Alert>
       )}
 
       {checkoutStatus === "cancel" && (
         <Alert className="border-yellow-500/50 bg-yellow-500/10">
-          <XCircle className="h-4 w-4 text-yellow-500" />
-          <AlertTitle>Checkout Canceled</AlertTitle>
-          <AlertDescription>
-            No worries! You can subscribe anytime when you're ready.
+          <AlertCircle className="h-4 w-4 text-yellow-500" />
+          <AlertDescription className="text-sm">
+            Checkout was canceled. You can try again anytime.
           </AlertDescription>
         </Alert>
       )}
 
       <Card className="bg-card/50 border-white/10">
-        <CardHeader className="flex flex-row items-center gap-4">
-          <div className="h-16 w-16 rounded-full overflow-hidden border-2 border-primary/50">
-            <img
-              src={user.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`}
-              alt={user.name || user.username}
-              className="h-full w-full object-cover"
-              data-testid="img-account-avatar"
-            />
-          </div>
-          <div className="flex-1">
-            <CardTitle className="flex items-center gap-2" data-testid="text-account-name">
-              {user.name || user.username}
-              {isSClass && (
-                <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/50">
-                  <Crown className="h-3 w-3 mr-1" />
-                  S-Class
-                </Badge>
-              )}
-            </CardTitle>
-            <CardDescription data-testid="text-account-handle">
-              @{user.handle?.replace("@", "") || user.username}
-            </CardDescription>
-          </div>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <UserIcon className="h-5 w-5" />
+            Profile
+          </CardTitle>
+          <CardDescription data-testid="text-account-handle">
+            @{String(user.handle || user.username || "").replace("@", "")}
+          </CardDescription>
         </CardHeader>
       </Card>
 
       <Card className="bg-card/50 border-white/10">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
-            <User className="h-5 w-5" />
+            <Shield className="h-5 w-5" />
             Private Information
           </CardTitle>
-          <CardDescription>
-            This information is only visible to you
-          </CardDescription>
+          <CardDescription>This information is only visible to you</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-3">
@@ -299,7 +324,7 @@ export default function AccountPage() {
             {user.parentEmail && (
               <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
                 <div className="flex items-center gap-2">
-                  <Shield className="h-4 w-4 text-muted-foreground" />
+                  <Mail className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm text-muted-foreground">Parent Email</span>
                 </div>
                 <span className="text-sm font-medium" data-testid="text-account-parent-email">
@@ -308,28 +333,15 @@ export default function AccountPage() {
               </div>
             )}
 
-            <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-              <div className="flex items-center gap-2">
-                <Shield className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Age Group</span>
-              </div>
-              <Badge variant="outline" data-testid="text-account-age-band">
-                {user.ageBand || (user.isMinor ? "Minor" : "Adult")}
-              </Badge>
-            </div>
-
-            {user.isMinor && (
+            {user.ageGroup && (
               <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
                 <div className="flex items-center gap-2">
-                  <Shield className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">Parental Consent</span>
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">Age Group</span>
                 </div>
-                <Badge 
-                  variant={user.parentalConsentGiven ? "default" : "secondary"}
-                  data-testid="text-account-consent"
-                >
-                  {user.parentalConsentGiven ? "Given" : "Pending"}
-                </Badge>
+                <span className="text-sm font-medium" data-testid="text-account-age-group">
+                  {user.ageGroup}
+                </span>
               </div>
             )}
           </div>
@@ -342,10 +354,9 @@ export default function AccountPage() {
             <Crown className="h-5 w-5 text-yellow-400" />
             Subscription
           </CardTitle>
-          <CardDescription>
-            Manage your S-Class membership
-          </CardDescription>
+          <CardDescription>Manage your S-Class membership</CardDescription>
         </CardHeader>
+
         <CardContent className="space-y-4">
           <div className="grid gap-3">
             <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
@@ -353,43 +364,24 @@ export default function AccountPage() {
                 <CreditCard className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm text-muted-foreground">Status</span>
               </div>
-              <Badge 
-                variant={isSClass ? "default" : "secondary"}
-                className={isSClass ? "bg-yellow-500/20 text-yellow-400 border-yellow-500/50" : ""}
-                data-testid="text-account-sub-status"
-              >
-                {isAdminGranted 
-                  ? "Granted Access" 
-                  : isCanceledPendingExpiry 
-                    ? "Canceled (Active until end)" 
-                    : subscriptionStatus === "active" 
-                      ? "Active" 
-                      : "Free"}
-              </Badge>
+              <div className="flex items-center gap-2">
+                {statusBadge()}
+                {user?.isPremium ? (
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                ) : (
+                  <XCircle className="h-4 w-4 text-muted-foreground" />
+                )}
+              </div>
             </div>
 
-            {isSClass && user.subscriptionPlan && !isAdminGranted && (
+            {user?.subscriptionType && (
               <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
                 <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <CreditCard className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm text-muted-foreground">Plan</span>
                 </div>
-                <span className="text-sm font-medium capitalize" data-testid="text-account-plan">
-                  {user.subscriptionPlan}
-                </span>
-              </div>
-            )}
-
-            {user.premiumEndDate && (
-              <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">
-                    {isCanceledPendingExpiry ? "Access Until" : "Next Billing"}
-                  </span>
-                </div>
-                <span className="text-sm font-medium" data-testid="text-account-end-date">
-                  {formatDate(user.premiumEndDate)}
+                <span className="text-sm font-medium" data-testid="text-account-plan">
+                  {user.subscriptionType}
                 </span>
               </div>
             )}
@@ -409,77 +401,112 @@ export default function AccountPage() {
 
           <Separator className="bg-white/10" />
 
-{!isSClass && !user.isAdmin && (
-  <div className="space-y-3">
-    <p className="text-sm text-muted-foreground text-center">
-      Upgrade to S-Class for premium benefits
-    </p>
+          {!isSClass && !user.isAdmin && (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground text-center">
+                Upgrade to S-Class for premium benefits
+              </p>
 
-    {/* TEMP DEBUG: shows if button is being disabled */}
-    {(isTokenLoading || isLoadingCheckout !== null) && (
-      <p className="text-xs text-yellow-400 text-center">
-        Button disabled because{" "}
-        {isTokenLoading ? "isTokenLoading=true" : ""}{" "}
-        {isLoadingCheckout !== null ? `isLoadingCheckout=${isLoadingCheckout}` : ""}
-      </p>
-    )}
+              <div className="grid grid-cols-2 gap-3">
+                <Button
+                  onClick={() => handleSubscribe("monthly")}
+                  disabled={isLoadingCheckout !== null || isTokenLoading}
+                  className="bg-primary hover:bg-primary/80"
+                  data-testid="button-subscribe-monthly"
+                >
+                  {isTokenLoading ? (
+                    "Loading..."
+                  ) : isLoadingCheckout === "monthly" ? (
+                    "Redirecting..."
+                  ) : (
+                    <>Monthly $9.99</>
+                  )}
+                </Button>
 
-    <div className="grid grid-cols-2 gap-3">
-      <Button
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          alert("CLICK monthly");
+                <Button
+                  onClick={() => handleSubscribe("yearly")}
+                  disabled={isLoadingCheckout !== null || isTokenLoading}
+                  variant="outline"
+                  className="border-yellow-500/50 text-yellow-400 hover:bg-yellow-500/10"
+                  data-testid="button-subscribe-yearly"
+                >
+                  {isTokenLoading ? (
+                    "Loading..."
+                  ) : isLoadingCheckout === "yearly" ? (
+                   "Redirecting..."
+                  ) : (
+                    <>Yearly $79.99</>
+                  )}
+                </Button>
+              </div>
 
-          // If this next line never triggers a redirect, the bug is inside handleSubscribe
-          handleSubscribe("monthly");
-        }}
-        disabled={isLoadingCheckout !== null || isTokenLoading}
-        className="bg-primary hover:bg-primary/80"
-        data-testid="button-subscribe-monthly"
-      >
-        {isTokenLoading ? (
-          "Loading..."
-        ) : isLoadingCheckout === "monthly" ? (
-          "Redirecting..."
-        ) : (
-          <>Monthly $9.99</>
-        )}
-      </Button>
-
-      <Button
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          alert("CLICK yearly");
-          handleSubscribe("yearly");
-        }}
-        disabled={isLoadingCheckout !== null || isTokenLoading}
-        variant="outline"
-        className="border-yellow-500/50 text-yellow-400 hover:bg-yellow-500/10"
-        data-testid="button-subscribe-yearly"
-      >
-        {isTokenLoading ? (
-          "Loading..."
-        ) : isLoadingCheckout === "yearly" ? (
-          "Redirecting..."
-        ) : (
-          <>Yearly $79.99</>
-        )}
-      </Button>
-    </div>
-
-    <p className="text-xs text-muted-foreground text-center">
-      Save ~33% with yearly billing
-    </p>
-  </div>
-)}
+              <p className="text-xs text-muted-foreground text-center">
+                Save ~33% with yearly billing
+              </p>
+            </div>
+          )}
 
           {isSClass && !isAdminGranted && user.stripeCustomerId && (
             <Button
-              onClick={handleManageBilling}
+              onClick={async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+
+                alert("MANAGE BILLING CLICKED");
+
+                try {
+                  // If token is missing, you'll see it immediately
+                  if (!accessToken) {
+                    alert("NO ACCESS TOKEN (Supabase session missing)");
+                    toast.error("Please log in again to manage billing.");
+                    return;
+                  }
+
+                  if (isLoadingPortal) {
+                    alert("ALREADY OPENING (isLoadingPortal=true)");
+                    return;
+                  }
+
+                  setIsLoadingPortal(true);
+
+                  const res = await fetch("/api/stripe/portal", {
+                    method: "POST",
+                    headers: {
+                      Authorization: `Bearer ${accessToken}`,
+                    },
+                    credentials: "include",
+                  });
+
+                  const raw = await res.text();
+                  let data: any = {};
+                  try {
+                    data = JSON.parse(raw);
+                  } catch {
+                    // keep raw text for debugging
+                  }
+
+                  if (!res.ok) {
+                    alert(`PORTAL ERROR ${res.status}: ${raw || "no body"}`);
+                    toast.error(data?.error || raw || "Failed to open billing portal");
+                    return;
+                  }
+
+                  if (!data?.url) {
+                    alert(`NO URL RETURNED: ${raw || "empty"}`);
+                    toast.error("Billing portal did not return a URL.");
+                    return;
+                  }
+
+                  window.location.href = data.url;
+                } catch (err: any) {
+                  console.error("[AccountPage] portal error:", err);
+                  alert(`PORTAL JS ERROR: ${err?.message || String(err)}`);
+                  toast.error(err?.message || "Failed to open billing portal");
+                } finally {
+                  setIsLoadingPortal(false);
+                }
+              }}
               disabled={isLoadingPortal}
-              variant="outline"
               className="w-full"
               data-testid="button-manage-billing"
             >
@@ -507,3 +534,4 @@ export default function AccountPage() {
     </div>
   );
 }
+

@@ -5384,107 +5384,173 @@ app.get("/api/stripe/products", async (_req, res) => {
 
 
   // Create checkout session for S-Class subscription
-  app.post("/api/stripe/checkout", verifySupabaseToken, async (req, res) => {
-    try {
-      const user = await storage.getUserBySupabaseId(req.supabaseUser!.id);
-      if (!user) {
-        return res.status(401).json({ error: "User not found" });
-      }
+app.post("/api/stripe/checkout", verifySupabaseToken, async (req, res) => {
+  try {
+    const user = await storage.getUserBySupabaseId(req.supabaseUser!.id);
+    if (!user) {
+      return res.status(401).json({ error: "User not found" });
+    }
 
-      // Block checkout for users with active admin-granted access
-      if (user.accessSource === 'admin_grant' && user.accessExpiresAt) {
-        const expiresAt = new Date(user.accessExpiresAt);
-        if (expiresAt > new Date()) {
-          return res.status(403).json({ 
-            error: "You have complimentary S-Class access until " + expiresAt.toLocaleDateString() + ". You can subscribe after this access ends." 
-          });
-        }
-      }
-
-      const { priceId, plan } = req.body;
-      
-      // Map plan names to Stripe price IDs
-      const PRICE_IDS: Record<string, string> = {
-        monthly: "price_1SkuHDRdxAAD3924utTKVVEA",
-        yearly: "price_1SlFUbRdxAAD392445O8ScqK",
-      };
-      
-      const selectedPriceId = priceId || (plan ? PRICE_IDS[plan] : null);
-      if (!selectedPriceId) {
-        return res.status(400).json({ error: "Plan or price ID required" });
-      }
-
-      const { stripe } = await import("./stripeClient");
-
-      let customerId = user.stripeCustomerId;
-      
-      // Verify customer exists in Stripe, create new one if not
-      if (customerId) {
-        try {
-          const existingCustomer = await stripe.customers.retrieve(customerId);
-          if ((existingCustomer as any).deleted) {
-            console.log(`Stripe customer ${customerId} is deleted, creating new one`);
-            customerId = null;
-          }
-        } catch (e: any) {
-          if (e.code === 'resource_missing' || e.statusCode === 404) {
-            console.log(`Stripe customer ${customerId} not found, creating new one`);
-            customerId = null;
-          } else {
-            console.error(`Stripe customer verification failed:`, e.message);
-            return res.status(500).json({ error: "Unable to verify billing account. Please try again." });
-          }
-        }
-      }
-      
-      if (!customerId) {
-        const customer = await stripe.customers.create({
-          email: user.email,
-          metadata: { 
-            userId: user.id,
-            username: user.username || '',
-          },
-        });
-        customerId = customer.id;
-        // Also clear any stale subscription ID when creating a new customer
-        await storage.updateUser(user.id, { 
-          stripeCustomerId: customerId,
-          stripeSubscriptionId: null,
+    // Block checkout for users with active admin-granted access
+    if (user.accessSource === "admin_grant" && user.accessExpiresAt) {
+      const expiresAt = new Date(user.accessExpiresAt);
+      if (expiresAt > new Date()) {
+        return res.status(403).json({
+          error:
+            "You have complimentary S-Class access until " +
+            expiresAt.toLocaleDateString() +
+            ". You can subscribe after this access ends.",
         });
       }
+    }
 
-      const baseUrl = `https://${process.env.REPLIT_DOMAINS?.split(',')[0]}`;
+    const { priceId, plan } = req.body;
 
-const session = await stripe.checkout.sessions.create({
-  customer: customerId,
-  payment_method_types: ['card'],
-  line_items: [{ price: selectedPriceId, quantity: 1 }],
-  mode: 'subscription',
-  success_url: `${baseUrl}/account?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
-  cancel_url: `${baseUrl}/account?checkout=cancel`,
+    // Map plan names to Stripe price IDs
+    const PRICE_IDS: Record<string, string> = {
+      monthly: "price_1SkuHDRdxAAD3924utTKVVEA",
+      yearly: "price_1SlFUbRdxAAD392445O8ScqK",
+    };
 
-  metadata: {
-    userId: user.id,
-    plan: plan || "",
-  },
+    const selectedPriceId = priceId || (plan ? PRICE_IDS[plan] : null);
+    if (!selectedPriceId) {
+      return res.status(400).json({ error: "Plan or price ID required" });
+    }
 
-  customer_update: {
-    address: 'auto',
-  },
+    const { stripe } = await import("./stripeClient");
 
-  billing_address_collection: 'required',
+    let customerId = user.stripeCustomerId as string | null;
+
+    // Verify customer exists in Stripe, create new one if not
+    if (customerId) {
+      try {
+        const existingCustomer = await stripe.customers.retrieve(customerId);
+        if ((existingCustomer as any).deleted) {
+          console.log(`Stripe customer ${customerId} is deleted, creating new one`);
+          customerId = null;
+        }
+      } catch (e: any) {
+        if (e.code === "resource_missing" || e.statusCode === 404) {
+          console.log(`Stripe customer ${customerId} not found, creating new one`);
+          customerId = null;
+        } else {
+          console.error(`Stripe customer verification failed:`, e.message);
+          return res
+            .status(500)
+            .json({ error: "Unable to verify billing account. Please try again." });
+        }
+      }
+    }
+
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: user.email,
+        metadata: {
+          userId: user.id,
+          username: user.username || "",
+        },
+      });
+      customerId = customer.id;
+
+      // Also clear any stale subscription ID when creating a new customer
+      await storage.updateUser(user.id, {
+        stripeCustomerId: customerId,
+        stripeSubscriptionId: null,
+      });
+    }
+
+    // Build base URL safely (Replit + local dev)
+    const baseUrl =
+      process.env.APP_BASE_URL ||
+      (process.env.REPLIT_DOMAINS
+        ? `https://${process.env.REPLIT_DOMAINS.split(",")[0]}`
+        : `${req.protocol}://${req.get("host")}`);
+
+    const session = await stripe.checkout.sessions.create({
+      customer: customerId,
+      payment_method_types: ["card"],
+      line_items: [{ price: selectedPriceId, quantity: 1 }],
+      mode: "subscription",
+      success_url: `${baseUrl}/account?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${baseUrl}/account?checkout=cancel`,
+      metadata: {
+        userId: user.id,
+        plan: plan || "",
+      },
+      customer_update: {
+        address: "auto",
+      },
+      billing_address_collection: "required",
+    });
+
+    return res.json({ url: session.url, sessionId: session.id });
+  } catch (error: any) {
+    console.error("Checkout error:", error);
+    return res.status(500).json({
+      error: error.message || "Failed to create checkout session",
+    });
+  }
 });
 
+// ✅ NEW: Create billing portal session (Manage Billing)
+app.post("/api/stripe/portal", verifySupabaseToken, async (req, res) => {
+  try {
+    const user = await storage.getUserBySupabaseId(req.supabaseUser!.id);
+    if (!user) return res.status(401).json({ error: "User not found" });
 
-      res.json({ url: session.url, sessionId: session.id });
-    } catch (error: any) {
-      console.error("Checkout error:", error);
-      res.status(500).json({ error: error.message || "Failed to create checkout session" });
+    const { stripe } = await import("./stripeClient");
+
+    let customerId = user.stripeCustomerId as string | null;
+
+    // If customer missing or invalid, create one so portal can open
+    if (customerId) {
+      try {
+        const existingCustomer = await stripe.customers.retrieve(customerId);
+        if ((existingCustomer as any).deleted) customerId = null;
+      } catch (e: any) {
+        if (e.code === "resource_missing" || e.statusCode === 404) customerId = null;
+        else throw e;
+      }
     }
-  });
 
-  
-app.get("/api/stripe/subscription", verifySupabaseToken, async (req, res) => {
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: user.email,
+        metadata: {
+          userId: user.id,
+          username: user.username || "",
+        },
+      });
+      customerId = customer.id;
+
+      await storage.updateUser(user.id, {
+        stripeCustomerId: customerId,
+        stripeSubscriptionId: null,
+      });
+    }
+
+    const baseUrl =
+      process.env.APP_BASE_URL ||
+      (process.env.REPLIT_DOMAINS
+        ? `https://${process.env.REPLIT_DOMAINS.split(",")[0]}`
+        : `${req.protocol}://${req.get("host")}`);
+
+    const portalSession = await stripe.billingPortal.sessions.create({
+      customer: customerId,
+      return_url: `${baseUrl}/account`,
+    });
+
+    return res.json({ url: portalSession.url });
+  } catch (error: any) {
+    console.error("Portal error:", error);
+    return res.status(500).json({
+      error: error.message || "Failed to create billing portal session",
+    });
+  }
+});
+
+// Subscription sync handler (supports BOTH GET and POST)
+const stripeSubscriptionSyncHandler = async (req: any, res: any) => {
   try {
     const user = await storage.getUserBySupabaseId(req.supabaseUser!.id);
     if (!user) return res.status(401).json({ error: "User not found" });
@@ -5503,29 +5569,28 @@ app.get("/api/stripe/subscription", verifySupabaseToken, async (req, res) => {
       return res.json({ isPremium: false, subscriptionStatus: "free" });
     }
 
-    // Pull subscriptions for this customer (most recent first)
+    // Pull active subscriptions for this customer (most recent first)
     const subs = await stripe.subscriptions.list({
-  customer: user.stripeCustomerId,
-  status: "active",
-  limit: 1,
-});
+      customer: user.stripeCustomerId,
+      status: "active",
+      limit: 1,
+    });
 
-const activeSub = subs.data[0] || null;
-
-
-
+    const activeSub = subs.data[0] || null;
 
     const isPremium = !!activeSub;
     const subscriptionStatus = activeSub ? activeSub.status : "free";
 
-    // Optional: detect monthly vs yearly from price/plan interval
+    // detect monthly vs yearly from price interval
     let subscriptionType: string | null = null;
     let premiumEndDate: string | null = null;
 
     if (activeSub) {
       const item = activeSub.items.data[0];
       const interval = item?.price?.recurring?.interval; // "month" | "year"
-      subscriptionType = interval === "year" ? "yearly" : interval === "month" ? "monthly" : null;
+      subscriptionType =
+        interval === "year" ? "yearly" : interval === "month" ? "monthly" : null;
+
       premiumEndDate = activeSub.current_period_end
         ? new Date(activeSub.current_period_end * 1000).toISOString()
         : null;
@@ -5550,7 +5615,10 @@ const activeSub = subs.data[0] || null;
     console.error("Subscription sync error:", error);
     return res.status(500).json({ error: "Failed to sync subscription" });
   }
-});
+};
+
+  app.get("/api/stripe/subscription", verifySupabaseToken, stripeSubscriptionSyncHandler);
+  app.post("/api/stripe/subscription", verifySupabaseToken, stripeSubscriptionSyncHandler);
 
   return httpServer;
 }
