@@ -5455,22 +5455,26 @@ app.get("/api/stripe/products", async (_req, res) => {
 
       const baseUrl = `https://${process.env.REPLIT_DOMAINS?.split(',')[0]}`;
 
-      const session = await stripe.checkout.sessions.create({
-        customer: customerId,
-        payment_method_types: ['card'],
-        line_items: [{ price: selectedPriceId, quantity: 1 }],
-        mode: 'subscription',
-        success_url: `${baseUrl}/account?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${baseUrl}/account?checkout=cancel`,
-        metadata: {
-          userId: user.id,
-          plan: plan || "",
-        },
-        customer_update: {
-          address: 'auto',
-        },
-        billing_address_collection: 'required',
-      });
+const session = await stripe.checkout.sessions.create({
+  customer: customerId,
+  payment_method_types: ['card'],
+  line_items: [{ price: selectedPriceId, quantity: 1 }],
+  mode: 'subscription',
+  success_url: `${baseUrl}/account?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+  cancel_url: `${baseUrl}/account?checkout=cancel`,
+
+  metadata: {
+    userId: user.id,
+    plan: plan || "",
+  },
+
+  customer_update: {
+    address: 'auto',
+  },
+
+  billing_address_collection: 'required',
+});
+
 
       res.json({ url: session.url, sessionId: session.id });
     } catch (error: any) {
@@ -5479,57 +5483,74 @@ app.get("/api/stripe/products", async (_req, res) => {
     }
   });
 
-  // Get user's subscription status from Stripe
-  app.get("/api/stripe/subscription", verifySupabaseToken, async (req, res) => {
-    try {
-      const user = await storage.getUserBySupabaseId(req.supabaseUser!.id);
-      if (!user) {
-        return res.status(401).json({ error: "User not found" });
-      }
+  
+app.get("/api/stripe/subscription", verifySupabaseToken, async (req, res) => {
+  try {
+    const user = await storage.getUserBySupabaseId(req.supabaseUser!.id);
+    if (!user) return res.status(401).json({ error: "User not found" });
 
-      if (!user.stripeSubscriptionId) {
-        return res.json({ subscription: null });
-      }
+    const { stripe } = await import("./stripeClient");
 
-      const result = await db.execute(sql`
-        SELECT * FROM stripe.subscriptions WHERE id = ${user.stripeSubscriptionId}
-      `);
-      
-      const subscription = result.rows[0] || null;
-      res.json({ subscription });
-    } catch (error: any) {
-      console.error("Error fetching subscription:", error);
-      res.status(500).json({ error: "Failed to fetch subscription" });
-    }
-  });
-
-  // Create customer portal session
-  app.post("/api/stripe/portal", verifySupabaseToken, async (req, res) => {
-    try {
-      const user = await storage.getUserBySupabaseId(req.supabaseUser!.id);
-      if (!user) {
-        return res.status(401).json({ error: "User not found" });
-      }
-
-      if (!user.stripeCustomerId) {
-        return res.status(400).json({ error: "No billing account found" });
-      }
-
-      const { stripe } = await import("./stripeClient");
-
-      const baseUrl = `https://${process.env.REPLIT_DOMAINS?.split(',')[0]}`;
-      
-      const session = await stripe.billingPortal.sessions.create({
-        customer: user.stripeCustomerId,
-        return_url: `${baseUrl}/account`,
+    // If we don't even have a Stripe customer yet, user is not premium
+    if (!user.stripeCustomerId) {
+      await storage.updateUser(user.id, {
+        isPremium: false,
+        subscriptionStatus: "free",
+        stripeSubscriptionId: null,
+        premiumEndDate: null,
+        subscriptionType: null,
       });
-
-      res.json({ url: session.url });
-    } catch (error: any) {
-      console.error("Portal error:", error);
-      res.status(500).json({ error: "Failed to create portal session" });
+      return res.json({ isPremium: false, subscriptionStatus: "free" });
     }
-  });
+
+    // Pull subscriptions for this customer (most recent first)
+    const subs = await stripe.subscriptions.list({
+  customer: user.stripeCustomerId,
+  status: "active",
+  limit: 1,
+});
+
+const activeSub = subs.data[0] || null;
+
+
+
+
+    const isPremium = !!activeSub;
+    const subscriptionStatus = activeSub ? activeSub.status : "free";
+
+    // Optional: detect monthly vs yearly from price/plan interval
+    let subscriptionType: string | null = null;
+    let premiumEndDate: string | null = null;
+
+    if (activeSub) {
+      const item = activeSub.items.data[0];
+      const interval = item?.price?.recurring?.interval; // "month" | "year"
+      subscriptionType = interval === "year" ? "yearly" : interval === "month" ? "monthly" : null;
+      premiumEndDate = activeSub.current_period_end
+        ? new Date(activeSub.current_period_end * 1000).toISOString()
+        : null;
+    }
+
+    await storage.updateUser(user.id, {
+      isPremium,
+      subscriptionStatus,
+      stripeSubscriptionId: activeSub?.id || null,
+      premiumEndDate,
+      subscriptionType,
+    });
+
+    return res.json({
+      isPremium,
+      subscriptionStatus,
+      stripeSubscriptionId: activeSub?.id || null,
+      premiumEndDate,
+      subscriptionType,
+    });
+  } catch (error: any) {
+    console.error("Subscription sync error:", error);
+    return res.status(500).json({ error: "Failed to sync subscription" });
+  }
+});
 
   return httpServer;
 }
