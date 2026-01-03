@@ -5454,7 +5454,7 @@ app.get("/api/stripe/products", async (_req, res) => {
       }
 
       const baseUrl = `https://${process.env.REPLIT_DOMAINS?.split(',')[0]}`;
-      
+
       const session = await stripe.checkout.sessions.create({
         customer: customerId,
         payment_method_types: ['card'],
@@ -5462,13 +5462,14 @@ app.get("/api/stripe/products", async (_req, res) => {
         mode: 'subscription',
         success_url: `${baseUrl}/account?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${baseUrl}/account?checkout=cancel`,
+        metadata: {
+          userId: user.id,
+          plan: plan || "",
+        },
         customer_update: {
           address: 'auto',
         },
-        billing_address_collection: 'auto',
-        metadata: {
-          userId: user.id,
-        },
+        billing_address_collection: 'required',
       });
 
       res.json({ url: session.url, sessionId: session.id });
