@@ -103,6 +103,7 @@ export interface IStorage {
   getUserByHandle(handle: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   getUserBySupabaseId(supabaseUserId: string): Promise<User | undefined>;
+  getUserByStripeSubscriptionId(subscriptionId: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   createUserWithId(id: string, user: InsertUser): Promise<User>;
   updateUser(id: string, updates: Partial<User>): Promise<User | undefined>;
@@ -359,6 +360,11 @@ export class DbStorage implements IStorage {
 
   async getUserBySupabaseId(supabaseUserId: string): Promise<User | undefined> {
     const result = await db.select().from(users).where(eq(users.supabaseUserId, supabaseUserId)).limit(1);
+    return result[0];
+  }
+
+  async getUserByStripeSubscriptionId(subscriptionId: string): Promise<User | undefined> {
+    const result = await db.select().from(users).where(eq(users.stripeSubscriptionId, subscriptionId)).limit(1);
     return result[0];
   }
 

@@ -5416,6 +5416,25 @@ app.get("/api/stripe/products", async (_req, res) => {
 
       let customerId = user.stripeCustomerId;
       
+      // Verify customer exists in Stripe, create new one if not
+      if (customerId) {
+        try {
+          const existingCustomer = await stripe.customers.retrieve(customerId);
+          if ((existingCustomer as any).deleted) {
+            console.log(`Stripe customer ${customerId} is deleted, creating new one`);
+            customerId = null;
+          }
+        } catch (e: any) {
+          if (e.code === 'resource_missing' || e.statusCode === 404) {
+            console.log(`Stripe customer ${customerId} not found, creating new one`);
+            customerId = null;
+          } else {
+            console.error(`Stripe customer verification failed:`, e.message);
+            return res.status(500).json({ error: "Unable to verify billing account. Please try again." });
+          }
+        }
+      }
+      
       if (!customerId) {
         const customer = await stripe.customers.create({
           email: user.email,
@@ -5425,7 +5444,11 @@ app.get("/api/stripe/products", async (_req, res) => {
           },
         });
         customerId = customer.id;
-        await storage.updateUser(user.id, { stripeCustomerId: customerId });
+        // Also clear any stale subscription ID when creating a new customer
+        await storage.updateUser(user.id, { 
+          stripeCustomerId: customerId,
+          stripeSubscriptionId: null,
+        });
       }
 
       const baseUrl = `https://${process.env.REPLIT_DOMAINS?.split(',')[0]}`;

@@ -53,10 +53,10 @@ export default function PremiumPage() {
     if (params.get('success') === 'true') {
       toast.success("Welcome to S-Class! Your subscription is now active.");
       refreshUser();
-      window.history.replaceState({}, '', '/premium');
+      window.history.replaceState({}, '', '/account');
     } else if (params.get('canceled') === 'true') {
       toast.info("Checkout was canceled. You can try again anytime.");
-      window.history.replaceState({}, '', '/premium');
+      window.history.replaceState({}, '', '/account');
     }
   }, [refreshUser]);
   

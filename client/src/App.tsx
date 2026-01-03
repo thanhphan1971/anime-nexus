@@ -91,7 +91,7 @@ function Router() {
         <Route path="/cards" component={CardsPage} />
         <Route path="/cards/catalog" component={CardCatalogPage} />
         <Route path="/draws" component={DrawsPage} />
-        <Route path="/sclass" component={PremiumPage} />
+        <Route path="/sclass">{() => { window.location.href = "/account"; return null; }}</Route>
         <Route path="/benefits" component={BenefitsPage} />
         <Route path="/create" component={CreatePostPage} />
         <Route path="/help" component={HelpPage} />
@@ -108,7 +108,7 @@ function Router() {
         {/* Legacy routes redirecting or redundant */}
         <Route path="/gacha" component={CardsPage} />
         <Route path="/market" component={CardsPage} />
-        <Route path="/premium" component={PremiumPage} />
+        <Route path="/premium">{() => { window.location.href = "/account"; return null; }}</Route>
         
         <Route component={NotFound} />
       </Switch>

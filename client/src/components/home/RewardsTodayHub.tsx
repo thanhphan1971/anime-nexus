@@ -189,7 +189,7 @@ export function RewardsTodayHub() {
                   size="sm" 
                   variant="link" 
                   className="text-yellow-400 p-0 h-auto text-xs"
-                  onClick={() => setLocation("/premium")}
+                  onClick={() => setLocation("/account")}
                 >
                   Upgrade
                 </Button>
