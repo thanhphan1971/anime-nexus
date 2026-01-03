@@ -197,7 +197,7 @@ export default function AccountPage() {
       }
 
       if (!data?.url) {
-        throw new Error("No checkout URL returned");
+         throw new Error("No checkout URL returned");
       }
 
       window.location.href = data.url;
@@ -210,35 +210,47 @@ export default function AccountPage() {
   };
 
   const handleManageBilling = async () => {
-    if (!accessToken) {
-      toast.error("Please log in again to manage billing.");
-      return;
-    }
-
     if (isLoadingPortal) return;
 
     setIsLoadingPortal(true);
 
     try {
+      // Always pull a fresh token at click time (prevents stale/empty token 401)
+      const supabase = await getSupabase();
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+
+      if (!token) {
+        toast.error("Session expired. Please log in again.");
+        return;
+      }
+
       const res = await fetch("/api/stripe/portal", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${accessToken}`,
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
         credentials: "include",
       });
 
-      const data = await res.json().catch(() => ({} as any));
+      const raw = await res.text();
+      let json: any = {};
+      try {
+        json = JSON.parse(raw);
+      } catch {
+        // keep raw
+      }
 
       if (!res.ok) {
-        throw new Error(data?.error || "Portal failed");
+        throw new Error(json?.error || raw || `Portal failed (${res.status})`);
       }
 
-      if (!data?.url) {
-        throw new Error("Billing portal did not return a URL");
+      if (!json?.url) {
+        throw new Error("Portal did not return a URL");
       }
 
-      window.location.href = data.url;
+      window.location.href = json.url;
     } catch (err: any) {
       console.error("[AccountPage] portal error:", err);
       toast.error(err?.message || "Failed to open billing portal");
