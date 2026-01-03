@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import {
   User,
@@ -36,6 +36,9 @@ export default function AccountPage() {
 
   const { data: sclassStatus } = useSClassStatus();
 
+  // ✅ prevents infinite subscription sync loop
+  const didSyncRef = useRef(false);
+
   // 1) Get Supabase access token once (used for protected /api routes)
   useEffect(() => {
     const getToken = async () => {
@@ -45,6 +48,9 @@ export default function AccountPage() {
         const token = data.session?.access_token || "";
         setAccessToken(token);
         if (!token) console.warn("No access token in session");
+
+        // allow sync to run once when token becomes available/changes
+        didSyncRef.current = false;
       } catch (error) {
         console.error("Failed to get session:", error);
       } finally {
@@ -73,10 +79,12 @@ export default function AccountPage() {
     }
   }, [refreshUser]);
 
-  // 3) Sync Stripe -> DB after login so subscription doesn't vanish after logout/login
+  // 3) Sync Stripe -> DB after login (RUN ONCE per token, no infinite loop)
   useEffect(() => {
     const sync = async () => {
       if (!accessToken) return;
+      if (didSyncRef.current) return; // ✅ stops the spam
+      didSyncRef.current = true;
 
       await fetch("/api/stripe/subscription", {
         method: "GET",
@@ -89,8 +97,12 @@ export default function AccountPage() {
       await refreshUser();
     };
 
-    sync().catch((err) => console.error("Failed to sync subscription:", err));
-  }, [accessToken, refreshUser]);
+    sync().catch((err) => {
+      console.error("Failed to sync subscription:", err);
+      // allow retry if it failed
+      didSyncRef.current = false;
+    });
+  }, [accessToken]); // ✅ IMPORTANT: do NOT include refreshUser here
 
   const handleSubscribe = async (plan: "monthly" | "yearly") => {
     console.log("Subscribe clicked:", plan, "accessToken exists:", !!accessToken);
@@ -110,8 +122,6 @@ export default function AccountPage() {
 
     try {
       const response = await fetch("/api/stripe/checkout", {
-        // keep your existing checkout fetch body below this line
-
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -123,7 +133,7 @@ export default function AccountPage() {
       console.log("Checkout response status:", response.status);
       const data = await response.json();
       console.log("Checkout response data:", data);
-      
+
       if (!response.ok) {
         throw new Error(data.error || "Failed to create checkout session");
       }
@@ -156,6 +166,7 @@ export default function AccountPage() {
           Authorization: `Bearer ${accessToken}`,
         },
       });
+
 
       const data = await response.json();
       if (!response.ok) {
@@ -398,47 +409,71 @@ export default function AccountPage() {
 
           <Separator className="bg-white/10" />
 
-          {!isSClass && !user.isAdmin && (
-            <div className="space-y-3">
-              <p className="text-sm text-muted-foreground text-center">
-                Upgrade to S-Class for premium benefits
-              </p>
-              <div className="grid grid-cols-2 gap-3">
-                <Button
-                  onClick={() => handleSubscribe("monthly")}
-                  disabled={isLoadingCheckout !== null || isTokenLoading}
-                  className="bg-primary hover:bg-primary/80"
-                  data-testid="button-subscribe-monthly"
-                >
-                  {isTokenLoading ? (
-                    "Loading..."
-                  ) : isLoadingCheckout === "monthly" ? (
-                    "Redirecting..."
-                  ) : (
-                    <>Monthly $9.99</>
-                  )}
-                </Button>
-                <Button
-                  onClick={() => handleSubscribe("yearly")}
-                  disabled={isLoadingCheckout !== null || isTokenLoading}
-                  variant="outline"
-                  className="border-yellow-500/50 text-yellow-400 hover:bg-yellow-500/10"
-                  data-testid="button-subscribe-yearly"
-                >
-                  {isTokenLoading ? (
-                    "Loading..."
-                  ) : isLoadingCheckout === "yearly" ? (
-                    "Redirecting..."
-                  ) : (
-                    <>Yearly $79.99</>
-                  )}
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground text-center">
-                Save ~33% with yearly billing
-              </p>
-            </div>
-          )}
+{!isSClass && !user.isAdmin && (
+  <div className="space-y-3">
+    <p className="text-sm text-muted-foreground text-center">
+      Upgrade to S-Class for premium benefits
+    </p>
+
+    {/* TEMP DEBUG: shows if button is being disabled */}
+    {(isTokenLoading || isLoadingCheckout !== null) && (
+      <p className="text-xs text-yellow-400 text-center">
+        Button disabled because{" "}
+        {isTokenLoading ? "isTokenLoading=true" : ""}{" "}
+        {isLoadingCheckout !== null ? `isLoadingCheckout=${isLoadingCheckout}` : ""}
+      </p>
+    )}
+
+    <div className="grid grid-cols-2 gap-3">
+      <Button
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          alert("CLICK monthly");
+
+          // If this next line never triggers a redirect, the bug is inside handleSubscribe
+          handleSubscribe("monthly");
+        }}
+        disabled={isLoadingCheckout !== null || isTokenLoading}
+        className="bg-primary hover:bg-primary/80"
+        data-testid="button-subscribe-monthly"
+      >
+        {isTokenLoading ? (
+          "Loading..."
+        ) : isLoadingCheckout === "monthly" ? (
+          "Redirecting..."
+        ) : (
+          <>Monthly $9.99</>
+        )}
+      </Button>
+
+      <Button
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          alert("CLICK yearly");
+          handleSubscribe("yearly");
+        }}
+        disabled={isLoadingCheckout !== null || isTokenLoading}
+        variant="outline"
+        className="border-yellow-500/50 text-yellow-400 hover:bg-yellow-500/10"
+        data-testid="button-subscribe-yearly"
+      >
+        {isTokenLoading ? (
+          "Loading..."
+        ) : isLoadingCheckout === "yearly" ? (
+          "Redirecting..."
+        ) : (
+          <>Yearly $79.99</>
+        )}
+      </Button>
+    </div>
+
+    <p className="text-xs text-muted-foreground text-center">
+      Save ~33% with yearly billing
+    </p>
+  </div>
+)}
 
           {isSClass && !isAdminGranted && user.stripeCustomerId && (
             <Button
