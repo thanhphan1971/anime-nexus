@@ -10,15 +10,55 @@ import Stripe from "stripe";
 import { stripe } from "./stripeClient";
 import { storage } from "./storage";
 
-// Validate config early (keeps production sane)
+import { createClient } from "@supabase/supabase-js";
+
+// ------------------------------------
+// Validate config early (production safety)
+// ------------------------------------
 enforceProductionConfig();
 
+// ------------------------------------
+// App + server
+// ------------------------------------
 const app = express();
 let frontendReady = false;
 
-
 const httpServer = createServer(app);
-// 🔍 DEBUG: verify which environment the server is actually using
+
+// ------------------------------------
+// Supabase ADMIN client (SERVER ONLY)
+// ------------------------------------
+const supabaseAdmin = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!, // ⚠️ server secret
+  { auth: { persistSession: false } }
+);
+
+// ------------------------------------
+// Auth helper (used by Stripe + others)
+// ------------------------------------
+async function requireUser(req: Request) {
+  const authHeader = req.headers.authorization || "";
+  const token = authHeader.startsWith("Bearer ")
+    ? authHeader.slice(7)
+    : null;
+
+  if (!token) {
+    return { error: "Missing Authorization token" as const };
+  }
+
+  const { data, error } = await supabaseAdmin.auth.getUser(token);
+
+  if (error || !data?.user) {
+    return { error: "Invalid or expired token" as const };
+  }
+
+  return { user: data.user };
+}
+
+// ------------------------------------
+// DEBUG: verify runtime environment
+// ------------------------------------
 console.log("SUPABASE_URL =", process.env.SUPABASE_URL);
 console.log("APP_BASE_URL =", process.env.APP_BASE_URL);
 console.log(
@@ -26,9 +66,9 @@ console.log(
   (process.env.STRIPE_SECRET_KEY || "").slice(0, 8)
 );
 
-// -----------------------------
+// ------------------------------------
 // Types
-// -----------------------------
+// ------------------------------------
 declare module "express-session" {
   interface SessionData {
     userId: string;
@@ -41,12 +81,13 @@ declare module "http" {
   }
 }
 
-// -----------------------------
+// ------------------------------------
 // Basic health check
-// -----------------------------
+// ------------------------------------
 app.get("/api/health", (_req, res) => {
   res.status(200).json({ ok: true });
 });
+
 
 // -----------------------------
 // Replit port detection probe (fast HEAD)

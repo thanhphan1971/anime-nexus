@@ -5345,53 +5345,22 @@ export async function registerRoutes(
   // Get Stripe publishable key
   app.get("/api/stripe/config", async (req, res) => {
     try {
-      const { getStripePublishableKey } = await import("./stripeClient");
-      const publishableKey = await getStripePublishableKey();
+      const publishableKey = process.env.STRIPE_PUBLISHABLE_KEY || "";
       res.json({ publishableKey });
     } catch (error: any) {
       res.status(500).json({ error: "Failed to get Stripe config" });
     }
   });
 
-  // Get S-Class subscription products and prices
-  
-    // Get S-Class subscription products and prices
-app.get("/api/stripe/products", async (_req, res) => {
-  return res.json({
-    product: {
-      name: "S-Class Membership",
-      description:
-        "Premium Access to AniRealm - Unlock additional daily game entries, higher token caps, extra draw entries, and exclusive perks.",
-    },
-    prices: [
-      {
-        id: "price_1SkuHDRdxAAD3924utTKVVEA", // $9.99 monthly
-        unitAmount: 999,
-        currency: "usd",
-        interval: "month",
-        recurring: { interval: "month" },
-      },
-      {
-        id: "price_1SlFUbRdxAAD392445O8ScqK", // $79.99 yearly
-        unitAmount: 7999,
-        currency: "usd",
-        interval: "year",
-        recurring: { interval: "year" },
-      },
-    ],
-  });
-});
+  // Create checkout session for S-Class subscription
+  app.post("/api/stripe/checkout", verifySupabaseToken, async (req, res) => {
+    try {
+      const user = await storage.getUserBySupabaseId(req.supabaseUser!.id);
+      if (!user) {
+        return res.status(401).json({ error: "User not found" });
+      }
 
-
-// Create checkout session for S-Class subscription
-app.post("/api/stripe/checkout", verifySupabaseToken, async (req, res) => {
-  try {
-    const user = await storage.getUserBySupabaseId(req.supabaseUser!.id);
-    if (!user) {
-      return res.status(401).json({ error: "User not found" });
-    }
-
-    // Block checkout for users with active admin-granted access
+      // 🚫 ADMIN GRANT GUARD
     if (user.accessSource === "admin_grant" && user.accessExpiresAt) {
       const expiresAt = new Date(user.accessExpiresAt);
       if (expiresAt > new Date()) {
@@ -5404,6 +5373,9 @@ app.post("/api/stripe/checkout", verifySupabaseToken, async (req, res) => {
       }
     }
 
+    // ------------------------------------
+    // 📦 INPUT
+    // ------------------------------------
     const { priceId, plan } = req.body;
 
     // Map plan names to Stripe price IDs
@@ -5419,15 +5391,15 @@ app.post("/api/stripe/checkout", verifySupabaseToken, async (req, res) => {
 
     const { stripe } = await import("./stripeClient");
 
-    let customerId = user.stripeCustomerId;
+    let customerId = user.stripeCustomerId as string | null;
 
-    // Verify customer exists in Stripe, create new one if not
+    // ------------------------------------
+    // 👤 STRIPE CUSTOMER RESOLUTION
+    // ------------------------------------
     if (customerId) {
       try {
         const existingCustomer = await stripe.customers.retrieve(customerId);
-        if ((existingCustomer as any).deleted) {
-          customerId = null;
-        }
+        if ((existingCustomer as any).deleted) customerId = null;
       } catch (e: any) {
         if (e.code === "resource_missing" || e.statusCode === 404) {
           customerId = null;
@@ -5455,7 +5427,9 @@ app.post("/api/stripe/checkout", verifySupabaseToken, async (req, res) => {
       });
     }
 
-    // 🚫 DUPLICATE SUBSCRIPTION GUARD (CRITICAL)
+    // ------------------------------------
+    // 🚫 DUPLICATE SUBSCRIPTION GUARD
+    // ------------------------------------
     const activeSubs = await stripe.subscriptions.list({
       customer: customerId,
       status: "active",
@@ -5468,13 +5442,18 @@ app.post("/api/stripe/checkout", verifySupabaseToken, async (req, res) => {
       });
     }
 
-    // Build base URL safely (Replit + local dev)
+    // ------------------------------------
+    // 🌍 BASE URL
+    // ------------------------------------
     const baseUrl =
       process.env.APP_BASE_URL ||
       (process.env.REPLIT_DOMAINS
         ? `https://${process.env.REPLIT_DOMAINS.split(",")[0]}`
         : `${req.protocol}://${req.get("host")}`);
 
+    // ------------------------------------
+    // 💳 STRIPE CHECKOUT SESSION
+    // ------------------------------------
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       payment_method_types: ["card"],
@@ -5592,7 +5571,7 @@ const stripeSubscriptionSyncHandler = async (req: any, res: any) => {
 
     // detect monthly vs yearly from price interval
     let subscriptionType: string | null = null;
-    let premiumEndDate: string | null = null;
+    let premiumEndDate: Date | null = null;
 
     if (activeSub) {
       const item = activeSub.items.data[0];
@@ -5600,8 +5579,9 @@ const stripeSubscriptionSyncHandler = async (req: any, res: any) => {
       subscriptionType =
         interval === "year" ? "yearly" : interval === "month" ? "monthly" : null;
 
-      premiumEndDate = activeSub.current_period_end
-        ? new Date(activeSub.current_period_end * 1000).toISOString()
+      const periodEnd = (activeSub as any).current_period_end;
+      premiumEndDate = periodEnd
+        ? new Date(periodEnd * 1000)
         : null;
     }
 
@@ -5617,7 +5597,7 @@ const stripeSubscriptionSyncHandler = async (req: any, res: any) => {
       isPremium,
       subscriptionStatus,
       stripeSubscriptionId: activeSub?.id || null,
-      premiumEndDate,
+      premiumEndDate: premiumEndDate?.toISOString() || null,
       subscriptionType,
     });
   } catch (error: any) {
