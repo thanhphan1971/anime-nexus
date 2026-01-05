@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import {
   User as UserIcon,
   Mail,
@@ -478,7 +478,7 @@ const isSClass = Boolean(user?.isPremium) || Boolean(isAdminGranted);
                     <Badge variant="secondary">Current baseline</Badge>
                   </div>
                   <ul className="text-sm space-y-1 text-muted-foreground">
-                    <li>• 1 free summon / day</li>
+                    <li>• <Link href="/cards" className="text-primary hover:underline">1 free summon / day</Link></li>
                     <li>• Standard odds + standard rewards</li>
                     <li>• Join weekly + monthly draws</li>
                     <li>• Basic profile customization</li>
@@ -492,7 +492,7 @@ const isSClass = Boolean(user?.isPremium) || Boolean(isAdminGranted);
                     <Badge>S-Class</Badge>
                   </div>
                   <ul className="text-sm space-y-1 text-muted-foreground">
-                    <li>• 2 free summons / day</li>
+                    <li>• <Link href="/cards" className="text-primary hover:underline">2 free summons / day</Link></li>
                     <li>• Premium perks and priority rewards</li>
                     <li>• Access to S-Class bonuses as they release</li>
                     <li>• Manage billing + cancel anytime</li>
