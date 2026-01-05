@@ -460,9 +460,8 @@ const isSClass = Boolean(user?.isPremium) || Boolean(isAdminGranted);
           </div>
         )}
 
-        {/* S-Class info (show only when user is NOT currently S-Class) */}
-        {!isSClass && (
-          <Card className="mt-4">
+        {/* S-Class info (always visible for comparison) */}
+        <Card className="mt-4">
             <CardHeader>
               <CardTitle>S-Class Membership</CardTitle>
               <CardDescription>
@@ -514,7 +513,6 @@ const isSClass = Boolean(user?.isPremium) || Boolean(isAdminGranted);
               </div>
             </CardContent>
           </Card>
-        )}
 
         {isSClass && !isAdminGranted && user.stripeCustomerId && (
           <Button
