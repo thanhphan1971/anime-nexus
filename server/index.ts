@@ -145,37 +145,53 @@ app.post(
           metadata: session.metadata,
         });
 
-        const userId = session.metadata?.userId;
-        const customerId = session.customer as string;
-        const subscriptionId = session.subscription as string | null;
-        
-        if (userId && subscriptionId && customerId) {
-          // Security: Verify user exists and their stripeCustomerId matches the session customer
-          const user = await storage.getUser(userId);
-          if (!user) {
-            console.error(`Webhook security: User ${userId} not found`);
-            return res.json({ received: true });
-          }
-          if (user.stripeCustomerId !== customerId) {
-            console.error(`Webhook security: Customer mismatch for user ${userId}. Expected ${user.stripeCustomerId}, got ${customerId}`);
-            return res.json({ received: true });
-          }
-          
-          const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-          const priceId = subscription.items.data[0]?.price?.id;
-          const isYearly = priceId === "price_1SlFUbRdxAAD392445O8ScqK";
-          
-          await storage.updateUser(userId, {
-            stripeSubscriptionId: subscriptionId,
-            subscriptionStatus: "active",
-            subscriptionType: isYearly ? "yearly" : "monthly",
-            isPremium: true,
-            premiumStartDate: new Date(),
-            premiumEndDate: new Date((subscription as any).current_period_end * 1000),
-            sclassJoinedAt: new Date(),
-          });
-          console.log(`User ${userId} subscription activated: ${subscriptionId}`);
-        }
+       const userId = session.metadata?.userId;
+const customerId = session.customer as string;
+const subscriptionId = (session.subscription as string | null) || null;
+
+if (userId && subscriptionId && customerId) {
+  // Security: Verify user exists and their stripeCustomerId matches the session customer
+  const user = await storage.getUser(userId);
+  if (!user) {
+    console.error(`Webhook security: User ${userId} not found`);
+    return res.json({ received: true });
+  }
+  if (user.stripeCustomerId !== customerId) {
+    console.error(
+      `Webhook security: Customer mismatch for user ${userId}. Expected ${user.stripeCustomerId}, got ${customerId}`
+    );
+    return res.json({ received: true });
+  }
+
+  // Retrieve subscription with expanded price so interval is reliable (no hardcoded price IDs)
+  const subscription: any = await stripe.subscriptions.retrieve(subscriptionId, {
+    expand: ["items.data.price"],
+  });
+
+  const interval = subscription?.items?.data?.[0]?.price?.recurring?.interval; // "month" | "year"
+  const subscriptionType =
+    interval === "year" ? "yearly" : interval === "month" ? "monthly" : null;
+
+  const periodEndSec = Number(subscription?.current_period_end || 0);
+  const premiumEndDate = periodEndSec ? new Date(periodEndSec * 1000) : null;
+
+  const willCancelAtPeriodEnd = !!subscription?.cancel_at_period_end;
+  const subscriptionStatus = willCancelAtPeriodEnd
+    ? "canceling"
+    : String(subscription?.status || "active");
+
+  await storage.updateUser(userId, {
+    stripeSubscriptionId: subscriptionId,
+    subscriptionStatus,
+    subscriptionType,
+    isPremium: true,
+    premiumStartDate: new Date(),
+    premiumEndDate,
+    sclassJoinedAt: new Date(),
+  });
+
+  console.log(`User ${userId} subscription updated: ${subscriptionId}`);
+}
       }
 
       // Handle subscription updates (renewals, plan changes, cancellations)

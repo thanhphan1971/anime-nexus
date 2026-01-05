@@ -5560,58 +5560,78 @@ const stripeSubscriptionSyncHandler = async (req: any, res: any) => {
     }
 
     // Pull subscriptions for customer
-    const subs = await stripe.subscriptions.list({
-      customer: user.stripeCustomerId,
-      limit: 10,
-      status: "all",
-    });
+const subs = await stripe.subscriptions.list({
+  customer: user.stripeCustomerId,
+  limit: 10,
+  status: "all",
+});
 
-    const nowSec = Math.floor(Date.now() / 1000);
+const nowSec = Math.floor(Date.now() / 1000);
 
-    // Choose the newest sub that still grants access:
-    // - active / trialing => yes
-    // - past_due => yes (keep access while Stripe retries)
-    // - canceled but paid-through (current_period_end > now) => yes
-    const entitledSub =
-      subs.data
-        .sort((a: any, b: any) => (b.created || 0) - (a.created || 0))
-        .find((s: any) => {
-          const status = String(s.status || "");
-          const periodEnd = Number(s.current_period_end || 0);
+// Choose the newest sub that still grants access:
+// - active / trialing => yes
+// - past_due => yes (keep access while Stripe retries)
+// - canceled but paid-through (current_period_end > now) => yes
+const entitledSub =
+  subs.data
+    .sort((a: any, b: any) => (b.created || 0) - (a.created || 0))
+    .find((s: any) => {
+      const status = String(s.status || "");
+      const periodEnd = Number(s.current_period_end || 0);
 
-          if (status === "active" || status === "trialing") return true;
-          if (status === "past_due") return true;
-          if (status === "canceled" && periodEnd && periodEnd > nowSec) return true;
+      if (status === "active" || status === "trialing") return true;
+      if (status === "past_due") return true;
+      if (status === "canceled" && periodEnd && periodEnd > nowSec) return true;
 
-          return false;
-        }) || null;
+      return false;
+    }) || null;
 
-    const isPremium = !!entitledSub;
+const isPremium = !!entitledSub;
 
-    // Derive monthly/yearly + end date + canceling status
-    let subscriptionType: string | null = null;
-    let premiumEndDate: Date | null = null;
-    let willCancelAtPeriodEnd = false;
-    let subscriptionStatus: string = "free";
+// Derive monthly/yearly + end date + canceling status
+let subscriptionType: string | null = null;
+let premiumEndDate: Date | null = null;
+let willCancelAtPeriodEnd = false;
+let subscriptionStatus: string = "free";
 
-    if (entitledSub) {
-      // Re-fetch full subscription so fields are correct & expanded enough
-      const fullSub: any = await stripe.subscriptions.retrieve(entitledSub.id);
+if (entitledSub) {
+  // Re-fetch full subscription with expansions so period end + interval are reliable
+  const fullSub: any = await stripe.subscriptions.retrieve(entitledSub.id, {
+    expand: ["items.data.price", "latest_invoice.lines"],
+  });
 
-      const item = fullSub?.items?.data?.[0];
-      const interval = item?.price?.recurring?.interval; // "month" | "year"
-      subscriptionType =
-        interval === "year" ? "yearly" : interval === "month" ? "monthly" : null;
+  const item = fullSub?.items?.data?.[0];
+  const interval = item?.price?.recurring?.interval; // "month" | "year"
+  subscriptionType =
+    interval === "year" ? "yearly" : interval === "month" ? "monthly" : null;
 
-      const periodEnd = Number(fullSub?.current_period_end || 0);
-      premiumEndDate = periodEnd ? new Date(periodEnd * 1000) : null;
+  // Primary source: current_period_end
+  let periodEnd = Number(fullSub?.current_period_end || 0);
 
-      willCancelAtPeriodEnd = !!fullSub?.cancel_at_period_end;
+  // Fallbacks (rare, but prevents null end dates)
+  if (!periodEnd) {
+    const trialEnd = Number(fullSub?.trial_end || 0);
+    if (trialEnd) periodEnd = trialEnd;
 
-      // For UI (keep it simple + deterministic)
-      if (willCancelAtPeriodEnd) subscriptionStatus = "canceling";
-      else subscriptionStatus = String(fullSub?.status || "active");
-    }
+    const invoicePeriodEnd = Number(
+      fullSub?.latest_invoice?.lines?.data?.[0]?.period?.end || 0
+    );
+    if (invoicePeriodEnd) periodEnd = invoicePeriodEnd;
+  }
+
+  premiumEndDate = periodEnd ? new Date(periodEnd * 1000) : null;
+
+  willCancelAtPeriodEnd = !!fullSub?.cancel_at_period_end;
+
+  // subscriptionStatus for UI
+  if (willCancelAtPeriodEnd) {
+    subscriptionStatus = "canceling";
+  } else {
+    subscriptionStatus = String(fullSub?.status || "active");
+  }
+} else {
+  subscriptionStatus = "free";
+}
 
     await storage.updateUser(user.id, {
       isPremium,
