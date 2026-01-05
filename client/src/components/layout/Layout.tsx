@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Home, Users, User, LogOut, PlusSquare, Search, Zap, MessageSquare, PlayCircle, Gift, Crown, ShoppingBag, Settings, Layers, HelpCircle, Coins, Shield, Gamepad2 } from "lucide-react";
+import { Home, Users, User, LogOut, PlusSquare, Search, Zap, MessageSquare, PlayCircle, Gift, ShoppingBag, Settings, Layers, HelpCircle, Coins, Shield, Gamepad2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -27,7 +27,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { icon: PlusSquare, label: "Create", path: "/create" },
     { icon: User, label: "Profile", path: `/profile/${user.id}` },
     { icon: Settings, label: "Account", path: "/account" },
-    { icon: Crown, label: "S-Class", path: "/sclass" },
     { icon: HelpCircle, label: "Help", path: "/help" },
     { icon: Shield, label: "Parent Controls", path: "/parent" },
     ...(user.isAdmin ? [{ icon: Settings, label: "Admin", path: "/admin" }] : []),
@@ -71,12 +70,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 variant="ghost"
                 className={`w-full justify-start gap-3 text-base h-11 rounded-xl transition-all duration-300 ${
                   (location === item.path || (item.path !== "/" && location.startsWith(item.path)))
-                    ? item.path === "/sclass" 
-                      ? "bg-yellow-500/20 text-yellow-400 neon-border border-yellow-500/50" 
-                      : "bg-primary/20 text-primary neon-border"
-                    : item.path === "/sclass"
-                      ? "text-yellow-500 hover:text-yellow-400 hover:bg-yellow-500/10"
-                      : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+                    ? "bg-primary/20 text-primary neon-border"
+                    : "text-muted-foreground hover:text-foreground hover:bg-white/5"
                 }`}
               >
                 <item.icon className={location === item.path ? "stroke-[2.5px]" : ""} />
