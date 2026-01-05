@@ -515,6 +515,61 @@ const isSClass = Boolean(user?.isPremium) || Boolean(isAdminGranted);
             </CardContent>
           </Card>
 
+        {/* Billing & Cancellation Info - Always visible */}
+        <Card className="mt-4">
+          <CardHeader>
+            <CardTitle>Billing & Cancellation</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 text-sm">
+            <div>
+              <h4 className="font-semibold mb-1">Cancel anytime</h4>
+              <p className="text-muted-foreground">
+                You can cancel your S-Class subscription at any time.
+              </p>
+            </div>
+
+            <div>
+              <h4 className="font-semibold mb-1">How to cancel</h4>
+              <ul className="text-muted-foreground space-y-1 list-disc list-inside">
+                <li>Go to Account → Manage Billing</li>
+                <li>In the billing portal, choose Cancel subscription</li>
+                <li>You'll receive a confirmation from Stripe, and your AniRealm account will update shortly after</li>
+              </ul>
+            </div>
+
+            <div>
+              <h4 className="font-semibold mb-1">What happens after you cancel</h4>
+              <ul className="text-muted-foreground space-y-1 list-disc list-inside">
+                <li>Your S-Class benefits stay active until the end of your current billing period</li>
+                <li>You won't be charged again unless you re-subscribe</li>
+                <li>When the billing period ends, your account automatically returns to Free</li>
+              </ul>
+            </div>
+
+            <div>
+              <h4 className="font-semibold mb-1">Refunds</h4>
+              <p className="text-muted-foreground">
+                AniRealm does not offer refunds for subscription charges, partial months, or unused time.
+              </p>
+              <p className="text-muted-foreground mt-1">
+                <span className="font-medium">Exception:</span> If there is a confirmed billing error (for example: duplicate charge, wrong amount charged, or charge made after you canceled), contact support and we will review and correct it.
+              </p>
+            </div>
+
+            <div>
+              <h4 className="font-semibold mb-1">Need help?</h4>
+              <p className="text-muted-foreground">
+                If you believe you were charged incorrectly, contact us with:
+              </p>
+              <ul className="text-muted-foreground space-y-1 list-disc list-inside mt-1">
+                <li>The email on your AniRealm account</li>
+                <li>The date/amount of the charge</li>
+                <li>(Optional) The Stripe receipt/invoice ID</li>
+              </ul>
+            </div>
+          </CardContent>
+        </Card>
+
         {isSClass && !isAdminGranted && user.stripeCustomerId && (
           <Button
             onClick={async (e) => {
