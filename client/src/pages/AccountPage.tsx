@@ -1,42 +1,32 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useLocation, Link } from "wouter";
-import {
-  User as UserIcon,
-  Mail,
-  Shield,
-  Crown,
-  CreditCard,
-  Calendar,
-  CheckCircle,
-  XCircle,
-  AlertCircle,
-  ExternalLink,
-  ArrowLeft,
-  ChevronDown,
-} from "lucide-react";
-
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-
 import { useAuth } from "@/context/AuthContext";
 import { useSClassStatus } from "@/lib/api";
 import { getSupabase } from "@/lib/supabaseClient";
-import { toast } from "sonner";
 import { formatInTimeZone } from "date-fns-tz";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Separator } from "@/components/ui/separator";
+import { 
+  ChevronDown, 
+  Crown, 
+  CreditCard, 
+  ExternalLink, 
+  Loader2,
+  ArrowLeft,
+  CheckCircle,
+  AlertCircle,
+  XCircle,
+  UserIcon,
+  Shield,
+  Mail,
+  Calendar
+} from "lucide-react";
+import { toast } from "sonner";
+import { createClient } from "@supabase/supabase-js";
 
 export default function AccountPage() {
   const { user, refreshUser } = useAuth();
@@ -77,7 +67,8 @@ export default function AccountPage() {
   };
 
   const isAdminGranted = sclassStatus?.accessSource === "admin_grant";
-  const isSClass = Boolean(user?.isPremium) || Boolean(isAdminGranted);
+  const isSClass = Boolean(sclassStatus?.isPremium) || Boolean(isAdminGranted);
+
 
 
 
@@ -105,44 +96,61 @@ export default function AccountPage() {
   };
 
   // ---------- 1) redirect if logged out ----------
-  useEffect(() => {
-    if (!user) setLocation("/login");
-  }, [user, setLocation]);
+useEffect(() => {
+  if (!user) setLocation("/login");
+}, [user, setLocation]);
 
-  // ---------- 2) Get Supabase access token ----------
-  useEffect(() => {
-    const getToken = async () => {
-      try {
-        const supabase = await getSupabase();
-        const { data } = await supabase.auth.getSession();
-        const token = data.session?.access_token || "";
-        setAccessToken(token);
-
-        // allow sync once token is available
-        didSyncRef.current = false;
-
-        if (!token) console.warn("[AccountPage] No access token in session");
-      } catch (err) {
-        console.error("[AccountPage] Failed to get session:", err);
-      } finally {
-        setIsTokenLoading(false);
-      }
-    };
-    getToken();
-  }, []);
-
-  // ---------- 3) Handle ?checkout=success|cancel ----------
-  useEffect(() => {
+// ---------- 2) Get Supabase access token ----------
+useEffect(() => {
+  const getToken = async () => {
     try {
-      const params = new URLSearchParams(window.location.search);
+      const supabase = await getSupabase();
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token || "";
+      setAccessToken(token);
 
-      if (params.get("checkout") === "success") {
-        setCheckoutStatus("success");
-        toast.success("Subscription activated!");
-        refreshUser();
-        window.history.replaceState({}, "", "/account");
-        return;
-      }
+      // allow sync once token is available
+      didSyncRef.current = false;
+
+      if (!token) console.warn("[AccountPage] No access token in session");
+    } catch (err) {
+      console.error("[AccountPage] Failed to get session:", err);
+    } finally {
+      setIsTokenLoading(false);
+    }
+  };
+  getToken();
+}, []);
+
+// ✅ NEW: When Account page loads (or user returns from Stripe portal), force a fresh subscription sync
+useEffect(() => {
+  if (!accessToken) return;
+
+  // Hit the sync endpoint once to see latest cancel/resubscribe changes immediately
+  fetch("/api/stripe/subscription", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+  }).catch(() => {
+    // ignore; the react-query hook will also keep things updated
+  });
+}, [accessToken]);
+
+// ---------- 3) Handle ?checkout=success|cancel ----------
+useEffect(() => {
+  try {
+    const params = new URLSearchParams(window.location.search);
+
+    if (params.get("checkout") === "success") {
+      setCheckoutStatus("success");
+      toast.success("Subscription activated!");
+      refreshUser();
+      window.history.replaceState({}, "", "/account");
+      return;
+    }
+
 
       if (params.get("checkout") === "cancel") {
         setCheckoutStatus("cancel");
