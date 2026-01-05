@@ -698,6 +698,14 @@ export function useGameStatus() {
   });
 }
 
+export function useGameEvents() {
+  return useQuery({
+    queryKey: ["gameEvents"],
+    queryFn: () => apiCall("/api/game/events"),
+    staleTime: 60000, // Cache for 1 minute
+  });
+}
+
 export function useUpdateTutorial() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -766,6 +774,20 @@ export function useClaimSocialBonus() {
   });
 }
 
+export function useCreateChroniclePost() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (sessionId: string) =>
+      apiCall("/api/game/chronicle", {
+        method: "POST",
+        body: JSON.stringify({ sessionId }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["gameStatus"] });
+    },
+  });
+}
+
 export function useDeclineFirstPurchaseDiscount() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -777,42 +799,17 @@ export function useDeclineFirstPurchaseDiscount() {
   });
 }
 
-export function useCreateChroniclePost() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (sessionId: string) =>
-      apiCall("/api/game/chronicle-post", {
-        method: "POST",
-        body: JSON.stringify({ sessionId }),
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["posts"] });
-    },
-  });
-}
-
-export function useGameHistory() {
-  return useQuery({
-    queryKey: ["gameHistory"],
-    queryFn: () => apiCall("/api/game/history"),
-  });
-}
-
-export function useGameEvents() {
-  return useQuery({
-    queryKey: ["gameEvents"],
-    queryFn: () => apiCall("/api/game/events"),
-    refetchInterval: 60000, // Refresh every minute
-  });
-}
-
 // ============ S-CLASS TRIAL & WELCOME ============
 
 export function useSClassStatus() {
   return useQuery({
     queryKey: ["sclassStatus"],
-    queryFn: () => apiCall("/api/sclass/status"),
-    refetchInterval: 30000, // Check trial expiry every 30s
+    // ✅ Source of truth: Stripe subscription sync endpoint
+    queryFn: () =>
+      apiCall("/api/stripe/subscription", {
+        method: "POST",
+      }),
+    refetchInterval: 30000, // Refresh every 30s
   });
 }
 
@@ -851,6 +848,7 @@ export function useConvertSClassTrial() {
     },
   });
 }
+
 
 export function useClaimSClassWelcomeReward() {
   const queryClient = useQueryClient();
