@@ -46,11 +46,22 @@ export default function AccountPage() {
   const [isTokenLoading, setIsTokenLoading] = useState(true);
 
   const [isLoadingPortal, setIsLoadingPortal] = useState(false);
-  const [isLoadingCheckout, setIsLoadingCheckout] = useState<"monthly" | "yearly" | null>(null);
+  const [isLoadingCheckout, setIsLoadingCheckout] = useState<
+    "monthly" | "yearly" | null
+  >(null);
 
-  const [checkoutStatus, setCheckoutStatus] = useState<"success" | "cancel" | null>(null);
+  const [checkoutStatus, setCheckoutStatus] = useState<"success" | "cancel" | null>(
+    null
+  );
 
   const { data: sclassStatus } = useSClassStatus();
+
+  // ✅ TEMP DEBUG: confirm UI receives premiumEndDate
+  console.log(
+    "SUB DEBUG premiumEndDate:",
+    sclassStatus?.premiumEndDate,
+    sclassStatus
+  );
 
   // Prevent infinite sync loop
   const didSyncRef = useRef(false);
@@ -64,9 +75,10 @@ export default function AccountPage() {
       return iso;
     }
   };
-    
-const isAdminGranted = sclassStatus?.accessSource === "admin_grant";
-const isSClass = Boolean(user?.isPremium) || Boolean(isAdminGranted);
+
+  const isAdminGranted = sclassStatus?.accessSource === "admin_grant";
+  const isSClass = Boolean(user?.isPremium) || Boolean(isAdminGranted);
+
 
 
 
