@@ -5480,35 +5480,27 @@ export async function registerRoutes(
   }
 });
 
-// ✅ NEW: Create billing portal session (Manage Billing)
-app.post("/api/stripe/portal", verifySupabaseToken, async (req, res) => {
+// ===================== BILLING PORTAL (SAFE) =====================
+app.post("/api/stripe/portal", verifySupabaseToken, async (req: any, res: any) => {
   try {
     const user = await storage.getUserBySupabaseId(req.supabaseUser!.id);
     if (!user) return res.status(401).json({ error: "User not found" });
 
     const { stripe } = await import("./stripeClient");
 
-    let customerId = user.stripeCustomerId as string | null;
-
-    // If customer missing or invalid, create one so portal can open
-    if (customerId) {
-      try {
-        const existingCustomer = await stripe.customers.retrieve(customerId);
-        if ((existingCustomer as any).deleted) customerId = null;
-      } catch (e: any) {
-        if (e.code === "resource_missing" || e.statusCode === 404) customerId = null;
-        else throw e;
-      }
-    }
+    // Ensure Stripe Customer exists (create if missing)
+    let customerId = user.stripeCustomerId;
 
     if (!customerId) {
       const customer = await stripe.customers.create({
-        email: user.email,
+        email: user.email || undefined,
         metadata: {
-          userId: user.id,
+          userId: String(user.id),
+          supabaseUserId: String(req.supabaseUser!.id),
           username: user.username || "",
         },
       });
+
       customerId = customer.id;
 
       await storage.updateUser(user.id, {
@@ -5517,6 +5509,7 @@ app.post("/api/stripe/portal", verifySupabaseToken, async (req, res) => {
       });
     }
 
+    // Compute baseUrl safely for return_url
     const baseUrl =
       process.env.APP_BASE_URL ||
       (process.env.REPLIT_DOMAINS
@@ -5532,12 +5525,13 @@ app.post("/api/stripe/portal", verifySupabaseToken, async (req, res) => {
   } catch (error: any) {
     console.error("Portal error:", error);
     return res.status(500).json({
-      error: error.message || "Failed to create billing portal session",
+      error: error?.message || "Failed to create billing portal session",
     });
   }
 });
 
-// Subscription sync handler (supports BOTH GET and POST)
+// ===================== SUBSCRIPTION SYNC (GET + POST) =====================
+// Single handler supports both GET and POST
 const stripeSubscriptionSyncHandler = async (req: any, res: any) => {
   try {
     const user = await storage.getUserBySupabaseId(req.supabaseUser!.id);
@@ -5545,7 +5539,7 @@ const stripeSubscriptionSyncHandler = async (req: any, res: any) => {
 
     const { stripe } = await import("./stripeClient");
 
-    // If we don't even have a Stripe customer yet, user is not premium
+    // No Stripe customer => definitely free
     if (!user.stripeCustomerId) {
       await storage.updateUser(user.id, {
         isPremium: false,
@@ -5554,41 +5548,75 @@ const stripeSubscriptionSyncHandler = async (req: any, res: any) => {
         premiumEndDate: null,
         subscriptionType: null,
       });
-      return res.json({ isPremium: false, subscriptionStatus: "free" });
+
+      return res.json({
+        isPremium: false,
+        subscriptionStatus: "free",
+        stripeSubscriptionId: null,
+        premiumEndDate: null,
+        subscriptionType: null,
+        willCancelAtPeriodEnd: false,
+      });
     }
 
-    // Pull active subscriptions for this customer (most recent first)
+    // Pull subscriptions for customer
     const subs = await stripe.subscriptions.list({
       customer: user.stripeCustomerId,
-      status: "active",
-      limit: 1,
+      limit: 10,
+      status: "all",
     });
 
-    const activeSub = subs.data[0] || null;
+    const nowSec = Math.floor(Date.now() / 1000);
 
-    const isPremium = !!activeSub;
-    const subscriptionStatus = activeSub ? activeSub.status : "free";
+    // Choose the newest sub that still grants access:
+    // - active / trialing => yes
+    // - past_due => yes (keep access while Stripe retries)
+    // - canceled but paid-through (current_period_end > now) => yes
+    const entitledSub =
+      subs.data
+        .sort((a: any, b: any) => (b.created || 0) - (a.created || 0))
+        .find((s: any) => {
+          const status = String(s.status || "");
+          const periodEnd = Number(s.current_period_end || 0);
 
-    // detect monthly vs yearly from price interval
+          if (status === "active" || status === "trialing") return true;
+          if (status === "past_due") return true;
+          if (status === "canceled" && periodEnd && periodEnd > nowSec) return true;
+
+          return false;
+        }) || null;
+
+    const isPremium = !!entitledSub;
+
+    // Derive monthly/yearly + end date + canceling status
     let subscriptionType: string | null = null;
     let premiumEndDate: Date | null = null;
+    let willCancelAtPeriodEnd = false;
+    let subscriptionStatus: string = "free";
 
-    if (activeSub) {
-      const item = activeSub.items.data[0];
+    if (entitledSub) {
+      // Re-fetch full subscription so fields are correct & expanded enough
+      const fullSub: any = await stripe.subscriptions.retrieve(entitledSub.id);
+
+      const item = fullSub?.items?.data?.[0];
       const interval = item?.price?.recurring?.interval; // "month" | "year"
       subscriptionType =
         interval === "year" ? "yearly" : interval === "month" ? "monthly" : null;
 
-      const periodEnd = (activeSub as any).current_period_end;
-      premiumEndDate = periodEnd
-        ? new Date(periodEnd * 1000)
-        : null;
+      const periodEnd = Number(fullSub?.current_period_end || 0);
+      premiumEndDate = periodEnd ? new Date(periodEnd * 1000) : null;
+
+      willCancelAtPeriodEnd = !!fullSub?.cancel_at_period_end;
+
+      // For UI (keep it simple + deterministic)
+      if (willCancelAtPeriodEnd) subscriptionStatus = "canceling";
+      else subscriptionStatus = String(fullSub?.status || "active");
     }
 
     await storage.updateUser(user.id, {
       isPremium,
       subscriptionStatus,
-      stripeSubscriptionId: activeSub?.id || null,
+      stripeSubscriptionId: entitledSub?.id || null,
       premiumEndDate,
       subscriptionType,
     });
@@ -5596,18 +5624,20 @@ const stripeSubscriptionSyncHandler = async (req: any, res: any) => {
     return res.json({
       isPremium,
       subscriptionStatus,
-      stripeSubscriptionId: activeSub?.id || null,
-      premiumEndDate: premiumEndDate?.toISOString() || null,
+      stripeSubscriptionId: entitledSub?.id || null,
+      premiumEndDate: premiumEndDate ? premiumEndDate.toISOString() : null,
       subscriptionType,
+      willCancelAtPeriodEnd,
     });
   } catch (error: any) {
     console.error("Subscription sync error:", error);
-    return res.status(500).json({ error: "Failed to sync subscription" });
+    return res.status(500).json({ error: error?.message || "Failed to sync subscription" });
   }
 };
 
-  app.get("/api/stripe/subscription", verifySupabaseToken, stripeSubscriptionSyncHandler);
-  app.post("/api/stripe/subscription", verifySupabaseToken, stripeSubscriptionSyncHandler);
+app.get("/api/stripe/subscription", verifySupabaseToken, stripeSubscriptionSyncHandler);
+app.post("/api/stripe/subscription", verifySupabaseToken, stripeSubscriptionSyncHandler);
 
-  return httpServer;
+return httpServer;
 }
+
