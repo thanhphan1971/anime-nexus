@@ -347,14 +347,14 @@ const isSClass = Boolean(user?.isPremium) || Boolean(isAdminGranted);
               </div>
             )}
 
-            {user.ageGroup && (
+            {user.ageBand && (
               <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
                 <div className="flex items-center gap-2">
                   <Calendar className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm text-muted-foreground">Age Group</span>
                 </div>
                 <span className="text-sm font-medium" data-testid="text-account-age-group">
-                  {user.ageGroup}
+                  {user.ageBand}
                 </span>
               </div>
             )}
@@ -388,14 +388,14 @@ const isSClass = Boolean(user?.isPremium) || Boolean(isAdminGranted);
               </div>
             </div>
 
-            {user?.subscriptionType && (
+            {user?.subscriptionPlan && (
               <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
                 <div className="flex items-center gap-2">
                   <CreditCard className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm text-muted-foreground">Plan</span>
                 </div>
                 <span className="text-sm font-medium" data-testid="text-account-plan">
-                  {user.subscriptionType}
+                  {user.subscriptionPlan}
                 </span>
               </div>
             )}
@@ -454,98 +454,154 @@ const isSClass = Boolean(user?.isPremium) || Boolean(isAdminGranted);
                 </Button>
               </div>
 
-              <p className="text-xs text-muted-foreground text-center">
-                Save ~33% with yearly billing
-              </p>
-            </div>
-          )}
+                          <p className="text-xs text-muted-foreground text-center">
+              Save ~33% with yearly billing
+            </p>
+          </div>
+        )}
 
-          {isSClass && !isAdminGranted && user.stripeCustomerId && (
-            <Button
-              onClick={async (e) => {
-                e.preventDefault();
-                e.stopPropagation();
+        {/* S-Class info (show only when user is NOT currently S-Class) */}
+        {!isSClass && (
+          <Card className="mt-4">
+            <CardHeader>
+              <CardTitle>S-Class Membership</CardTitle>
+              <CardDescription>
+                Unlock premium perks that power your daily progress.
+              </CardDescription>
+            </CardHeader>
 
-                alert("MANAGE BILLING CLICKED");
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="rounded-lg border p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="font-semibold">Free</div>
+                    <Badge variant="secondary">Current baseline</Badge>
+                  </div>
+                  <ul className="text-sm space-y-1 text-muted-foreground">
+                    <li>• 1 free summon / day</li>
+                    <li>• Standard odds + standard rewards</li>
+                    <li>• Join weekly + monthly draws</li>
+                    <li>• Basic profile customization</li>
+                    <li>• Community access</li>
+                  </ul>
+                </div>
 
-                try {
-                  // If token is missing, you'll see it immediately
-                  if (!accessToken) {
-                    alert("NO ACCESS TOKEN (Supabase session missing)");
-                    toast.error("Please log in again to manage billing.");
-                    return;
-                  }
+                <div className="rounded-lg border p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="font-semibold">S-Class</div>
+                    <Badge>S-Class</Badge>
+                  </div>
+                  <ul className="text-sm space-y-1 text-muted-foreground">
+                    <li>• 2 free summons / day</li>
+                    <li>• Premium perks and priority rewards</li>
+                    <li>• Access to S-Class bonuses as they release</li>
+                    <li>• Manage billing + cancel anytime</li>
+                    <li>• Early access to new features</li>
+                  </ul>
+                </div>
+              </div>
 
-                  if (isLoadingPortal) {
-                    alert("ALREADY OPENING (isLoadingPortal=true)");
-                    return;
-                  }
+              <div className="text-xs text-muted-foreground space-y-1">
+                <p>Payments are handled by Stripe (secure checkout).</p>
+                <p>
+                  Cancel anytime — membership stays active until the end of the
+                  billing period.
+                </p>
+                <p>
+                  If you already have an active subscription, use{" "}
+                  <span className="font-medium">Manage Billing</span>.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
-                  setIsLoadingPortal(true);
+        {isSClass && !isAdminGranted && user.stripeCustomerId && (
+          <Button
+            onClick={async (e) => {
+              e.preventDefault();
+              e.stopPropagation();
 
-                  const res = await fetch("/api/stripe/portal", {
-                    method: "POST",
-                    headers: {
-                      Authorization: `Bearer ${accessToken}`,
-                    },
-                    credentials: "include",
-                  });
+              alert("MANAGE BILLING CLICKED");
 
-                  const raw = await res.text();
-                  let data: any = {};
-                  try {
-                    data = JSON.parse(raw);
-                  } catch {
-                    // keep raw text for debugging
-                  }
-
-                  if (!res.ok) {
-                    alert(`PORTAL ERROR ${res.status}: ${raw || "no body"}`);
-                    toast.error(data?.error || raw || "Failed to open billing portal");
-                    return;
-                  }
-
-                  if (!data?.url) {
-                    alert(`NO URL RETURNED: ${raw || "empty"}`);
-                    toast.error("Billing portal did not return a URL.");
-                    return;
-                  }
-
-                  window.location.href = data.url;
-                } catch (err: any) {
-                  console.error("[AccountPage] portal error:", err);
-                  alert(`PORTAL JS ERROR: ${err?.message || String(err)}`);
-                  toast.error(err?.message || "Failed to open billing portal");
-                } finally {
-                  setIsLoadingPortal(false);
+              try {
+                // If token is missing, you'll see it immediately
+                if (!accessToken) {
+                  alert("NO ACCESS TOKEN (Supabase session missing)");
+                  toast.error("Please log in again to manage billing.");
+                  return;
                 }
-              }}
-              disabled={isLoadingPortal}
-              className="w-full"
-              data-testid="button-manage-billing"
-            >
-              {isLoadingPortal ? (
-                "Opening..."
-              ) : (
-                <>
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Manage Billing
-                </>
-              )}
-            </Button>
-          )}
 
-          {isAdminGranted && (
-            <Alert className="border-blue-500/50 bg-blue-500/10">
-              <AlertCircle className="h-4 w-4 text-blue-500" />
-              <AlertDescription className="text-sm">
-                Your S-Class access was granted by an admin. You can still subscribe to continue access after it expires.
-              </AlertDescription>
-            </Alert>
-          )}
+                if (isLoadingPortal) {
+                  alert("ALREADY OPENING (isLoadingPortal=true)");
+                  return;
+                }
+
+                setIsLoadingPortal(true);
+
+                const res = await fetch("/api/stripe/portal", {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                  },
+                  credentials: "include",
+                });
+
+                const raw = await res.text();
+                let data: any = {};
+                try {
+                  data = JSON.parse(raw);
+                } catch {
+                  // keep raw text for debugging
+                }
+
+                if (!res.ok) {
+                  alert(`PORTAL ERROR ${res.status}: ${raw || "no body"}`);
+                  toast.error(data?.error || raw || "Failed to open billing portal");
+                  return;
+                }
+
+                if (!data?.url) {
+                  alert(`NO URL RETURNED: ${raw || "empty"}`);
+                  toast.error("Billing portal did not return a URL.");
+                  return;
+                }
+
+                window.location.href = data.url;
+              } catch (err: any) {
+                console.error("[AccountPage] portal error:", err);
+                alert(`PORTAL JS ERROR: ${err?.message || String(err)}`);
+                toast.error(err?.message || "Failed to open billing portal");
+              } finally {
+                setIsLoadingPortal(false);
+              }
+            }}
+            disabled={isLoadingPortal}
+            className="w-full"
+            data-testid="button-manage-billing"
+          >
+            {isLoadingPortal ? (
+              "Opening..."
+            ) : (
+              <>
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Manage Billing
+              </>
+            )}
+          </Button>
+        )}
+
+        {isAdminGranted && (
+          <Alert className="border-blue-500/50 bg-blue-500/10">
+            <AlertCircle className="h-4 w-4 text-blue-500" />
+            <AlertDescription className="text-sm">
+              Your S-Class access was granted by an admin. You can still subscribe to
+              continue access after it expires.
+            </AlertDescription>
+          </Alert>
+        )}
         </CardContent>
       </Card>
     </div>
   );
 }
-
