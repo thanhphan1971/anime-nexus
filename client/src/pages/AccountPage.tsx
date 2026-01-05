@@ -492,10 +492,11 @@ const isSClass = Boolean(user?.isPremium) || Boolean(isAdminGranted);
                   </div>
                   <ul className="text-sm space-y-1 text-muted-foreground">
                     <li>• <Link href="/cards" className="text-primary hover:underline">2 free summons / day</Link></li>
-                    <li>• Premium perks and priority rewards</li>
-                    <li>• Access to S-Class bonuses as they release</li>
+                    <li>• Additional daily game and summon entries</li>
+                    <li>• Higher daily token earning limits</li>
+                    <li>• Access to weekly and monthly draws</li>
+                    <li>• Exclusive S-Class identity badge</li>
                     <li>• Manage billing + cancel anytime</li>
-                    <li>• Early access to new features</li>
                   </ul>
                 </div>
               </div>
