@@ -12,6 +12,7 @@ import {
   AlertCircle,
   ExternalLink,
   ArrowLeft,
+  ChevronDown,
 } from "lucide-react";
 
 import {
@@ -25,6 +26,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 import { useAuth } from "@/context/AuthContext";
 import { useSClassStatus } from "@/lib/api";
@@ -515,60 +521,67 @@ const isSClass = Boolean(user?.isPremium) || Boolean(isAdminGranted);
             </CardContent>
           </Card>
 
-        {/* Billing & Cancellation Info - Always visible */}
-        <Card className="mt-4">
-          <CardHeader>
-            <CardTitle>Billing & Cancellation</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4 text-sm">
-            <div>
-              <h4 className="font-semibold mb-1">Cancel anytime</h4>
-              <p className="text-muted-foreground">
-                You can cancel your S-Class subscription at any time.
-              </p>
-            </div>
+        {/* Billing & Cancellation Info - Collapsible */}
+        <Collapsible className="mt-4">
+          <Card>
+            <CollapsibleTrigger className="w-full">
+              <CardHeader className="flex flex-row items-center justify-between cursor-pointer hover:bg-white/5 transition-colors rounded-t-lg">
+                <CardTitle className="text-lg">Billing & Cancellation</CardTitle>
+                <ChevronDown className="h-5 w-5 text-muted-foreground transition-transform duration-200 [&[data-state=open]]:rotate-180" />
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="space-y-4 text-sm pt-0">
+                <div>
+                  <h4 className="font-semibold mb-1">Cancel anytime</h4>
+                  <p className="text-muted-foreground">
+                    You can cancel your S-Class subscription at any time.
+                  </p>
+                </div>
 
-            <div>
-              <h4 className="font-semibold mb-1">How to cancel</h4>
-              <ul className="text-muted-foreground space-y-1 list-disc list-inside">
-                <li>Go to Account → Manage Billing</li>
-                <li>In the billing portal, choose Cancel subscription</li>
-                <li>You'll receive a confirmation from Stripe, and your AniRealm account will update shortly after</li>
-              </ul>
-            </div>
+                <div>
+                  <h4 className="font-semibold mb-1">How to cancel</h4>
+                  <ul className="text-muted-foreground space-y-1 list-disc list-inside">
+                    <li>Go to Account → Manage Billing</li>
+                    <li>In the billing portal, choose Cancel subscription</li>
+                    <li>You'll receive a confirmation from Stripe, and your AniRealm account will update shortly after</li>
+                  </ul>
+                </div>
 
-            <div>
-              <h4 className="font-semibold mb-1">What happens after you cancel</h4>
-              <ul className="text-muted-foreground space-y-1 list-disc list-inside">
-                <li>Your S-Class benefits stay active until the end of your current billing period</li>
-                <li>You won't be charged again unless you re-subscribe</li>
-                <li>When the billing period ends, your account automatically returns to Free</li>
-              </ul>
-            </div>
+                <div>
+                  <h4 className="font-semibold mb-1">What happens after you cancel</h4>
+                  <ul className="text-muted-foreground space-y-1 list-disc list-inside">
+                    <li>Your S-Class benefits stay active until the end of your current billing period</li>
+                    <li>You won't be charged again unless you re-subscribe</li>
+                    <li>When the billing period ends, your account automatically returns to Free</li>
+                  </ul>
+                </div>
 
-            <div>
-              <h4 className="font-semibold mb-1">Refunds</h4>
-              <p className="text-muted-foreground">
-                AniRealm does not offer refunds for subscription charges, partial months, or unused time.
-              </p>
-              <p className="text-muted-foreground mt-1">
-                <span className="font-medium">Exception:</span> If there is a confirmed billing error (for example: duplicate charge, wrong amount charged, or charge made after you canceled), contact support and we will review and correct it.
-              </p>
-            </div>
+                <div>
+                  <h4 className="font-semibold mb-1">Refunds</h4>
+                  <p className="text-muted-foreground">
+                    AniRealm does not offer refunds for subscription charges, partial months, or unused time.
+                  </p>
+                  <p className="text-muted-foreground mt-1">
+                    <span className="font-medium">Exception:</span> If there is a confirmed billing error (for example: duplicate charge, wrong amount charged, or charge made after you canceled), contact support and we will review and correct it.
+                  </p>
+                </div>
 
-            <div>
-              <h4 className="font-semibold mb-1">Need help?</h4>
-              <p className="text-muted-foreground">
-                If you believe you were charged incorrectly, contact us with:
-              </p>
-              <ul className="text-muted-foreground space-y-1 list-disc list-inside mt-1">
-                <li>The email on your AniRealm account</li>
-                <li>The date/amount of the charge</li>
-                <li>(Optional) The Stripe receipt/invoice ID</li>
-              </ul>
-            </div>
-          </CardContent>
-        </Card>
+                <div>
+                  <h4 className="font-semibold mb-1">Need help?</h4>
+                  <p className="text-muted-foreground">
+                    If you believe you were charged incorrectly, contact us with:
+                  </p>
+                  <ul className="text-muted-foreground space-y-1 list-disc list-inside mt-1">
+                    <li>The email on your AniRealm account</li>
+                    <li>The date/amount of the charge</li>
+                    <li>(Optional) The Stripe receipt/invoice ID</li>
+                  </ul>
+                </div>
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
 
         {isSClass && !isAdminGranted && user.stripeCustomerId && (
           <Button
