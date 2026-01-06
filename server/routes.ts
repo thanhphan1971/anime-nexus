@@ -4170,6 +4170,13 @@ export async function registerRoutes(
   app.get("/api/game/status", verifySupabaseToken, async (req, res) => {
     try {
       const user = await storage.getUserBySupabaseId(req.supabaseUser!.id);
+      console.log("[SYNC] user:", {
+  id: user.id,
+  email: user.email,
+  stripeCustomerId: user.stripeCustomerId,
+  stripeSubscriptionId: user.stripeSubscriptionId,
+});
+
       if (!user) return res.status(404).json({ error: "User not found" });
 
       const today = getTodayDate();
@@ -5559,79 +5566,111 @@ const stripeSubscriptionSyncHandler = async (req: any, res: any) => {
       });
     }
 
-    // Pull subscriptions for customer
-const subs = await stripe.subscriptions.list({
-  customer: user.stripeCustomerId,
-  limit: 10,
-  status: "all",
+    const nowSec = Math.floor(Date.now() / 1000);
+
+    // Prefer exact subscriptionId from DB first (most accurate)
+    let entitledSub: any = null;
+
+    if (user.stripeSubscriptionId) {
+      try {
+        const exactSub: any = await stripe.subscriptions.retrieve(
+          user.stripeSubscriptionId,
+          { expand: ["items.data.price", "latest_invoice.lines"] }
+        );
+
+        const status = String(exactSub?.status || "");
+        const periodEnd = Number(exactSub?.current_period_end || 0);
+
+        const entitled =
+          status === "active" ||
+          status === "trialing" ||
+          status === "past_due" ||
+          (status === "canceled" && periodEnd && periodEnd > nowSec);
+
+        if (entitled) entitledSub = exactSub;
+      } catch (e) {
+        // ignore and fallback to list
+      }
+    }
+
+    // Fallback: pull subscriptions for customer and pick newest entitled
+    if (!entitledSub) {
+      const subs = await stripe.subscriptions.list({
+        customer: user.stripeCustomerId,
+        limit: 10,
+        status: "all",
+      });
+
+      const candidate =
+        subs.data
+          .sort((a: any, b: any) => (b.created || 0) - (a.created || 0))
+          .find((s: any) => {
+            const status = String(s.status || "");
+            const periodEnd = Number(s.current_period_end || 0);
+
+            if (status === "active" || status === "trialing") return true;
+            if (status === "past_due") return true;
+            if (status === "canceled" && periodEnd && periodEnd > nowSec) return true;
+
+            return false;
+          }) || null;
+
+      if (candidate) {
+        entitledSub = await stripe.subscriptions.retrieve(candidate.id, {
+          expand: ["items.data.price", "latest_invoice.lines"],
+        });
+      }
+    }
+
+    const isPremium = !!entitledSub;
+
+    // Derive monthly/yearly + end date + canceling status
+    let subscriptionType: string | null = null;
+    let premiumEndDate: Date | null = null;
+    let willCancelAtPeriodEnd = false;
+    let subscriptionStatus: string = "free";
+
+    if (entitledSub) {
+      // IMPORTANT: entitledSub is already the full subscription (expanded)
+      const fullSub: any = entitledSub;
+      console.log("[SYNC] stripe sub:", {
+  id: fullSub?.id,
+  customer: fullSub?.customer,
+  status: fullSub?.status,
+  cancel_at_period_end: fullSub?.cancel_at_period_end,
+  current_period_end: fullSub?.current_period_end,
 });
 
-const nowSec = Math.floor(Date.now() / 1000);
 
-// Choose the newest sub that still grants access:
-// - active / trialing => yes
-// - past_due => yes (keep access while Stripe retries)
-// - canceled but paid-through (current_period_end > now) => yes
-const entitledSub =
-  subs.data
-    .sort((a: any, b: any) => (b.created || 0) - (a.created || 0))
-    .find((s: any) => {
-      const status = String(s.status || "");
-      const periodEnd = Number(s.current_period_end || 0);
+      const item = fullSub?.items?.data?.[0];
+      const interval = item?.price?.recurring?.interval; // "month" | "year"
+      subscriptionType =
+        interval === "year" ? "yearly" : interval === "month" ? "monthly" : null;
 
-      if (status === "active" || status === "trialing") return true;
-      if (status === "past_due") return true;
-      if (status === "canceled" && periodEnd && periodEnd > nowSec) return true;
+      // Primary source: current_period_end
+      let periodEnd = Number(fullSub?.current_period_end || 0);
 
-      return false;
-    }) || null;
+      // Fallbacks (rare, but prevents null end dates)
+      if (!periodEnd) {
+        const trialEnd = Number(fullSub?.trial_end || 0);
+        if (trialEnd) periodEnd = trialEnd;
 
-const isPremium = !!entitledSub;
+        const invoicePeriodEnd = Number(
+          fullSub?.latest_invoice?.lines?.data?.[0]?.period?.end || 0
+        );
+        if (invoicePeriodEnd) periodEnd = invoicePeriodEnd;
+      }
 
-// Derive monthly/yearly + end date + canceling status
-let subscriptionType: string | null = null;
-let premiumEndDate: Date | null = null;
-let willCancelAtPeriodEnd = false;
-let subscriptionStatus: string = "free";
+      premiumEndDate = periodEnd ? new Date(periodEnd * 1000) : null;
 
-if (entitledSub) {
-  // Re-fetch full subscription with expansions so period end + interval are reliable
-  const fullSub: any = await stripe.subscriptions.retrieve(entitledSub.id, {
-    expand: ["items.data.price", "latest_invoice.lines"],
-  });
+      willCancelAtPeriodEnd = !!fullSub?.cancel_at_period_end;
 
-  const item = fullSub?.items?.data?.[0];
-  const interval = item?.price?.recurring?.interval; // "month" | "year"
-  subscriptionType =
-    interval === "year" ? "yearly" : interval === "month" ? "monthly" : null;
-
-  // Primary source: current_period_end
-  let periodEnd = Number(fullSub?.current_period_end || 0);
-
-  // Fallbacks (rare, but prevents null end dates)
-  if (!periodEnd) {
-    const trialEnd = Number(fullSub?.trial_end || 0);
-    if (trialEnd) periodEnd = trialEnd;
-
-    const invoicePeriodEnd = Number(
-      fullSub?.latest_invoice?.lines?.data?.[0]?.period?.end || 0
-    );
-    if (invoicePeriodEnd) periodEnd = invoicePeriodEnd;
-  }
-
-  premiumEndDate = periodEnd ? new Date(periodEnd * 1000) : null;
-
-  willCancelAtPeriodEnd = !!fullSub?.cancel_at_period_end;
-
-  // subscriptionStatus for UI
-  if (willCancelAtPeriodEnd) {
-    subscriptionStatus = "canceling";
-  } else {
-    subscriptionStatus = String(fullSub?.status || "active");
-  }
-} else {
-  subscriptionStatus = "free";
-}
+      subscriptionStatus = willCancelAtPeriodEnd
+        ? "canceling"
+        : String(fullSub?.status || "active");
+    } else {
+      subscriptionStatus = "free";
+    }
 
     await storage.updateUser(user.id, {
       isPremium,
@@ -5651,7 +5690,9 @@ if (entitledSub) {
     });
   } catch (error: any) {
     console.error("Subscription sync error:", error);
-    return res.status(500).json({ error: error?.message || "Failed to sync subscription" });
+    return res
+      .status(500)
+      .json({ error: error?.message || "Failed to sync subscription" });
   }
 };
 
@@ -5660,4 +5701,5 @@ app.post("/api/stripe/subscription", verifySupabaseToken, stripeSubscriptionSync
 
 return httpServer;
 }
+
 

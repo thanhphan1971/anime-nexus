@@ -511,53 +511,91 @@ useEffect(() => {
                   </ul>
                 </div>
 
-                <div className="rounded-lg border p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="font-semibold">S-Class</div>
-                    <Badge>S-Class</Badge>
-                  </div>
-                  <ul className="text-sm space-y-1 text-muted-foreground">
-                    <li>• <Link href="/cards" className="text-primary hover:underline">2 free summons / day</Link></li>
-                    <li>• Additional daily game and summon entries</li>
-                    <li>• Higher daily token earning limits</li>
-                    <li>• Access to weekly and monthly draws</li>
-                    <li>• Exclusive S-Class identity badge</li>
-                    <li>• Manage billing + cancel anytime</li>
-                  </ul>
-                </div>
-              </div>
+               <div className="rounded-lg border p-4">
+  <div className="flex items-center justify-between mb-2">
+    <div className="font-semibold">S-Class</div>
+    <Badge>S-Class</Badge>
+  </div>
+  <ul className="text-sm space-y-1 text-muted-foreground">
+    <li>
+      •{" "}
+      <Link href="/cards" className="text-primary hover:underline">
+        2 free summons / day
+      </Link>
+    </li>
+    <li>• Additional daily game and summon entries</li>
+    <li>• Higher daily token earning limits</li>
+    <li>• Access to weekly and monthly draws</li>
+    <li>• Exclusive S-Class identity badge</li>
+    <li>• Manage billing + cancel anytime</li>
+  </ul>
+</div>
+</div>
 
-              <div className="text-xs text-muted-foreground space-y-1">
-                <p>Payments are handled by Stripe (secure checkout).</p>
-                <p>
-                  Cancel anytime — membership stays active until the end of the
-                  billing period.
-                </p>
-                <p>
-                  If you already have an active subscription, use{" "}
-                  <span className="font-medium">Manage Billing</span>.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+<div className="text-xs text-muted-foreground space-y-1">
+  <p>Payments are handled by Stripe (secure checkout).</p>
 
-        {/* Billing & Cancellation Info - Collapsible */}
-        <Collapsible className="mt-4">
-          <Card>
-            <CollapsibleTrigger className="w-full">
-              <CardHeader className="flex flex-row items-center justify-between cursor-pointer hover:bg-white/5 transition-colors rounded-t-lg">
-                <CardTitle className="text-lg">Billing & Cancellation</CardTitle>
-                <ChevronDown className="h-5 w-5 text-muted-foreground transition-transform duration-200 [&[data-state=open]]:rotate-180" />
-              </CardHeader>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <CardContent className="space-y-4 text-sm pt-0">
-                <div>
-                  <h4 className="font-semibold mb-1">Cancel anytime</h4>
-                  <p className="text-muted-foreground">
-                    You can cancel your S-Class subscription at any time.
-                  </p>
-                </div>
+  {sclassStatus?.premiumEndDate ? (
+    <p>
+      {sclassStatus?.willCancelAtPeriodEnd ? "Benefits end on " : "Next billing on "}
+      {new Intl.DateTimeFormat("en-CA", {
+        year: "numeric",
+        month: "long",
+        day: "2-digit",
+        timeZone: "America/Toronto",
+      }).format(new Date(sclassStatus.premiumEndDate))}
+      .
+    </p>
+  ) : null}
+
+  {sclassStatus?.willCancelAtPeriodEnd ? (
+    <p>Your subscription is scheduled to cancel at period end.</p>
+  ) : (
+    <p>
+      Cancel anytime — membership stays active until the end of the billing
+      period.
+    </p>
+  )}
+
+  <p>
+    If you already have an active subscription, use{" "}
+    <span className="font-medium">Manage Billing</span>.
+  </p>
+</div>
+</CardContent>
+</Card>
+
+{/* Billing & Cancellation Info - Collapsible */}
+<Collapsible className="mt-4">
+  <Card>
+    <CollapsibleTrigger className="w-full">
+      <CardHeader className="flex flex-row items-center justify-between cursor-pointer hover:bg-white/5 transition-colors rounded-t-lg">
+        <CardTitle className="text-lg">Billing & Cancellation</CardTitle>
+        <ChevronDown className="h-5 w-5 text-muted-foreground transition-transform duration-200 [&[data-state=open]]:rotate-180" />
+      </CardHeader>
+    </CollapsibleTrigger>
+    <CollapsibleContent>
+      <CardContent className="space-y-4 text-sm pt-0">
+        <div>
+          <h4 className="font-semibold mb-1">Cancel anytime</h4>
+          <p className="text-muted-foreground">
+            You can cancel your S-Class subscription at any time.
+            {sclassStatus?.premiumEndDate && sclassStatus?.willCancelAtPeriodEnd ? (
+              <>
+                {" "}
+                Your benefits remain active until{" "}
+                {new Intl.DateTimeFormat("en-CA", {
+                  year: "numeric",
+                  month: "long",
+                  day: "2-digit",
+                  timeZone: "America/Toronto",
+                }).format(new Date(sclassStatus.premiumEndDate))}
+                .
+              </>
+            ) : null}
+          </p>
+        </div>
+
 
                 <div>
                   <h4 className="font-semibold mb-1">How to cancel</h4>
