@@ -68,6 +68,7 @@ export default function AccountPage() {
 
   const isAdminGranted = sclassStatus?.accessSource === "admin_grant";
   const isSClass = Boolean(sclassStatus?.isPremium) || Boolean(isAdminGranted);
+  const isPremiumActive = sclassStatus?.isPremium === true && sclassStatus?.subscriptionStatus === "active";
 
 
 
@@ -500,7 +501,11 @@ useEffect(() => {
                 <div className="rounded-lg border p-4">
                   <div className="flex items-center justify-between mb-2">
                     <div className="font-semibold">Free</div>
-                    <Badge variant="secondary">Current baseline</Badge>
+                    {!isPremiumActive && (
+                      <Badge className="bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                        Your current plan
+                      </Badge>
+                    )}
                   </div>
                   <ul className="text-sm space-y-1 text-muted-foreground">
                     <li>• <Link href="/cards" className="text-primary hover:underline">1 free summon / day</Link></li>
@@ -514,7 +519,15 @@ useEffect(() => {
                <div className="rounded-lg border p-4">
   <div className="flex items-center justify-between mb-2">
     <div className="font-semibold">S-Class</div>
-    <Badge>S-Class</Badge>
+    {isPremiumActive ? (
+      <Badge className="bg-green-500/20 text-green-300 border border-green-500/30">
+        Your current plan
+      </Badge>
+    ) : (
+      <Badge className="bg-yellow-500/20 text-yellow-300 border border-yellow-500/30">
+        Premium
+      </Badge>
+    )}
   </div>
   <ul className="text-sm space-y-1 text-muted-foreground">
     <li>
