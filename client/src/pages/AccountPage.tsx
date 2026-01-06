@@ -680,10 +680,8 @@ useEffect(() => {
         </div>
       </CardContent>
     </CollapsibleContent>
-  </Card>
-</Collapsible>
-        </div>
-      </div>
+      </Card>
+    </Collapsible>
     </div>
   );
 }
