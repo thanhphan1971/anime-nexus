@@ -1,6 +1,7 @@
 
 import { storage } from './storage';
 import { formatPrice, getEmailTemplate, sendEmail } from './lib/emailService';
+import { stripe } from './stripeClient';
 
 export class WebhookHandlers {
   static async processWebhook(payload: Buffer, signature: string): Promise<void> {
@@ -13,11 +14,7 @@ export class WebhookHandlers {
       );
     }
 
-    // Let stripe-sync handle subscription events
-    
-    await sync.processWebhook(payload, signature);
-    
-    // Also handle minor token purchase events
+    // Handle minor token purchase events (subscription events handled in index.ts webhook)
     await this.handleMinorTokenPurchase(payload, signature);
   }
   
@@ -48,7 +45,7 @@ export class WebhookHandlers {
   
   static async handleMinorTokenPurchase(payload: Buffer, signature: string): Promise<void> {
     try {
-      const stripe = await getUncachableStripeClient();
+      const { stripe } = await import('./stripeClient');
       
       // CRITICAL #1: Verify webhook signature (required in production)
       const event = this.verifyWebhookSignature(payload, signature, stripe);

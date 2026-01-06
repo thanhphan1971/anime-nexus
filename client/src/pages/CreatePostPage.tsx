@@ -33,7 +33,7 @@ export default function CreatePostPage() {
   const storyVideoInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch story limits
-  const { data: storyLimits } = useQuery({
+  const { data: storyLimits } = useQuery<{ storiesPosted: number; maxStories: number } | null>({
     queryKey: ["/api/stories/limits"],
     enabled: !!user,
   });

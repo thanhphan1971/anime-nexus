@@ -4170,14 +4170,14 @@ export async function registerRoutes(
   app.get("/api/game/status", verifySupabaseToken, async (req, res) => {
     try {
       const user = await storage.getUserBySupabaseId(req.supabaseUser!.id);
-      console.log("[SYNC] user:", {
-  id: user.id,
-  email: user.email,
-  stripeCustomerId: user.stripeCustomerId,
-  stripeSubscriptionId: user.stripeSubscriptionId,
-});
-
       if (!user) return res.status(404).json({ error: "User not found" });
+      
+      console.log("[SYNC] user:", {
+        id: user.id,
+        email: user.email,
+        stripeCustomerId: user.stripeCustomerId,
+        stripeSubscriptionId: user.stripeSubscriptionId,
+      });
 
       const today = getTodayDate();
       const stats = await storage.getUserDailyGameStats(user.id, today);

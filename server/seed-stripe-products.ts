@@ -1,7 +1,6 @@
-import { getUncachableStripeClient } from './stripeClient';
+import { stripe } from './stripeClient';
 
 async function createSClassProducts() {
-  const stripe = await getUncachableStripeClient();
 
   console.log('Creating S-Class subscription products...');
 
@@ -13,7 +12,7 @@ async function createSClassProducts() {
     console.log('S-Class product already exists');
     const product = existingProducts.data[0];
     const prices = await stripe.prices.list({ product: product.id, active: true });
-    console.log('Existing prices:', prices.data.map(p => ({
+    console.log('Existing prices:', prices.data.map((p: any) => ({
       id: p.id,
       amount: p.unit_amount,
       interval: p.recurring?.interval

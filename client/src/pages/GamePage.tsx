@@ -15,13 +15,16 @@ import {
   useClaimGameReward,
   useClaimSocialBonus,
   useCreateChroniclePost,
-  useGameEvents,
   useUpdateTutorial,
   useDeclineFirstPurchaseDiscount
 } from "@/lib/api";
+
 import { Zap, Shield, Flame, Clock, Trophy, Share2, Sparkles, AlertTriangle, Target, Calendar, Users, BookOpen, Info, Lock, ChevronDown, ChevronUp, Coins, Crown, X } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Link } from "wouter";
+
+// Events feature flag - disabled by default until seasonal events are implemented
+const EVENTS_ENABLED = false;
 
 // Analytics tracking for CTAs with full context
 const trackCTAEvent = (eventName: string, context: {
@@ -76,7 +79,8 @@ export default function GamePage() {
   const isMobile = useIsMobile();
   const { data: config } = useGameConfig();
   const { data: status, refetch: refetchStatus } = useGameStatus();
-  const { data: eventsData } = useGameEvents();
+  // Events disabled - seasonal events not yet implemented
+  const eventsData = EVENTS_ENABLED ? null : null;
   const startSession = useStartGameSession();
   const completeSession = useCompleteGameSession();
   const claimReward = useClaimGameReward();
@@ -340,13 +344,15 @@ export default function GamePage() {
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900/20 to-gray-900 p-4">
       <div className="max-w-4xl mx-auto">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 bg-gray-800/50 mb-6">
+          <TabsList className={`grid w-full ${EVENTS_ENABLED ? 'grid-cols-3' : 'grid-cols-2'} bg-gray-800/50 mb-6`}>
             <TabsTrigger value="play" className="data-[state=active]:bg-purple-600" data-testid="tab-play">
               <Zap className="w-4 h-4 mr-2" /> Play
             </TabsTrigger>
-            <TabsTrigger value="events" className="data-[state=active]:bg-cyan-600" data-testid="tab-events">
-              <Calendar className="w-4 h-4 mr-2" /> Events
-            </TabsTrigger>
+            {EVENTS_ENABLED && (
+              <TabsTrigger value="events" className="data-[state=active]:bg-cyan-600" data-testid="tab-events">
+                <Calendar className="w-4 h-4 mr-2" /> Events
+              </TabsTrigger>
+            )}
             <TabsTrigger value="rules" className="data-[state=active]:bg-yellow-600" data-testid="tab-rules">
               <BookOpen className="w-4 h-4 mr-2" /> Rules
             </TabsTrigger>
@@ -407,9 +413,11 @@ export default function GamePage() {
             </AnimatePresence>
           </TabsContent>
 
-          <TabsContent value="events">
-            <EventsScreen events={eventsData} status={status} />
-          </TabsContent>
+          {EVENTS_ENABLED && (
+            <TabsContent value="events">
+              <EventsScreen events={eventsData} status={status} />
+            </TabsContent>
+          )}
 
           <TabsContent value="rules">
             <RulesScreen status={status} />
