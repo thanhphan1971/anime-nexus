@@ -1015,18 +1015,58 @@ export async function registerRoutes(
       
       // Get only active (non-archived) cards and pick random ones
       const allCards = await storage.getActiveCards();
-      if (allCards.length === 0) {
+      
+      // Get active event cards with drop rate bonuses
+      const activeEventCards = await storage.getActiveEventCards();
+      
+      // Build weighted pool: base cards + event cards with their bonus multipliers
+      type WeightedCard = { card: typeof allCards[0]; weight: number; isEventCard: boolean };
+      const weightedPool: WeightedCard[] = [];
+      
+      // Add base cards with weight 1
+      for (const card of allCards) {
+        weightedPool.push({ card, weight: 1, isEventCard: false });
+      }
+      
+      // Add event cards with boosted weights (if not already in pool)
+      for (const eventCard of activeEventCards) {
+        const existing = weightedPool.find(w => w.card.id === eventCard.id);
+        if (existing) {
+          // Boost existing card's weight by event bonus
+          existing.weight += 0.5; // Event cards get 50% higher chance
+          existing.isEventCard = true;
+        } else {
+          // Add event-exclusive card with weight
+          weightedPool.push({ card: eventCard, weight: 1.5, isEventCard: true });
+        }
+      }
+      
+      if (weightedPool.length === 0) {
         return res.status(400).json({ error: "No cards available in the gacha pool" });
       }
+      
+      // Calculate total weight for weighted random selection
+      const totalWeight = weightedPool.reduce((sum, w) => sum + w.weight, 0);
+      
+      const selectWeightedCard = () => {
+        let random = Math.random() * totalWeight;
+        for (const item of weightedPool) {
+          random -= item.weight;
+          if (random <= 0) return item;
+        }
+        return weightedPool[weightedPool.length - 1];
+      };
+      
       const numPulls = user.isPremium ? 2 : 1;
       const pulledCards = [];
       
       for (let i = 0; i < numPulls; i++) {
-        const randomCard = allCards[Math.floor(Math.random() * allCards.length)];
-        pulledCards.push(randomCard);
+        const selected = selectWeightedCard();
+        const cardWithEventFlag = { ...selected.card, isEventCard: selected.isEventCard };
+        pulledCards.push(cardWithEventFlag);
         await storage.addCardToUser({
           userId: user.id,
-          cardId: randomCard.id,
+          cardId: selected.card.id,
         });
       }
       
