@@ -7,51 +7,78 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useAuth } from "@/context/AuthContext";
-import { 
-  useGameConfig, 
-  useGameStatus, 
-  useStartGameSession, 
-  useCompleteGameSession, 
+import {
+  useGameConfig,
+  useGameStatus,
+  useStartGameSession,
+  useCompleteGameSession,
   useClaimGameReward,
   useClaimSocialBonus,
   useCreateChroniclePost,
-  useGameEvents,
   useUpdateTutorial,
-  useDeclineFirstPurchaseDiscount
+  useDeclineFirstPurchaseDiscount,
 } from "@/lib/api";
-import { Zap, Shield, Flame, Clock, Trophy, Share2, Sparkles, AlertTriangle, Target, Calendar, Users, BookOpen, Info, Lock, ChevronDown, ChevronUp, Coins, Crown, X } from "lucide-react";
+import {
+  Zap,
+  Shield,
+  Flame,
+  Clock,
+  Trophy,
+  Share2,
+  Sparkles,
+  AlertTriangle,
+  Target,
+  Users,
+  BookOpen,
+  Info,
+  Lock,
+  ChevronDown,
+  ChevronUp,
+  Coins,
+  Crown,
+  X,
+} from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Link } from "wouter";
 
 // Analytics tracking for CTAs with full context
-const trackCTAEvent = (eventName: string, context: {
-  userType: 'free' | 's-class';
-  reason: 'runs_used' | 'token_cap';
-  device: 'mobile' | 'desktop';
-  ctaVariantId?: string;
-  eventActive?: boolean;
-}) => {
+const trackCTAEvent = (
+  eventName: string,
+  context: {
+    userType: "free" | "s-class";
+    reason: "runs_used" | "token_cap";
+    device: "mobile" | "desktop";
+    ctaVariantId?: string;
+    eventActive?: boolean;
+  }
+) => {
   console.log(`[Analytics] ${eventName}`, context);
 };
 
 // S-Class specific analytics tracking
-const trackSClassEvent = (eventName: string, context: {
-  userType: 'free' | 's-class';
-  reason: 'runs_used' | 'token_cap';
-  device: 'mobile' | 'desktop';
-  ctaVariantId?: string;
-  eventActive?: boolean;
-}) => {
+const trackSClassEvent = (
+  eventName: string,
+  context: {
+    userType: "free" | "s-class";
+    reason: "runs_used" | "token_cap";
+    device: "mobile" | "desktop";
+    ctaVariantId?: string;
+    eventActive?: boolean;
+  }
+) => {
   console.log(`[Analytics] ${eventName}`, context);
 };
 
 // First purchase discount tracking
-const trackFirstPurchaseEvent = (eventName: string, context: {
-  userType: 'free' | 's-class';
-  reason: 'runs_used' | 'token_cap';
-  device: 'mobile' | 'desktop';
-  discountPercent: number;
-}) => {
+const trackFirstPurchaseEvent = (
+  eventName: string,
+  context: {
+    userType: "free" | "s-class";
+    reason: "runs_used" | "token_cap";
+    device: "mobile" | "desktop";
+    discountPercent: number;
+  }
+) => {
   console.log(`[Analytics] ${eventName}`, context);
 };
 
@@ -59,8 +86,8 @@ import stableSigil from "@assets/generated_images/stable_fracture_blue_sigil.png
 import volatileSigil from "@assets/generated_images/volatile_fracture_purple_sigil.png";
 import overchargedSigil from "@assets/generated_images/overcharged_rift_gold_sigil.png";
 
-type TrialType = 'safe' | 'unstable' | 'overcharged';
-type GamePhase = 'selection' | 'playing' | 'result';
+type TrialType = "safe" | "unstable" | "overcharged";
+type GamePhase = "selection" | "playing" | "result";
 
 interface FracturePoint {
   id: number;
@@ -76,7 +103,6 @@ export default function GamePage() {
   const isMobile = useIsMobile();
   const { data: config } = useGameConfig();
   const { data: status, refetch: refetchStatus } = useGameStatus();
-  const { data: eventsData } = useGameEvents();
   const startSession = useStartGameSession();
   const completeSession = useCompleteGameSession();
   const claimReward = useClaimGameReward();
@@ -84,7 +110,7 @@ export default function GamePage() {
   const createChronicle = useCreateChroniclePost();
   const updateTutorial = useUpdateTutorial();
 
-  const [phase, setPhase] = useState<GamePhase>('selection');
+  const [phase, setPhase] = useState<GamePhase>("selection");
   const [selectedTrial, setSelectedTrial] = useState<TrialType | null>(null);
   const [isPractice, setIsPractice] = useState(false);
   const [currentSession, setCurrentSession] = useState<any>(null);
@@ -95,11 +121,12 @@ export default function GamePage() {
   const [fracturesStabilized, setFracturesStabilized] = useState(0);
   const [result, setResult] = useState<any>(null);
   const [shareToChronicle, setShareToChronicle] = useState(true);
-  const [activeTab, setActiveTab] = useState('play');
+  const [activeTab, setActiveTab] = useState("play");
   const [showRewardsEndedModal, setShowRewardsEndedModal] = useState(false);
   const [showTutorialButtons, setShowTutorialButtons] = useState(false);
   const [showTutorialRewarded, setShowTutorialRewarded] = useState(false);
-  const [showTutorialPracticeOnly, setShowTutorialPracticeOnly] = useState(false);
+  const [showTutorialPracticeOnly, setShowTutorialPra] = useState(false);
+
 
   // Check if should show practice-only modal after game ends
   useEffect(() => {
@@ -272,607 +299,316 @@ export default function GamePage() {
     if (timerRef.current) clearInterval(timerRef.current);
     if (gameLoopRef.current) clearTimeout(gameLoopRef.current);
 
-    if (currentSession) {
-      try {
-        // Send actual click count to server for outcome calculation
-        const response = await completeSession.mutateAsync({
-          sessionId: currentSession.id,
-          clickCount: fracturesStabilized, // Player's actual performance
-          forceEnd, // Allow early ending when user clicks "End Game Early"
-        });
-        // Use server-provided values for display
-        setFracturesStabilized(response.fracturesStabilized || 0);
-        setScore(response.session?.score || 0);
-        setResult(response);
-        setPhase('result');
-      } catch (error: any) {
-        console.error('Failed to complete game:', error);
-        // Always transition to result screen on error so user isn't stuck
-        setResult({ outcome: 'failure', tokensRewarded: 0, canClaimReward: false });
-        setPhase('result');
-      }
-    }
-  }, [currentSession, completeSession, fracturesStabilized]);
-
-  useEffect(() => {
-    if (phase === 'playing' && timeLeft === 0 && currentSession) {
-      endGame();
-    }
-  }, [timeLeft, phase, currentSession, endGame]);
-
-  const handleClaimReward = async () => {
-    if (!result?.session?.id) return;
-    try {
-      await claimReward.mutateAsync(result.session.id);
-      if (shareToChronicle && result.session.isRewarded) {
-        await createChronicle.mutateAsync(result.session.id);
-      }
-      refetchStatus();
-    } catch (error: any) {
-      console.error('Failed to claim reward:', error);
-    }
-  };
-
-  const handleSocialBonus = async () => {
-    try {
-      await claimSocialBonus.mutateAsync();
-      refetchStatus();
-    } catch (error: any) {
-      console.error('Failed to claim social bonus:', error);
-    }
-  };
-
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900/20 to-gray-900 flex items-center justify-center p-4">
-        <Card className="bg-gray-800/80 border-purple-500/30 max-w-md">
-          <CardContent className="p-6 text-center">
-            <Zap className="w-12 h-12 text-purple-400 mx-auto mb-4" />
-            <h2 className="text-xl font-bold text-white mb-2">Login Required</h2>
-            <p className="text-gray-400">Please log in to play the Fracture Trial.</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
+       if (!user) {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900/20 to-gray-900 p-4">
-      <div className="max-w-4xl mx-auto">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 bg-gray-800/50 mb-6">
-            <TabsTrigger value="play" className="data-[state=active]:bg-purple-600" data-testid="tab-play">
-              <Zap className="w-4 h-4 mr-2" /> Play
-            </TabsTrigger>
-            <TabsTrigger value="events" className="data-[state=active]:bg-cyan-600" data-testid="tab-events">
-              <Calendar className="w-4 h-4 mr-2" /> Events
-            </TabsTrigger>
-            <TabsTrigger value="rules" className="data-[state=active]:bg-yellow-600" data-testid="tab-rules">
-              <BookOpen className="w-4 h-4 mr-2" /> Rules
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="play" className="space-y-6">
-            <AnimatePresence mode="wait">
-              {phase === 'selection' && (
-                <TrialSelection 
-                  config={config}
-                  status={status}
-                  isPractice={isPractice}
-                  setIsPractice={setIsPractice}
-                  onSelectTrial={startGame}
-                  onSocialBonus={handleSocialBonus}
-                  isLoading={startSession.isPending}
-                  isMobile={isMobile}
-                  showTutorialButtons={showTutorialButtons}
-                  onTutorialButtonsDismiss={handleTutorialButtonsDismiss}
-                  showTutorialRewarded={showTutorialRewarded}
-                  onTutorialRewardedDismiss={handleTutorialRewardedDismiss}
-                  showTutorialPracticeOnly={showTutorialPracticeOnly}
-                  onTutorialPracticeOnlyDismiss={handleTutorialPracticeOnlyDismiss}
-                  onModeChange={(practice: boolean) => {
-                    setIsPractice(practice);
-                    if (!practice && !status?.tutorial?.rewardedDone && !status?.isPracticeOnly) {
-                      setShowTutorialRewarded(true);
-                    }
-                  }}
-                />
-              )}
-
-              {phase === 'playing' && trialConfig && (
-                <GameScreen
-                  trialConfig={trialConfig}
-                  session={currentSession}
-                  timeLeft={timeLeft}
-                  fracturePoints={fracturePoints}
-                  fracturesStabilized={fracturesStabilized}
-                  score={score}
-                  status={status}
-                  onFractureClick={handleFractureClick}
-                  onEndGame={() => endGame(true)}
-                />
-              )}
-
-              {phase === 'result' && result && (
-                <ResultScreen
-                  result={result}
-                  shareToChronicle={shareToChronicle}
-                  setShareToChronicle={setShareToChronicle}
-                  onClaimReward={handleClaimReward}
-                  onPlayAgain={resetGame}
-                  isClaimLoading={claimReward.isPending || createChronicle.isPending}
-                  config={config}
-                />
-              )}
-            </AnimatePresence>
-          </TabsContent>
-
-          <TabsContent value="events">
-            <EventsScreen events={eventsData} status={status} />
-          </TabsContent>
-
-          <TabsContent value="rules">
-            <RulesScreen status={status} />
-          </TabsContent>
-        </Tabs>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900/20 to-gray-900 flex items-center justify-center p-4">
+      <Card className="bg-gray-800/80 border-purple-500/30 max-w-md">
+        <CardContent className="p-6 text-center">
+          <Zap className="w-12 h-12 text-purple-400 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-white mb-2">Login Required</h2>
+          <p className="text-gray-400">Please log in to play the Fracture Trial.</p>
+        </CardContent>
+      </Card>
     </div>
   );
 }
 
-function TrialSelection({ 
-  config, status, isPractice, setIsPractice, onSelectTrial, onSocialBonus, isLoading,
-  isMobile, showTutorialButtons, onTutorialButtonsDismiss, showTutorialRewarded, 
-  onTutorialRewardedDismiss, showTutorialPracticeOnly, onTutorialPracticeOnlyDismiss, onModeChange
-}: any) {
-  const [mobileStatusExpanded, setMobileStatusExpanded] = useState(false);
-  const [ctaShownTracked, setCtaShownTracked] = useState(false);
-  const [showSClassPanel, setShowSClassPanel] = useState(false);
-  const [sclassPanelShownTracked, setSclassPanelShownTracked] = useState(false);
-  const [ctaDismissed, setCtaDismissed] = useState(false);
-  const declineDiscount = useDeclineFirstPurchaseDiscount();
-  
-  // Track S-Class panel viewed
-  const handleShowSClassPanel = () => {
-    setShowSClassPanel(true);
-    if (!sclassPanelShownTracked) {
-      trackSClassEvent('s_class_panel_viewed', {
-        userType: status?.isSClass ? 's-class' : 'free',
-        reason: status?.tokensEarnedToday >= status?.dailyTokenCap ? 'token_cap' : 'runs_used',
-        device: isMobile ? 'mobile' : 'desktop'
-      });
-      setSclassPanelShownTracked(true);
-    }
-  };
-  
-  // Reset tracking when user regains rewarded access (so we can track again when they hit cap next time)
-  useEffect(() => {
-    if (!status?.isPracticeOnly && ctaShownTracked) {
-      setCtaShownTracked(false);
-    }
-  }, [status?.isPracticeOnly, ctaShownTracked]);
-  
-  // Track CTA shown when isPracticeOnly becomes true (includes A/B variant and event context)
-  useEffect(() => {
-    if (status?.isPracticeOnly && !ctaShownTracked) {
-      trackCTAEvent('cta_shown', {
-        userType: status?.isSClass ? 's-class' : 'free',
-        reason: status?.tokensEarnedToday >= status?.dailyTokenCap ? 'token_cap' : 'runs_used',
-        device: isMobile ? 'mobile' : 'desktop',
-        ctaVariantId: status?.ctaVariantId,
-        eventActive: status?.eventActive
-      });
-      setCtaShownTracked(true);
-    }
-  }, [status?.isPracticeOnly, status?.isSClass, status?.tokensEarnedToday, status?.dailyTokenCap, isMobile, ctaShownTracked, status?.ctaVariantId, status?.eventActive]);
+return (
+  <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900/20 to-gray-900 p-4">
+    <div className="max-w-4xl mx-auto">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-2 bg-gray-800/50 mb-6">
+          <TabsTrigger
+            value="play"
+            className="data-[state=active]:bg-purple-600"
+            data-testid="tab-play"
+          >
+            <Zap className="w-4 h-4 mr-2" /> Play
+          </TabsTrigger>
 
-  const trials = [
-    { 
-      type: 'safe' as TrialType, 
-      icon: Shield, 
-      sigil: stableSigil,
-      color: 'from-cyan-500 to-blue-600', 
-      borderColor: 'border-cyan-500/50',
-      glowColor: 'shadow-cyan-500/30',
-      animation: 'animate-pulse-slow'
-    },
-    { 
-      type: 'unstable' as TrialType, 
-      icon: Zap, 
-      sigil: volatileSigil,
-      color: 'from-purple-500 to-fuchsia-600', 
-      borderColor: 'border-purple-500/50',
-      glowColor: 'shadow-purple-500/40',
-      animation: 'animate-flicker'
-    },
-    { 
-      type: 'overcharged' as TrialType, 
-      icon: Flame, 
-      sigil: overchargedSigil,
-      color: 'from-yellow-400 to-orange-500', 
-      borderColor: 'border-yellow-500/50',
-      glowColor: 'shadow-yellow-500/50',
-      animation: 'animate-surge'
-    },
-  ];
+          <TabsTrigger
+            value="rules"
+            className="data-[state=active]:bg-yellow-600"
+            data-testid="tab-rules"
+          >
+            <BookOpen className="w-4 h-4 mr-2" /> Rules
+          </TabsTrigger>
+        </TabsList>
 
-  // Calculate countdown to next reset
-  const getTimeUntilReset = () => {
-    if (!status?.nextResetUtc) return '00:00';
-    const now = new Date();
-    const reset = new Date(status.nextResetUtc);
-    const diff = reset.getTime() - now.getTime();
-    if (diff <= 0) return '00:00';
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    return `${hours}h ${minutes}m`;
-  };
+        <TabsContent value="play" className="space-y-6">
+          <AnimatePresence mode="wait">
+            {phase === "selection" && (
+              <TrialSelection
+                config={config}
+                status={status}
+                isPractice={isPractice}
+                setIsPractice={setIsPractice}
+                onSelectTrial={startGame}
+                onSocialBonus={handleSocialBonus}
+                isLoading={startSession.isPending}
+                isMobile={isMobile}
+                showTutorialButtons={showTutorialButtons}
+                onTutorialButtonsDismiss={handleTutorialButtonsDismiss}
+                showTutorialRewarded={showTutorialRewarded}
+                onTutorialRewardedDismiss={handleTutorialRewardedDismiss}
+                showTutorialPracticeOnly={showTutorialPracticeOnly}
+                onTutorialPracticeOnlyDismiss={handleTutorialPracticeOnlyDismiss}
+                onModeChange={(practice: boolean) => {
+                  setIsPractice(practice);
+                  if (
+                    !practice &&
+                    !status?.tutorial?.rewardedDone &&
+                    !status?.isPracticeOnly
+                  ) {
+                    setShowTutorialRewarded(true);
+                  }
+                }}
+              />
+            )}
 
-  const isPracticeOnly = status?.isPracticeOnly || false;
-  const rewardedTotal = status?.rewardedRunsTotal || status?.baseRewardedRuns || 3;
-  const rewardedUsed = status?.rewardedRunsUsed || 0;
-  const rewardedRemaining = status?.rewardedRunsRemaining || 0;
+            {phase === "playing" && trialConfig && (
+  <GameScreen
+    trialConfig={trialConfig}
+    session={currentSession}
+    timeLeft={timeLeft}
+    fracturePoints={fracturePoints}
+    fracturesStabilized={fracturesStabilized}
+    score={score}
+    status={status}
+    onFractureClick={handleFractureClick}
+    onEndGame={() => endGame(true)}
+  />
+)}
 
-  // Reason for practice-only
-  const getPracticeOnlyReason = () => {
-    if (!isPracticeOnly) return null;
-    if (rewardedRemaining <= 0) return "You've used all rewarded games for today.";
-    if ((status?.tokensEarnedToday || 0) >= (status?.dailyTokenCap || 90)) return "You've reached today's token limit.";
-    return "Rewards unavailable.";
-  };
+{phase === "result" && result && (
+  <ResultScreen
+    result={result}
+    shareToChronicle={shareToChronicle}
+    setShareToChronicle={setShareToChronicle}
+    onClaimReward={handleClaimReward}
+    onPlayAgain={resetGame}
+    isClaimLoading={claimReward.isPending || createChronicle.isPending}
+    config={config}
+  />
+)}
+</AnimatePresence>
+</TabsContent>
 
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-      className="space-y-6"
-    >
-      <div className="text-center mb-4">
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent mb-2">
-          The Fracture Trial
-        </h1>
-        <p className="text-gray-400">Stabilize dimensional fractures and earn rewards</p>
+<TabsContent value="rules">
+  <RulesScreen status={status} />
+</TabsContent>
+</Tabs>
+</div>
+</div>
+
+{/* ✅ KEEP GOING — DO NOT CLOSE THE COMPONENT HERE */}
+
+/* DESKTOP STATUS BOX */
+{!isMobile && status && (
+  <Card
+    className={`mb-6 ${
+      isPracticeOnly
+        ? "bg-gray-800/60 border-gray-500/30"
+        : "bg-gradient-to-r from-purple-900/30 to-cyan-900/30 border-purple-500/30"
+    }`}
+    data-testid="desktop-status-box"
+  >
+    <CardContent className="p-4">
+      <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+        <Info className="w-5 h-5 text-purple-400" />
+        Daily Rewards Status
+      </h3>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+        <div>
+          <div className="text-gray-400 mb-1">Status</div>
+          <div
+            className={`font-medium flex items-center gap-1 ${
+              isPracticeOnly ? "text-yellow-400" : "text-green-400"
+            }`}
+            data-testid="desktop-status-text"
+          >
+            {isPracticeOnly && <Lock className="w-4 h-4" />}
+            {isPracticeOnly ? "Practice Only" : "Rewarded Available"}
+          </div>
+        </div>
+        <div>
+          <div className="text-gray-400 mb-1">Rewarded Games Left</div>
+          <div className="text-white font-medium" data-testid="desktop-rewarded-remaining">
+            {rewardedRemaining} / {rewardedTotal}
+          </div>
+        </div>
+        <div>
+          <div className="text-gray-400 mb-1">Tokens Earned Today</div>
+          <div className="text-white font-medium" data-testid="desktop-tokens-today">
+            {status.tokensEarnedToday} / {status.dailyTokenCap}
+          </div>
+        </div>
+        <div>
+          <div className="text-gray-400 mb-1">Daily Reset</div>
+          <div className="text-gray-300" data-testid="desktop-reset-time">
+            Resets in {getTimeUntilReset()}
+          </div>
+        </div>
       </div>
 
-      {/* MOBILE STATUS BAR */}
-      {isMobile && status && (
-        <div className="mb-4">
-          <div 
-            className={`p-3 rounded-lg cursor-pointer transition-all ${
-              isPracticeOnly 
-                ? 'bg-gray-700/80 border border-gray-500/50' 
-                : 'bg-gradient-to-r from-purple-900/50 to-cyan-900/50 border border-purple-500/30'
-            }`}
-            onClick={() => setMobileStatusExpanded(!mobileStatusExpanded)}
-            data-testid="mobile-status-bar"
-          >
-            <div className="flex items-center justify-between text-sm">
-              <div className="flex items-center gap-3 flex-wrap">
-                <span className={isPracticeOnly ? 'text-gray-400' : 'text-cyan-300'}>
-                  {isPracticeOnly ? '🔒 Practice' : '🎯 Rewarded'}
-                </span>
-                <span className="text-gray-300">🎮 {rewardedRemaining}/{rewardedTotal}</span>
-                <span className="text-gray-300">💎 {status.tokensEarnedToday}/{status.dailyTokenCap}</span>
-                <span className="text-gray-400">⏰ {getTimeUntilReset()}</span>
-              </div>
-              {mobileStatusExpanded ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
-            </div>
-            
-            {mobileStatusExpanded && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                className="mt-4 pt-4 border-t border-gray-600/50 space-y-2"
-                data-testid="mobile-status-expanded"
-              >
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">Status</span>
-                  <span className={isPracticeOnly ? 'text-yellow-400' : 'text-green-400'} data-testid="text-status">
-                    {isPracticeOnly ? 'Practice Only 🔒' : 'Rewarded Available'}
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">Rewarded Games Left</span>
-                  <span className="text-white" data-testid="text-rewarded-remaining">{rewardedRemaining} / {rewardedTotal}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">Tokens Earned Today</span>
-                  <span className="text-white" data-testid="text-tokens-today">{status.tokensEarnedToday} / {status.dailyTokenCap}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">Daily Reset</span>
-                  <span className="text-gray-300" data-testid="text-reset-time">Resets in {getTimeUntilReset()}</span>
-                </div>
-                {isPracticeOnly && (
-                  <div className="text-xs text-yellow-400 mt-2" data-testid="text-practice-only-reason">
-                    {getPracticeOnlyReason()}
-                  </div>
-                )}
-                
-                {/* CTA for mobile - spec-compliant with dismiss button and dynamic copy */}
-                {isPracticeOnly && !status?.isSClass && !ctaDismissed && (
-                  <div className="mt-4 pt-3 border-t border-gray-600/30 relative" data-testid="mobile-sclass-upsell">
-                    {/* Dismiss button (always visible per spec) */}
-                    <button 
-                      className="absolute top-3 right-0 text-gray-400 hover:text-gray-300 p-1"
-                      onClick={() => {
-                        setCtaDismissed(true);
-                        trackCTAEvent('cta_dismissed', {
-                          userType: 'free',
-                          reason: status?.tokensEarnedToday >= status?.dailyTokenCap ? 'token_cap' : 'runs_used',
-                          device: 'mobile',
-                          ctaVariantId: status?.ctaVariantId,
-                          eventActive: status?.eventActive
-                        });
-                      }}
-                      data-testid="btn-dismiss-cta-mobile"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                    
-                    {/* Event badge */}
-                    {status?.eventActive && (
-                      <Badge className="mb-2 bg-gradient-to-r from-orange-500 to-pink-500 text-white" data-testid="event-badge-mobile">
-                        {status?.eventName || 'Special Event'}
-                      </Badge>
-                    )}
-                    
-                    {/* Dynamic CTA headline from A/B test */}
-                    <p className="text-gray-300 text-sm mb-1 pr-6">{status?.ctaCopy?.headline || "You've completed today's free runs"}</p>
-                    <p className="text-gray-400 text-xs mb-3">{status?.ctaCopy?.subtext || 'Unlock extended play'}</p>
-                    
-                    {/* First-purchase discount banner (spec-compliant copy) */}
-                    {status?.firstPurchaseDiscountEligible && status?.firstPurchaseCopy && (
-                      <div className="mb-3 p-2 bg-gradient-to-r from-green-900/30 to-emerald-900/30 border border-green-500/30 rounded-lg relative" data-testid="first-purchase-discount-mobile">
-                        {/* Decline button for discount */}
-                        <button 
-                          className="absolute top-2 right-2 text-green-400 hover:text-green-300 p-1"
-                          onClick={() => {
-                            declineDiscount.mutate();
-                            trackFirstPurchaseEvent('first_purchase_discount_declined', {
-                              userType: 'free',
-                              reason: status?.tokensEarnedToday >= status?.dailyTokenCap ? 'token_cap' : 'runs_used',
-                              device: 'mobile',
-                              discountPercent: status?.firstPurchaseDiscountPercent || 20
-                            });
-                          }}
-                          data-testid="btn-decline-discount-mobile"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                        <p className="text-green-300 text-xs font-medium pr-6">{status.firstPurchaseCopy.headline}</p>
-                        <p className="text-green-400/70 text-xs mb-2">{status.firstPurchaseCopy.subtext}</p>
-                        <Link href="/tokens">
-                          <Button 
-                            size="sm" 
-                            className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
-                            onClick={() => {
-                              trackFirstPurchaseEvent('first_purchase_discount_clicked', {
-                                userType: 'free',
-                                reason: status?.tokensEarnedToday >= status?.dailyTokenCap ? 'token_cap' : 'runs_used',
-                                device: 'mobile',
-                                discountPercent: status?.firstPurchaseDiscountPercent || 20
-                              });
-                            }}
-                            data-testid="btn-first-purchase-mobile"
-                          >
-                            <Coins className="w-4 h-4 mr-2" />
-                            {status.firstPurchaseCopy.buttonLabel}
-                          </Button>
-                        </Link>
-                        <p className="text-green-400/50 text-xs mt-2 text-center">{status.firstPurchaseCopy.footnote}</p>
-                      </div>
-                    )}
-                    
-                    <div className="flex flex-col gap-2">
-                      <Link href="/sclass">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="w-full border-purple-500/50 text-purple-300 hover:bg-purple-500/20"
-                          onClick={() => {
-                            trackSClassEvent('s_class_clicked_after_practice_only', {
-                              userType: 'free',
-                              reason: status?.tokensEarnedToday >= status?.dailyTokenCap ? 'token_cap' : 'runs_used',
-                              device: 'mobile',
-                              ctaVariantId: status?.ctaVariantId,
-                              eventActive: status?.eventActive
-                            });
-                          }}
-                          data-testid="btn-upgrade-sclass-mobile"
-                        >
-                          <Crown className="w-4 h-4 mr-2" />
-                          {status?.ctaCopy?.buttonLabel || 'See Benefits'}
-                        </Button>
-                      </Link>
-                      <button 
-                        className="text-xs text-gray-400 hover:text-gray-300 underline"
-                        onClick={handleShowSClassPanel}
-                        data-testid="btn-learn-more-mobile"
-                      >
-                        Learn more
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </motion.div>
-            )}
-          </div>
+      {isPracticeOnly && (
+        <div
+          className="mt-3 text-sm text-yellow-400 bg-yellow-500/10 p-2 rounded"
+          data-testid="desktop-practice-only-reason"
+        >
+          {getPracticeOnlyReason()}
         </div>
       )}
 
-      {/* DESKTOP STATUS BOX */}
-      {!isMobile && status && (
-        <Card className={`mb-6 ${isPracticeOnly ? 'bg-gray-800/60 border-gray-500/30' : 'bg-gradient-to-r from-purple-900/30 to-cyan-900/30 border-purple-500/30'}`} data-testid="desktop-status-box">
-          <CardContent className="p-4">
-            <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
-              <Info className="w-5 h-5 text-purple-400" />
-              Daily Rewards Status
-            </h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-              <div>
-                <div className="text-gray-400 mb-1">Status</div>
-                <div className={`font-medium flex items-center gap-1 ${isPracticeOnly ? 'text-yellow-400' : 'text-green-400'}`} data-testid="desktop-status-text">
-                  {isPracticeOnly && <Lock className="w-4 h-4" />}
-                  {isPracticeOnly ? 'Practice Only' : 'Rewarded Available'}
+      {/* CTA for desktop - spec-compliant with dismiss button and dynamic copy */}
+      {isPracticeOnly && !status?.isSClass && !ctaDismissed && (
+        <div className="mt-4 pt-4 border-t border-gray-600/30 relative" data-testid="desktop-sclass-upsell">
+          {/* Dismiss button (always visible per spec) */}
+          <button
+            className="absolute top-4 right-0 text-gray-400 hover:text-gray-300 p-1"
+            onClick={() => {
+              setCtaDismissed(true);
+              trackCTAEvent("cta_dismissed", {
+                userType: "free",
+                reason: status?.tokensEarnedToday >= status?.dailyTokenCap ? "token_cap" : "runs_used",
+                device: "desktop",
+                ctaVariantId: status?.ctaVariantId,
+                eventActive: status?.eventActive,
+              });
+            }}
+            data-testid="btn-dismiss-cta-desktop"
+          >
+            <X className="w-4 h-4" />
+          </button>
+
+          {/* Event badge */}
+          {status?.eventActive && (
+            <Badge
+              className="mb-3 bg-gradient-to-r from-orange-500 to-pink-500 text-white"
+              data-testid="event-badge-desktop"
+            >
+              {status?.eventName || "Special Event"}
+            </Badge>
+          )}
+
+          {/* First-purchase discount banner (spec-compliant copy) */}
+          {status?.firstPurchaseDiscountEligible && status?.firstPurchaseCopy && (
+            <div
+              className="mb-4 p-3 bg-gradient-to-r from-green-900/30 to-emerald-900/30 border border-green-500/30 rounded-lg relative"
+              data-testid="first-purchase-discount-desktop"
+            >
+              {/* Decline button for discount */}
+              <button
+                className="absolute top-3 right-3 text-green-400 hover:text-green-300 p-1"
+                onClick={() => {
+                  declineDiscount.mutate();
+                  trackFirstPurchaseEvent("first_purchase_discount_declined", {
+                    userType: "free",
+                    reason: status?.tokensEarnedToday >= status?.dailyTokenCap ? "token_cap" : "runs_used",
+                    device: "desktop",
+                    discountPercent: status?.firstPurchaseDiscountPercent || 20,
+                  });
+                }}
+                data-testid="btn-decline-discount-desktop"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              <div className="flex items-center justify-between">
+                <div className="pr-8">
+                  <p className="text-green-300 text-sm font-medium">{status.firstPurchaseCopy.headline}</p>
+                  <p className="text-green-400/70 text-xs">{status.firstPurchaseCopy.subtext}</p>
+                  <p className="text-green-400/50 text-xs mt-1">{status.firstPurchaseCopy.footnote}</p>
                 </div>
-              </div>
-              <div>
-                <div className="text-gray-400 mb-1">Rewarded Games Left</div>
-                <div className="text-white font-medium" data-testid="desktop-rewarded-remaining">{rewardedRemaining} / {rewardedTotal}</div>
-              </div>
-              <div>
-                <div className="text-gray-400 mb-1">Tokens Earned Today</div>
-                <div className="text-white font-medium" data-testid="desktop-tokens-today">{status.tokensEarnedToday} / {status.dailyTokenCap}</div>
-              </div>
-              <div>
-                <div className="text-gray-400 mb-1">Daily Reset</div>
-                <div className="text-gray-300" data-testid="desktop-reset-time">Resets in {getTimeUntilReset()}</div>
+
+                <Link href="/tokens">
+                  <Button
+                    size="sm"
+                    className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 whitespace-nowrap"
+                    onClick={() => {
+                      trackFirstPurchaseEvent("first_purchase_discount_clicked", {
+                        userType: "free",
+                        reason: status?.tokensEarnedToday >= status?.dailyTokenCap ? "token_cap" : "runs_used",
+                        device: "desktop",
+                        discountPercent: status?.firstPurchaseDiscountPercent || 20,
+                      });
+                    }}
+                    data-testid="btn-first-purchase-desktop"
+                  >
+                    <Coins className="w-4 h-4 mr-2" />
+                    {status.firstPurchaseCopy.buttonLabel}
+                  </Button>
+                </Link>
               </div>
             </div>
-            {isPracticeOnly && (
-              <div className="mt-3 text-sm text-yellow-400 bg-yellow-500/10 p-2 rounded" data-testid="desktop-practice-only-reason">
-                {getPracticeOnlyReason()}
-              </div>
-            )}
-            
-            {/* CTA for desktop - spec-compliant with dismiss button and dynamic copy */}
-            {isPracticeOnly && !status?.isSClass && !ctaDismissed && (
-              <div className="mt-4 pt-4 border-t border-gray-600/30 relative" data-testid="desktop-sclass-upsell">
-                {/* Dismiss button (always visible per spec) */}
-                <button 
-                  className="absolute top-4 right-0 text-gray-400 hover:text-gray-300 p-1"
+          )}
+
+          <div className="flex items-center justify-between pr-8">
+            <div>
+              {/* Dynamic CTA headline from A/B test */}
+              <p className="text-gray-300 text-sm">
+                {status?.ctaCopy?.headline || "You've completed today's free runs"}
+              </p>
+              <p className="text-xs text-gray-400 mt-1">{status?.ctaCopy?.subtext || "Unlock extended play"}</p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                className="text-xs text-gray-400 hover:text-gray-300 underline"
+                onClick={handleShowSClassPanel}
+                data-testid="btn-learn-more-desktop"
+              >
+                Learn more
+              </button>
+
+              <Link href="/sclass">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-purple-500/50 text-purple-300 hover:bg-purple-500/20"
                   onClick={() => {
-                    setCtaDismissed(true);
-                    trackCTAEvent('cta_dismissed', {
-                      userType: 'free',
-                      reason: status?.tokensEarnedToday >= status?.dailyTokenCap ? 'token_cap' : 'runs_used',
-                      device: 'desktop',
+                    trackSClassEvent("s_class_clicked_after_practice_only", {
+                      userType: "free",
+                      reason: status?.tokensEarnedToday >= status?.dailyTokenCap ? "token_cap" : "runs_used",
+                      device: "desktop",
                       ctaVariantId: status?.ctaVariantId,
-                      eventActive: status?.eventActive
+                      eventActive: status?.eventActive,
                     });
                   }}
-                  data-testid="btn-dismiss-cta-desktop"
+                  data-testid="btn-upgrade-sclass-desktop"
                 >
-                  <X className="w-4 h-4" />
-                </button>
-                
-                {/* Event badge */}
-                {status?.eventActive && (
-                  <Badge className="mb-3 bg-gradient-to-r from-orange-500 to-pink-500 text-white" data-testid="event-badge-desktop">
-                    {status?.eventName || 'Special Event'}
-                  </Badge>
-                )}
-                
-                {/* First-purchase discount banner (spec-compliant copy) */}
-                {status?.firstPurchaseDiscountEligible && status?.firstPurchaseCopy && (
-                  <div className="mb-4 p-3 bg-gradient-to-r from-green-900/30 to-emerald-900/30 border border-green-500/30 rounded-lg relative" data-testid="first-purchase-discount-desktop">
-                    {/* Decline button for discount */}
-                    <button 
-                      className="absolute top-3 right-3 text-green-400 hover:text-green-300 p-1"
-                      onClick={() => {
-                        declineDiscount.mutate();
-                        trackFirstPurchaseEvent('first_purchase_discount_declined', {
-                          userType: 'free',
-                          reason: status?.tokensEarnedToday >= status?.dailyTokenCap ? 'token_cap' : 'runs_used',
-                          device: 'desktop',
-                          discountPercent: status?.firstPurchaseDiscountPercent || 20
-                        });
-                      }}
-                      data-testid="btn-decline-discount-desktop"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                    <div className="flex items-center justify-between">
-                      <div className="pr-8">
-                        <p className="text-green-300 text-sm font-medium">{status.firstPurchaseCopy.headline}</p>
-                        <p className="text-green-400/70 text-xs">{status.firstPurchaseCopy.subtext}</p>
-                        <p className="text-green-400/50 text-xs mt-1">{status.firstPurchaseCopy.footnote}</p>
-                      </div>
-                      <Link href="/tokens">
-                        <Button 
-                          size="sm" 
-                          className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 whitespace-nowrap"
-                          onClick={() => {
-                            trackFirstPurchaseEvent('first_purchase_discount_clicked', {
-                              userType: 'free',
-                              reason: status?.tokensEarnedToday >= status?.dailyTokenCap ? 'token_cap' : 'runs_used',
-                              device: 'desktop',
-                              discountPercent: status?.firstPurchaseDiscountPercent || 20
-                            });
-                          }}
-                          data-testid="btn-first-purchase-desktop"
-                        >
-                          <Coins className="w-4 h-4 mr-2" />
-                          {status.firstPurchaseCopy.buttonLabel}
-                        </Button>
-                      </Link>
-                    </div>
-                  </div>
-                )}
-                
-                <div className="flex items-center justify-between pr-8">
-                  <div>
-                    {/* Dynamic CTA headline from A/B test */}
-                    <p className="text-gray-300 text-sm">{status?.ctaCopy?.headline || "You've completed today's free runs"}</p>
-                    <p className="text-xs text-gray-400 mt-1">{status?.ctaCopy?.subtext || 'Unlock extended play'}</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <button 
-                      className="text-xs text-gray-400 hover:text-gray-300 underline"
-                      onClick={handleShowSClassPanel}
-                      data-testid="btn-learn-more-desktop"
-                    >
-                      Learn more
-                    </button>
-                    <Link href="/sclass">
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="border-purple-500/50 text-purple-300 hover:bg-purple-500/20"
-                        onClick={() => {
-                          trackSClassEvent('s_class_clicked_after_practice_only', {
-                            userType: 'free',
-                            reason: status?.tokensEarnedToday >= status?.dailyTokenCap ? 'token_cap' : 'runs_used',
-                            device: 'desktop',
-                            ctaVariantId: status?.ctaVariantId,
-                            eventActive: status?.eventActive
-                          });
-                        }}
-                        data-testid="btn-upgrade-sclass-desktop"
-                      >
-                        <Crown className="w-4 h-4 mr-2" />
-                        {status?.ctaCopy?.buttonLabel || 'See Benefits'}
-                      </Button>
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* MODE BUTTONS - Two clear buttons */}
-      <div className={`relative ${isMobile ? 'flex flex-col gap-3' : 'flex gap-4 justify-center'} mb-6`}>
-        {/* Tutorial overlay for buttons */}
-        {showTutorialButtons && (
-          <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 -translate-y-full z-50 w-72">
-            <Card className="bg-purple-900/95 border-purple-400 shadow-xl">
-              <CardContent className="p-4">
-                <h4 className="text-white font-bold mb-2">Two Ways to Play</h4>
-                <p className="text-gray-300 text-sm mb-3">
-                  Rewarded earns tokens (limited each day). Practice is unlimited but gives no tokens.
-                </p>
-                <Button size="sm" onClick={onTutorialButtonsDismiss} className="w-full" data-testid="btn-tutorial-buttons-dismiss">
-                  Got it
+                  <Crown className="w-4 h-4 mr-2" />
+                  {status?.ctaCopy?.buttonLabel || "See Benefits"}
                 </Button>
-              </CardContent>
-            </Card>
+              </Link>
+            </div>
           </div>
-        )}
+        </div>
+      )}
+    </CardContent>
+  </Card>
+)}
+
+{/* MODE BUTTONS - Two clear buttons */}
+<div className={`relative ${isMobile ? "flex flex-col gap-3" : "flex gap-4 justify-center"} mb-6`}>
+  {/* Tutorial overlay for buttons */}
+  {showTutorialButtons && (
+    <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 -translate-y-full z-50 w-72">
+      <Card className="bg-purple-900/95 border-purple-400 shadow-xl">
+        <CardContent className="p-4">
+          <h4 className="text-white font-bold mb-2">Two Ways to Play</h4>
+          <p className="text-gray-300 text-sm mb-3">
+            Rewarded earns tokens (limited each day). Practice is unlimited but gives no tokens.
+          </p>
+          <Button size="sm" onClick={onTutorialButtonsDismiss} className="w-full" data-testid="btn-tutorial-buttons-dismiss">
+            Got it
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  )}
+</div>
+
 
         {/* Tutorial overlay for rewarded mode */}
         {showTutorialRewarded && (
