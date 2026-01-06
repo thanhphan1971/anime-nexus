@@ -5631,16 +5631,14 @@ const stripeSubscriptionSyncHandler = async (req: any, res: any) => {
     let subscriptionStatus: string = "free";
 
     if (entitledSub) {
-      // IMPORTANT: entitledSub is already the full subscription (expanded)
       const fullSub: any = entitledSub;
       console.log("[SYNC] stripe sub:", {
-  id: fullSub?.id,
-  customer: fullSub?.customer,
-  status: fullSub?.status,
-  cancel_at_period_end: fullSub?.cancel_at_period_end,
-  current_period_end: fullSub?.current_period_end,
-});
-
+        id: fullSub?.id,
+        customer: fullSub?.customer,
+        status: fullSub?.status,
+        cancel_at_period_end: fullSub?.cancel_at_period_end,
+        current_period_end: fullSub?.current_period_end,
+      });
 
       const item = fullSub?.items?.data?.[0];
       const interval = item?.price?.recurring?.interval; // "month" | "year"
@@ -5662,12 +5660,8 @@ const stripeSubscriptionSyncHandler = async (req: any, res: any) => {
       }
 
       premiumEndDate = periodEnd ? new Date(periodEnd * 1000) : null;
-
-      willCancelAtPeriodEnd = !!fullSub?.cancel_at_period_end;
-
-      subscriptionStatus = willCancelAtPeriodEnd
-        ? "canceling"
-        : String(fullSub?.status || "active");
+      willCancelAtPeriodEnd = fullSub?.cancel_at_period_end === true;
+      subscriptionStatus = String(fullSub?.status || "active");
     } else {
       subscriptionStatus = "free";
     }
@@ -5701,5 +5695,6 @@ app.post("/api/stripe/subscription", verifySupabaseToken, stripeSubscriptionSync
 
 return httpServer;
 }
+
 
 

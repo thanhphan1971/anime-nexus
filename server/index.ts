@@ -206,26 +206,31 @@ if (userId && subscriptionId && customerId) {
         const user = await storage.getUserByStripeSubscriptionId(subscription.id);
         if (user) {
           const priceId = subscription.items.data[0]?.price?.id;
-          const isYearly = priceId === "price_1SlFUbRdxAAD392445O8ScqK";
-          const periodEnd = (subscription as any).current_period_end;
-          
-          if (subscription.cancel_at_period_end) {
-            await storage.updateUser(user.id, {
-              subscriptionStatus: "canceled_pending_expiry",
-              subscriptionCanceledAt: new Date(),
-              premiumEndDate: periodEnd ? new Date(periodEnd * 1000) : null,
-            });
-            console.log(`User ${user.id} subscription canceled (access until period end)`);
-          } else if (subscription.status === "active") {
-            await storage.updateUser(user.id, {
-              subscriptionStatus: "active",
-              subscriptionType: isYearly ? "yearly" : "monthly",
-              isPremium: true,
-              premiumEndDate: periodEnd ? new Date(periodEnd * 1000) : null,
-              subscriptionCanceledAt: null,
-            });
-            console.log(`User ${user.id} subscription renewed/updated`);
-          }
+const isYearly = priceId === "price_1SlFUbRdxAAD392445O8ScqK";
+const periodEnd = (subscription as any).current_period_end;
+
+if (subscription.cancel_at_period_end) {
+  await storage.updateUser(user.id, {
+    // ✅ keep Stripe status (typically "active")
+    subscriptionStatus: String(subscription.status || "active"),
+    isPremium: true, // ✅ still premium until period end
+    willCancelAtPeriodEnd: true, // ✅ critical flag
+    subscriptionType: isYearly ? "yearly" : "monthly",
+    subscriptionCanceledAt: new Date(),
+    premiumEndDate: periodEnd ? new Date(periodEnd * 1000) : null,
+  });
+  console.log(`User ${user.id} set to cancel at period end (access until period end)`);
+} else if (subscription.status === "active") {
+  await storage.updateUser(user.id, {
+    subscriptionStatus: "active",
+    subscriptionType: isYearly ? "yearly" : "monthly",
+    isPremium: true,
+    willCancelAtPeriodEnd: false, // ✅ explicitly false
+    premiumEndDate: periodEnd ? new Date(periodEnd * 1000) : null,
+    subscriptionCanceledAt: null,
+  });
+  console.log(`User ${user.id} subscription renewed/updated`);
+}
         }
       }
 

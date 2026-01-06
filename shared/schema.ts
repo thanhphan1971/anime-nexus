@@ -23,11 +23,16 @@ export const users = pgTable("users", {
   isPremium: boolean("is_premium").notNull().default(false),
   premiumStartDate: timestamp("premium_start_date"),
   premiumEndDate: timestamp("premium_end_date"),
+
+  // ✅ NEW: whether the subscription is set to cancel at period end (Stripe cancel_at_period_end)
+  willCancelAtPeriodEnd: boolean("will_cancel_at_period_end").notNull().default(false),
+
   isBanned: boolean("is_banned").notNull().default(false),
   isAdmin: boolean("is_admin").notNull().default(false),
   animeInterests: text("anime_interests").array().default(sql`ARRAY[]::text[]`),
   theme: text("theme").default('cyberpunk'),
   birthDate: timestamp("birth_date"),
+
   birthYear: integer("birth_year"), // For privacy - only year stored for age calculation
   ageBand: text("age_band").default('adult'), // 'child' (<13), 'teen' (13-17), 'adult' (18+)
   isMinor: boolean("is_minor").notNull().default(false),

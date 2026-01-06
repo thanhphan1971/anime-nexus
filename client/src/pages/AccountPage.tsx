@@ -10,11 +10,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
-import { 
-  ChevronDown, 
-  Crown, 
-  CreditCard, 
-  ExternalLink, 
+import {
+  ChevronDown,
+  Crown,
+  CreditCard,
+  ExternalLink,
   Loader2,
   CheckCircle,
   AlertCircle,
@@ -67,13 +67,15 @@ export default function AccountPage() {
 
   const isAdminGranted = sclassStatus?.accessSource === "admin_grant";
   const isSClass = Boolean(sclassStatus?.isPremium) || Boolean(isAdminGranted);
-  // Premium active includes "active" status AND "canceling" (canceled but still in billing period)
-  const isPremiumActive = sclassStatus?.isPremium === true && 
-    (sclassStatus?.subscriptionStatus === "active" || sclassStatus?.subscriptionStatus === "canceling");
 
+  // ✅ Premium is active when Stripe status is active (or trialing). Cancel-at-period-end is a separate flag.
+  const isPremiumActive =
+    sclassStatus?.isPremium === true &&
+    (sclassStatus?.subscriptionStatus === "active" ||
+      sclassStatus?.subscriptionStatus === "trialing");
 
-
-
+  // ✅ Cancellation intent flag (still active until premiumEndDate)
+  const isCancelingAtPeriodEnd = sclassStatus?.willCancelAtPeriodEnd === true;
 
   const statusBadge = () => {
     if (isAdminGranted) {
@@ -83,7 +85,7 @@ export default function AccountPage() {
         </Badge>
       );
     }
-    if (user?.isPremium) {
+    if (isPremiumActive) {
       return (
         <Badge className="bg-green-500/20 text-green-300 border border-green-500/30">
           Active
@@ -96,6 +98,7 @@ export default function AccountPage() {
       </Badge>
     );
   };
+
 
   // ---------- 1) redirect if logged out ----------
 useEffect(() => {
