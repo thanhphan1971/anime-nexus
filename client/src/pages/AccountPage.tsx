@@ -606,7 +606,7 @@ useEffect(() => {
   <Card>
     <CollapsibleTrigger className="w-full">
       <CardHeader className="flex flex-row items-center justify-between cursor-pointer hover:bg-white/5 transition-colors rounded-t-lg">
-        <CardTitle className="text-lg">Billing & Cancellation</CardTitle>
+        <CardTitle className="text-lg">Cancellation</CardTitle>
         <ChevronDown className="h-5 w-5 text-muted-foreground transition-transform duration-200 [&[data-state=open]]:rotate-180" />
       </CardHeader>
     </CollapsibleTrigger>
