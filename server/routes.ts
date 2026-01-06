@@ -4170,14 +4170,14 @@ export async function registerRoutes(
   app.get("/api/game/status", verifySupabaseToken, async (req, res) => {
     try {
       const user = await storage.getUserBySupabaseId(req.supabaseUser!.id);
+      if (!user) return res.status(404).json({ error: "User not found" });
+      
       console.log("[SYNC] user:", {
   id: user.id,
   email: user.email,
   stripeCustomerId: user.stripeCustomerId,
   stripeSubscriptionId: user.stripeSubscriptionId,
 });
-
-      if (!user) return res.status(404).json({ error: "User not found" });
 
       const today = getTodayDate();
       const stats = await storage.getUserDailyGameStats(user.id, today);
@@ -5795,15 +5795,19 @@ app.post("/api/stripe/subscription", verifySupabaseToken, stripeSubscriptionSync
       let rewardDetails: any = { type: challenge.rewardType, value: challenge.rewardValue };
 
       if (challenge.rewardType === "tokens") {
-        await storage.updateUser(user.id, { tokens: user.tokens + challenge.rewardValue });
+        // Fetch fresh user data to avoid race conditions with stale token count
+        const freshUser = await storage.getUser(user.id);
+        if (freshUser) {
+          await storage.updateUser(user.id, { tokens: freshUser.tokens + challenge.rewardValue });
+        }
         rewardDetails.message = `You earned ${challenge.rewardValue} tokens!`;
       } else if (challenge.rewardType === "card" && challenge.rewardCardId) {
-        await storage.addUserCard({ userId: user.id, cardId: challenge.rewardCardId });
+        await storage.addCardToUser({ userId: user.id, cardId: challenge.rewardCardId });
         const card = await storage.getCard(challenge.rewardCardId);
         rewardDetails.card = card;
         rewardDetails.message = `You earned a new card: ${card?.name}!`;
       } else if (challenge.rewardType === "badge" && challenge.rewardBadgeId) {
-        const badge = await storage.getBadgeById(challenge.rewardBadgeId);
+        const badge = await storage.getBadgeByCode(challenge.rewardBadgeId);
         if (badge) {
           await storage.grantBadge(user.id, badge.code, "system", "Completed event challenge");
           rewardDetails.badge = badge;
