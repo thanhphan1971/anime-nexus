@@ -29,7 +29,6 @@ import GamePage from "@/pages/GamePage";
 import UniversePage from "@/pages/UniversePage";
 import CheckoutPage from "@/pages/CheckoutPage";
 import AccountPage from "@/pages/AccountPage";
-import EventsPage from "@/pages/EventsPage";
 import Layout from "@/components/layout/Layout";
 import OnboardingFlow from "@/components/OnboardingFlow";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
@@ -106,7 +105,6 @@ function Router() {
         <Route path="/universe" component={UniversePage} />
         <Route path="/checkout" component={CheckoutPage} />
         <Route path="/account" component={AccountPage} />
-        <Route path="/events" component={EventsPage} />
         {/* Legacy routes redirecting or redundant */}
         <Route path="/gacha" component={CardsPage} />
         <Route path="/market" component={CardsPage} />
