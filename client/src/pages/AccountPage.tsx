@@ -509,10 +509,11 @@ useEffect(() => {
                   </ul>
                 </div>
 
-               <div className="rounded-lg border p-4">
+            <div className="rounded-lg border p-4">
   <div className="flex items-center justify-between mb-2">
     <div className="font-semibold">S-Class</div>
-    {isPremiumActive ? (
+
+    {isSClass ? (
       <Badge className="bg-green-500/20 text-green-300 border border-green-500/30">
         Your current plan
       </Badge>
@@ -522,6 +523,7 @@ useEffect(() => {
       </Badge>
     )}
   </div>
+
   <ul className="text-sm space-y-1 text-muted-foreground">
     <li>
       •{" "}
@@ -536,15 +538,14 @@ useEffect(() => {
     <li>• Manage billing + cancel anytime</li>
   </ul>
 </div>
-</div>
 
 <div className="text-xs text-muted-foreground space-y-1">
   <p>Payments are handled by Stripe (secure checkout).</p>
 
-  {isPremiumActive && sclassStatus?.premiumEndDate && (
-    <>
-      {sclassStatus?.willCancelAtPeriodEnd === true ? (
-        <p>
+  {isSClass && sclassStatus?.premiumEndDate && (
+    <p>
+      {sclassStatus?.willCancelAtPeriodEnd ? (
+        <>
           Cancels on{" "}
           {new Intl.DateTimeFormat("en-CA", {
             year: "numeric",
@@ -553,9 +554,9 @@ useEffect(() => {
             timeZone: "America/Toronto",
           }).format(new Date(sclassStatus.premiumEndDate))}
           . Your membership stays active until then.
-        </p>
+        </>
       ) : (
-        <p>
+        <>
           Next billing on{" "}
           {new Intl.DateTimeFormat("en-CA", {
             year: "numeric",
@@ -564,15 +565,8 @@ useEffect(() => {
             timeZone: "America/Toronto",
           }).format(new Date(sclassStatus.premiumEndDate))}
           .
-        </p>
+        </>
       )}
-    </>
-  )}
-
-  {isPremiumActive && !sclassStatus?.willCancelAtPeriodEnd && (
-    <p>
-      Cancel anytime — membership stays active until the end of the billing
-      period.
     </p>
   )}
 
@@ -581,8 +575,11 @@ useEffect(() => {
     <span className="font-medium">Manage Billing</span>.
   </p>
 </div>
-</CardContent>
-</Card>
+              </div>
+            </CardContent>
+          </Card>
+        </CardContent>
+      </Card>
 
 {/* Billing & Cancellation Info - Collapsible */}
 <Collapsible className="mt-4">
@@ -593,13 +590,14 @@ useEffect(() => {
         <ChevronDown className="h-5 w-5 text-muted-foreground transition-transform duration-200 [&[data-state=open]]:rotate-180" />
       </CardHeader>
     </CollapsibleTrigger>
+
     <CollapsibleContent>
       <CardContent className="space-y-4 text-sm pt-0">
         <div>
           <h4 className="font-semibold mb-1">Cancel anytime</h4>
           <p className="text-muted-foreground">
             You can cancel your S-Class subscription at any time.
-            {sclassStatus?.premiumEndDate && sclassStatus?.willCancelAtPeriodEnd ? (
+            {sclassStatus?.premiumEndDate && sclassStatus?.willCancelAtPeriodEnd && (
               <>
                 {" "}
                 Your benefits remain active until{" "}
@@ -611,141 +609,85 @@ useEffect(() => {
                 }).format(new Date(sclassStatus.premiumEndDate))}
                 .
               </>
-            ) : null}
+            )}
           </p>
         </div>
 
+        <div>
+          <h4 className="font-semibold mb-1">How to cancel</h4>
+          <ul className="text-muted-foreground space-y-1 list-disc list-inside">
+            <li>Go to Account → Manage Billing</li>
+            <li>In the billing portal, choose Cancel subscription</li>
+            <li>
+              You'll receive a confirmation from Stripe, and your AniRealm account
+              will update shortly after
+            </li>
+          </ul>
+        </div>
 
-                <div>
-                  <h4 className="font-semibold mb-1">How to cancel</h4>
-                  <ul className="text-muted-foreground space-y-1 list-disc list-inside">
-                    <li>Go to Account → Manage Billing</li>
-                    <li>In the billing portal, choose Cancel subscription</li>
-                    <li>You'll receive a confirmation from Stripe, and your AniRealm account will update shortly after</li>
-                  </ul>
-                </div>
-
-                <div>
-                  <h4 className="font-semibold mb-1">What happens after you cancel</h4>
-                  <ul className="text-muted-foreground space-y-1 list-disc list-inside">
-                    <li>Your S-Class benefits stay active until the end of your current billing period</li>
-                    <li>You won't be charged again unless you re-subscribe</li>
-                    <li>When the billing period ends, your account automatically returns to Free</li>
-                  </ul>
-                </div>
-
-                <div>
-                  <h4 className="font-semibold mb-1">Refunds</h4>
-                  <p className="text-muted-foreground">
-                    AniRealm does not offer refunds for subscription charges, partial months, or unused time.
-                  </p>
-                  <p className="text-muted-foreground mt-1">
-                    <span className="font-medium">Exception:</span> If there is a confirmed billing error (for example: duplicate charge, wrong amount charged, or charge made after you canceled), contact support and we will review and correct it.
-                  </p>
-                </div>
-
-                <div>
-                  <h4 className="font-semibold mb-1">Need help?</h4>
-                  <p className="text-muted-foreground">
-                    If you believe you were charged incorrectly, contact us with:
-                  </p>
-                  <ul className="text-muted-foreground space-y-1 list-disc list-inside mt-1">
-                    <li>The email on your AniRealm account</li>
-                    <li>The date/amount of the charge</li>
-                    <li>(Optional) The Stripe receipt/invoice ID</li>
-                  </ul>
-                </div>
-              </CardContent>
-            </CollapsibleContent>
-          </Card>
-        </Collapsible>
-
-        {isSClass && !isAdminGranted && user.stripeCustomerId && (
-          <Button
-            onClick={async (e) => {
-              e.preventDefault();
-              e.stopPropagation();
-
-              alert("MANAGE BILLING CLICKED");
-
-              try {
-                // If token is missing, you'll see it immediately
-                if (!accessToken) {
-                  alert("NO ACCESS TOKEN (Supabase session missing)");
-                  toast.error("Please log in again to manage billing.");
-                  return;
-                }
-
-                if (isLoadingPortal) {
-                  alert("ALREADY OPENING (isLoadingPortal=true)");
-                  return;
-                }
-
-                setIsLoadingPortal(true);
-
-                const res = await fetch("/api/stripe/portal", {
-                  method: "POST",
-                  headers: {
-                    Authorization: `Bearer ${accessToken}`,
-                  },
-                  credentials: "include",
-                });
-
-                const raw = await res.text();
-                let data: any = {};
-                try {
-                  data = JSON.parse(raw);
-                } catch {
-                  // keep raw text for debugging
-                }
-
-                if (!res.ok) {
-                  alert(`PORTAL ERROR ${res.status}: ${raw || "no body"}`);
-                  toast.error(data?.error || raw || "Failed to open billing portal");
-                  return;
-                }
-
-                if (!data?.url) {
-                  alert(`NO URL RETURNED: ${raw || "empty"}`);
-                  toast.error("Billing portal did not return a URL.");
-                  return;
-                }
-
-                window.location.href = data.url;
-              } catch (err: any) {
-                console.error("[AccountPage] portal error:", err);
-                alert(`PORTAL JS ERROR: ${err?.message || String(err)}`);
-                toast.error(err?.message || "Failed to open billing portal");
-              } finally {
-                setIsLoadingPortal(false);
-              }
-            }}
-            disabled={isLoadingPortal}
-            className="w-full"
-            data-testid="button-manage-billing"
-          >
-            {isLoadingPortal ? (
-              "Opening..."
-            ) : (
-              <>
-                <ExternalLink className="h-4 w-4 mr-2" />
-                Manage Billing
-              </>
-            )}
-          </Button>
+        {sclassStatus?.willCancelAtPeriodEnd ? (
+          <div>
+            <h4 className="font-semibold mb-1">Cancellation scheduled</h4>
+            <p className="text-muted-foreground">
+              Your subscription is set to end on{" "}
+              <span className="font-medium">
+                {sclassStatus?.premiumEndDate
+                  ? new Intl.DateTimeFormat("en-CA", {
+                      year: "numeric",
+                      month: "long",
+                      day: "2-digit",
+                      timeZone: "America/Toronto",
+                    }).format(new Date(sclassStatus.premiumEndDate))
+                  : "—"}
+              </span>
+              . You’ll keep S-Class perks until then. You will not be charged again
+              unless you re-subscribe.
+            </p>
+          </div>
+        ) : (
+          <div>
+            <h4 className="font-semibold mb-1">What happens after you cancel</h4>
+            <ul className="text-muted-foreground space-y-1 list-disc list-inside">
+              <li>Your S-Class benefits stay active until the end of your current billing period</li>
+              <li>You won't be charged again unless you re-subscribe</li>
+              <li>When the billing period ends, your account automatically returns to Free</li>
+            </ul>
+          </div>
         )}
 
-        {isAdminGranted && (
-          <Alert className="border-blue-500/50 bg-blue-500/10">
-            <AlertCircle className="h-4 w-4 text-blue-500" />
-            <AlertDescription className="text-sm">
-              Your S-Class access was granted by an admin. You can still subscribe to
-              continue access after it expires.
-            </AlertDescription>
-          </Alert>
-        )}
-        </CardContent>
-      </Card>
+        <div>
+          <h4 className="font-semibold mb-1">Refunds</h4>
+          <p className="text-muted-foreground">
+            AniRealm does not offer refunds for subscription charges, partial months,
+            or unused time.
+          </p>
+          <p className="text-muted-foreground mt-1">
+            <span className="font-medium">Exception:</span> If there is a confirmed
+            billing error, contact support and we will review and correct it.
+          </p>
+        </div>
+
+        <div>
+          <h4 className="font-semibold mb-1">Need help?</h4>
+          <p className="text-muted-foreground">
+            If you believe you were charged incorrectly, contact us with:
+          </p>
+          <ul className="text-muted-foreground space-y-1 list-disc list-inside mt-1">
+            <li>The email on your AniRealm account</li>
+            <li>The date/amount of the charge</li>
+            <li>(Optional) The Stripe receipt/invoice ID</li>
+          </ul>
+        </div>
+      </CardContent>
+    </CollapsibleContent>
+  </Card>
+</Collapsible>
+        </div>
+      </div>
     </div>
   );
 }
+
+
+
+

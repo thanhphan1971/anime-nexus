@@ -5538,7 +5538,6 @@ app.post("/api/stripe/portal", verifySupabaseToken, async (req: any, res: any) =
 });
 
 // ===================== SUBSCRIPTION SYNC (GET + POST) =====================
-// Single handler supports both GET and POST
 const stripeSubscriptionSyncHandler = async (req: any, res: any) => {
   try {
     const user = await storage.getUserBySupabaseId(req.supabaseUser!.id);
@@ -5546,7 +5545,7 @@ const stripeSubscriptionSyncHandler = async (req: any, res: any) => {
 
     const { stripe } = await import("./stripeClient");
 
-    // No Stripe customer => definitely free
+    // ---- No customer = free
     if (!user.stripeCustomerId) {
       await storage.updateUser(user.id, {
         isPremium: false,
@@ -5554,6 +5553,7 @@ const stripeSubscriptionSyncHandler = async (req: any, res: any) => {
         stripeSubscriptionId: null,
         premiumEndDate: null,
         subscriptionType: null,
+        willCancelAtPeriodEnd: false,
       });
 
       return res.json({
@@ -5566,119 +5566,98 @@ const stripeSubscriptionSyncHandler = async (req: any, res: any) => {
       });
     }
 
-    const nowSec = Math.floor(Date.now() / 1000);
-
-    // Prefer exact subscriptionId from DB first (most accurate)
-    let entitledSub: any = null;
+    // ---- Retrieve subscription
+    let stripeSub: any = null;
 
     if (user.stripeSubscriptionId) {
       try {
-        const exactSub: any = await stripe.subscriptions.retrieve(
+        stripeSub = await stripe.subscriptions.retrieve(
           user.stripeSubscriptionId,
-          { expand: ["items.data.price", "latest_invoice.lines"] }
+          { expand: ["items.data.price"] }
         );
-
-        const status = String(exactSub?.status || "");
-        const periodEnd = Number(exactSub?.current_period_end || 0);
-
-        const entitled =
-          status === "active" ||
-          status === "trialing" ||
-          status === "past_due" ||
-          (status === "canceled" && periodEnd && periodEnd > nowSec);
-
-        if (entitled) entitledSub = exactSub;
-      } catch (e) {
-        // ignore and fallback to list
+      } catch {
+        stripeSub = null;
       }
     }
 
-    // Fallback: pull subscriptions for customer and pick newest entitled
-    if (!entitledSub) {
+    if (!stripeSub) {
       const subs = await stripe.subscriptions.list({
         customer: user.stripeCustomerId,
-        limit: 10,
         status: "all",
+        limit: 20,
+        expand: ["data.items.data.price"],
       });
 
-      const candidate =
-        subs.data
-          .sort((a: any, b: any) => (b.created || 0) - (a.created || 0))
-          .find((s: any) => {
-            const status = String(s.status || "");
-            const periodEnd = Number(s.current_period_end || 0);
+      const active = subs.data.filter(
+        (s: any) => s.status === "active" || s.status === "trialing"
+      );
 
-            if (status === "active" || status === "trialing") return true;
-            if (status === "past_due") return true;
-            if (status === "canceled" && periodEnd && periodEnd > nowSec) return true;
-
-            return false;
-          }) || null;
-
-      if (candidate) {
-        entitledSub = await stripe.subscriptions.retrieve(candidate.id, {
-          expand: ["items.data.price", "latest_invoice.lines"],
-        });
-      }
+      stripeSub =
+        active.find((s: any) => s.cancel_at_period_end === true) ??
+        active.sort(
+          (a: any, b: any) =>
+            (b.current_period_end || 0) - (a.current_period_end || 0)
+        )[0] ??
+        null;
     }
 
-    const isPremium = !!entitledSub;
-
-    // Derive monthly/yearly + end date + canceling status
-    let subscriptionType: string | null = null;
-    let premiumEndDate: Date | null = null;
-    let willCancelAtPeriodEnd = false;
-    let subscriptionStatus: string = "free";
-
-    if (entitledSub) {
-      const fullSub: any = entitledSub;
-      console.log("[SYNC] stripe sub:", {
-        id: fullSub?.id,
-        customer: fullSub?.customer,
-        status: fullSub?.status,
-        cancel_at_period_end: fullSub?.cancel_at_period_end,
-        current_period_end: fullSub?.current_period_end,
+    // ---- Still nothing = free
+    if (!stripeSub) {
+      await storage.updateUser(user.id, {
+        isPremium: false,
+        subscriptionStatus: "free",
+        stripeSubscriptionId: null,
+        premiumEndDate: null,
+        subscriptionType: null,
+        willCancelAtPeriodEnd: false,
       });
 
-      const item = fullSub?.items?.data?.[0];
-      const interval = item?.price?.recurring?.interval; // "month" | "year"
-      subscriptionType =
-        interval === "year" ? "yearly" : interval === "month" ? "monthly" : null;
-
-      // Primary source: current_period_end
-      let periodEnd = Number(fullSub?.current_period_end || 0);
-
-      // Fallbacks (rare, but prevents null end dates)
-      if (!periodEnd) {
-        const trialEnd = Number(fullSub?.trial_end || 0);
-        if (trialEnd) periodEnd = trialEnd;
-
-        const invoicePeriodEnd = Number(
-          fullSub?.latest_invoice?.lines?.data?.[0]?.period?.end || 0
-        );
-        if (invoicePeriodEnd) periodEnd = invoicePeriodEnd;
-      }
-
-      premiumEndDate = periodEnd ? new Date(periodEnd * 1000) : null;
-      willCancelAtPeriodEnd = fullSub?.cancel_at_period_end === true;
-      subscriptionStatus = String(fullSub?.status || "active");
-    } else {
-      subscriptionStatus = "free";
+      return res.json({
+        isPremium: false,
+        subscriptionStatus: "free",
+        stripeSubscriptionId: null,
+        premiumEndDate: null,
+        subscriptionType: null,
+        willCancelAtPeriodEnd: false,
+      });
     }
+
+    // ---- Source of truth
+    const status = String(stripeSub.status || "active");
+    const isPremium = status === "active" || status === "trialing";
+
+    const premiumEndDate = stripeSub.current_period_end
+      ? new Date(stripeSub.current_period_end * 1000)
+      : null;
+
+    const willCancelAtPeriodEnd = stripeSub.cancel_at_period_end === true;
+
+    let subscriptionType: "monthly" | "yearly" | null = null;
+    const interval = stripeSub.items.data[0]?.price?.recurring?.interval;
+    if (interval === "month") subscriptionType = "monthly";
+    if (interval === "year") subscriptionType = "yearly";
+
+    console.log("SYNC STRIPE FLAG", {
+      subId: stripeSub.id,
+      status: stripeSub.status,
+      cancel_at_period_end: stripeSub.cancel_at_period_end,
+      current_period_end: stripeSub.current_period_end,
+    });
 
     await storage.updateUser(user.id, {
       isPremium,
-      subscriptionStatus,
-      stripeSubscriptionId: entitledSub?.id || null,
+      subscriptionStatus: status,
+      stripeSubscriptionId: stripeSub.id,
       premiumEndDate,
       subscriptionType,
+      willCancelAtPeriodEnd,
     });
 
     return res.json({
       isPremium,
-      subscriptionStatus,
-      stripeSubscriptionId: entitledSub?.id || null,
-      premiumEndDate: premiumEndDate ? premiumEndDate.toISOString() : null,
+      subscriptionStatus: status,
+      stripeSubscriptionId: stripeSub.id,
+      premiumEndDate: premiumEndDate?.toISOString() ?? null,
       subscriptionType,
       willCancelAtPeriodEnd,
     });
@@ -5693,8 +5672,9 @@ const stripeSubscriptionSyncHandler = async (req: any, res: any) => {
 app.get("/api/stripe/subscription", verifySupabaseToken, stripeSubscriptionSyncHandler);
 app.post("/api/stripe/subscription", verifySupabaseToken, stripeSubscriptionSyncHandler);
 
-return httpServer;
+  return httpServer;
 }
+
 
 
 
