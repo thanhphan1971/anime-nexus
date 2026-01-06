@@ -16,7 +16,6 @@ import {
   CreditCard, 
   ExternalLink, 
   Loader2,
-  ArrowLeft,
   CheckCircle,
   AlertCircle,
   XCircle,
@@ -294,17 +293,6 @@ useEffect(() => {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6 pb-12">
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => window.history.back()}
-        className="mb-2"
-        data-testid="button-back"
-      >
-        <ArrowLeft className="h-4 w-4 mr-2" />
-        Back
-      </Button>
-
       <div className="text-center space-y-2">
         <h1 className="text-3xl font-display font-bold neon-text" data-testid="text-account-title">
           My Account
