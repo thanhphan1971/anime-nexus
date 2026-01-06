@@ -68,7 +68,9 @@ export default function AccountPage() {
 
   const isAdminGranted = sclassStatus?.accessSource === "admin_grant";
   const isSClass = Boolean(sclassStatus?.isPremium) || Boolean(isAdminGranted);
-  const isPremiumActive = sclassStatus?.isPremium === true && sclassStatus?.subscriptionStatus === "active";
+  // Premium active includes "active" status AND "canceling" (canceled but still in billing period)
+  const isPremiumActive = sclassStatus?.isPremium === true && 
+    (sclassStatus?.subscriptionStatus === "active" || sclassStatus?.subscriptionStatus === "canceling");
 
 
 
@@ -548,22 +550,35 @@ useEffect(() => {
 <div className="text-xs text-muted-foreground space-y-1">
   <p>Payments are handled by Stripe (secure checkout).</p>
 
-  {sclassStatus?.premiumEndDate ? (
-    <p>
-      {sclassStatus?.willCancelAtPeriodEnd ? "Benefits end on " : "Next billing on "}
-      {new Intl.DateTimeFormat("en-CA", {
-        year: "numeric",
-        month: "long",
-        day: "2-digit",
-        timeZone: "America/Toronto",
-      }).format(new Date(sclassStatus.premiumEndDate))}
-      .
-    </p>
-  ) : null}
+  {isPremiumActive && sclassStatus?.premiumEndDate && (
+    <>
+      {sclassStatus?.willCancelAtPeriodEnd === true ? (
+        <p>
+          Cancels on{" "}
+          {new Intl.DateTimeFormat("en-CA", {
+            year: "numeric",
+            month: "long",
+            day: "2-digit",
+            timeZone: "America/Toronto",
+          }).format(new Date(sclassStatus.premiumEndDate))}
+          . Your membership stays active until then.
+        </p>
+      ) : (
+        <p>
+          Next billing on{" "}
+          {new Intl.DateTimeFormat("en-CA", {
+            year: "numeric",
+            month: "long",
+            day: "2-digit",
+            timeZone: "America/Toronto",
+          }).format(new Date(sclassStatus.premiumEndDate))}
+          .
+        </p>
+      )}
+    </>
+  )}
 
-  {sclassStatus?.willCancelAtPeriodEnd ? (
-    <p>Your subscription is scheduled to cancel at period end.</p>
-  ) : (
+  {isPremiumActive && !sclassStatus?.willCancelAtPeriodEnd && (
     <p>
       Cancel anytime — membership stays active until the end of the billing
       period.
