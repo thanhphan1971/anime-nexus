@@ -575,6 +575,26 @@ useEffect(() => {
     <span className="font-medium">Manage Billing</span>.
   </p>
 </div>
+
+{/* Standalone Manage Billing Button - always visible for S-Class (not admin-granted) */}
+{isSClass && !isAdminGranted && (
+  <Button
+    onClick={handleManageBilling}
+    disabled={isLoadingPortal}
+    className="w-full mt-3"
+    variant="outline"
+    data-testid="button-manage-billing"
+  >
+    {isLoadingPortal ? (
+      <>
+        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+        Opening...
+      </>
+    ) : (
+      "Manage Billing"
+    )}
+  </Button>
+)}
               </div>
             </CardContent>
           </Card>
@@ -593,24 +613,6 @@ useEffect(() => {
 
     <CollapsibleContent>
       <CardContent className="space-y-4 text-sm pt-0">
-        {/* Manage Billing Button - always visible for any subscriber */}
-        <Button
-          onClick={handleManageBilling}
-          disabled={isLoadingPortal}
-          className="w-full"
-          variant="outline"
-          data-testid="button-manage-billing"
-        >
-          {isLoadingPortal ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Opening Portal...
-            </>
-          ) : (
-            "Manage Billing"
-          )}
-        </Button>
-
         <div>
           <h4 className="font-semibold mb-1">Cancel anytime</h4>
           <p className="text-muted-foreground">
