@@ -5672,6 +5672,272 @@ const stripeSubscriptionSyncHandler = async (req: any, res: any) => {
 app.get("/api/stripe/subscription", verifySupabaseToken, stripeSubscriptionSyncHandler);
 app.post("/api/stripe/subscription", verifySupabaseToken, stripeSubscriptionSyncHandler);
 
+  // ============== SEASONAL EVENTS API ==============
+
+  // Get all active events (public)
+  app.get("/api/events", async (req, res) => {
+    try {
+      const events = await storage.getActiveEvents();
+      res.json(events);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get event by slug (public)
+  app.get("/api/events/:slug", async (req, res) => {
+    try {
+      const event = await storage.getEventBySlug(req.params.slug);
+      if (!event) {
+        return res.status(404).json({ error: "Event not found" });
+      }
+
+      const challenges = await storage.getEventChallenges(event.id);
+      const eventCards = await storage.getEventCards(event.id);
+
+      res.json({
+        ...event,
+        challenges,
+        cards: eventCards.map(ec => ({ ...ec.card, dropRateBonus: ec.dropRateBonus, isExclusive: ec.isExclusive })),
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get user's event progress (requires auth)
+  app.get("/api/events/:eventId/progress", verifySupabaseToken, async (req, res) => {
+    try {
+      const user = req.dbUser;
+      if (!user) return res.status(401).json({ error: "Unauthorized" });
+
+      const event = await storage.getEventById(req.params.eventId);
+      if (!event) return res.status(404).json({ error: "Event not found" });
+
+      const eventProgress = await storage.getUserEventProgress(user.id, event.id);
+      const challengeProgress = await storage.getUserChallengesForEvent(user.id, event.id);
+      const challenges = await storage.getEventChallenges(event.id);
+
+      // Merge challenge definitions with user progress
+      const challengesWithProgress = challenges.map(challenge => {
+        const progress = challengeProgress.find(cp => cp.challengeId === challenge.id);
+        return {
+          ...challenge,
+          currentProgress: progress?.currentProgress || 0,
+          isCompleted: progress?.isCompleted || false,
+          rewardClaimed: progress?.rewardClaimed || false,
+        };
+      });
+
+      res.json({
+        eventProgress: eventProgress || { totalPoints: 0, challengesCompleted: 0 },
+        challenges: challengesWithProgress,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Join an event
+  app.post("/api/events/:eventId/join", verifySupabaseToken, async (req, res) => {
+    try {
+      const user = req.dbUser;
+      if (!user) return res.status(401).json({ error: "Unauthorized" });
+
+      const event = await storage.getEventById(req.params.eventId);
+      if (!event) return res.status(404).json({ error: "Event not found" });
+
+      const now = new Date();
+      if (now < event.startDate || now > event.endDate) {
+        return res.status(400).json({ error: "Event is not currently active" });
+      }
+
+      const progress = await storage.joinEvent(user.id, event.id);
+
+      // Auto-start all challenges for this event
+      const challenges = await storage.getEventChallenges(event.id);
+      for (const challenge of challenges) {
+        // Skip premium-only challenges for non-premium users
+        if (challenge.isPremiumOnly && !user.isPremium) continue;
+        await storage.startChallenge(user.id, challenge.id);
+      }
+
+      res.json(progress);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Claim a challenge reward
+  app.post("/api/events/challenges/:challengeId/claim", verifySupabaseToken, async (req, res) => {
+    try {
+      const user = req.dbUser;
+      if (!user) return res.status(401).json({ error: "Unauthorized" });
+
+      const challenge = await storage.getChallengeById(req.params.challengeId);
+      if (!challenge) return res.status(404).json({ error: "Challenge not found" });
+
+      const progress = await storage.getUserChallengeProgress(user.id, challenge.id);
+      if (!progress || !progress.isCompleted) {
+        return res.status(400).json({ error: "Challenge not completed" });
+      }
+      if (progress.rewardClaimed) {
+        return res.status(400).json({ error: "Reward already claimed" });
+      }
+
+      // Claim the reward
+      const claimed = await storage.claimChallengeReward(user.id, challenge.id);
+      if (!claimed) {
+        return res.status(400).json({ error: "Failed to claim reward" });
+      }
+
+      // Apply the reward based on type
+      let rewardDetails: any = { type: challenge.rewardType, value: challenge.rewardValue };
+
+      if (challenge.rewardType === "tokens") {
+        await storage.updateUser(user.id, { tokens: user.tokens + challenge.rewardValue });
+        rewardDetails.message = `You earned ${challenge.rewardValue} tokens!`;
+      } else if (challenge.rewardType === "card" && challenge.rewardCardId) {
+        await storage.addUserCard({ userId: user.id, cardId: challenge.rewardCardId });
+        const card = await storage.getCard(challenge.rewardCardId);
+        rewardDetails.card = card;
+        rewardDetails.message = `You earned a new card: ${card?.name}!`;
+      } else if (challenge.rewardType === "badge" && challenge.rewardBadgeId) {
+        const badge = await storage.getBadgeById(challenge.rewardBadgeId);
+        if (badge) {
+          await storage.grantBadge(user.id, badge.code, "system", "Completed event challenge");
+          rewardDetails.badge = badge;
+          rewardDetails.message = `You earned a badge: ${badge.name}!`;
+        }
+      }
+
+      // Update event progress
+      const event = await storage.getEventById(challenge.eventId);
+      if (event) {
+        const eventProgress = await storage.getUserEventProgress(user.id, event.id);
+        await storage.updateUserEventProgress(user.id, event.id, {
+          totalPoints: (eventProgress?.totalPoints || 0) + challenge.rewardValue,
+          challengesCompleted: (eventProgress?.challengesCompleted || 0) + 1,
+        });
+      }
+
+      res.json({ success: true, reward: rewardDetails });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get event leaderboard
+  app.get("/api/events/:eventId/leaderboard", async (req, res) => {
+    try {
+      const event = await storage.getEventById(req.params.eventId);
+      if (!event) return res.status(404).json({ error: "Event not found" });
+
+      const limit = Math.min(parseInt(req.query.limit as string) || 10, 50);
+      const leaderboard = await storage.getEventLeaderboard(event.id, limit);
+
+      // Return only safe public data
+      const publicLeaderboard = leaderboard.map((entry, index) => ({
+        rank: index + 1,
+        userId: entry.userId,
+        username: entry.user.username,
+        handle: entry.user.handle,
+        avatar: entry.user.avatar,
+        totalPoints: entry.totalPoints,
+        challengesCompleted: entry.challengesCompleted,
+      }));
+
+      res.json(publicLeaderboard);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Admin: Create event (admin only)
+  app.post("/api/admin/events", verifySupabaseToken, async (req, res) => {
+    try {
+      const user = req.dbUser;
+      if (!user?.isAdmin) return res.status(403).json({ error: "Admin access required" });
+
+      const event = await storage.createEvent(req.body);
+      res.status(201).json(event);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Admin: Update event
+  app.patch("/api/admin/events/:id", verifySupabaseToken, async (req, res) => {
+    try {
+      const user = req.dbUser;
+      if (!user?.isAdmin) return res.status(403).json({ error: "Admin access required" });
+
+      const event = await storage.updateEvent(req.params.id, req.body);
+      if (!event) return res.status(404).json({ error: "Event not found" });
+
+      res.json(event);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Admin: Create challenge for event
+  app.post("/api/admin/events/:eventId/challenges", verifySupabaseToken, async (req, res) => {
+    try {
+      const user = req.dbUser;
+      if (!user?.isAdmin) return res.status(403).json({ error: "Admin access required" });
+
+      const event = await storage.getEventById(req.params.eventId);
+      if (!event) return res.status(404).json({ error: "Event not found" });
+
+      const challenge = await storage.createEventChallenge({
+        ...req.body,
+        eventId: event.id,
+      });
+      res.status(201).json(challenge);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Admin: Add card to event
+  app.post("/api/admin/events/:eventId/cards", verifySupabaseToken, async (req, res) => {
+    try {
+      const user = req.dbUser;
+      if (!user?.isAdmin) return res.status(403).json({ error: "Admin access required" });
+
+      const event = await storage.getEventById(req.params.eventId);
+      if (!event) return res.status(404).json({ error: "Event not found" });
+
+      const { cardId, dropRateBonus, isExclusive } = req.body;
+      const card = await storage.getCard(cardId);
+      if (!card) return res.status(404).json({ error: "Card not found" });
+
+      const eventCard = await storage.addCardToEvent(
+        event.id,
+        cardId,
+        dropRateBonus || 0,
+        isExclusive !== false
+      );
+      res.status(201).json(eventCard);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Admin: Get all events (including inactive)
+  app.get("/api/admin/events", verifySupabaseToken, async (req, res) => {
+    try {
+      const user = req.dbUser;
+      if (!user?.isAdmin) return res.status(403).json({ error: "Admin access required" });
+
+      const events = await storage.getAllEvents();
+      res.json(events);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   return httpServer;
 }
 
