@@ -125,7 +125,7 @@ export default function GamePage() {
   const [showRewardsEndedModal, setShowRewardsEndedModal] = useState(false);
   const [showTutorialButtons, setShowTutorialButtons] = useState(false);
   const [showTutorialRewarded, setShowTutorialRewarded] = useState(false);
-  const [showTutorialPracticeOnly, setShowTutorialPra] = useState(false);
+  const [showTutorialPracticeOnly, setShowTutorialPracticeOnly] = useState(false);
 
 
   // Check if should show practice-only modal after game ends
@@ -403,7 +403,7 @@ return (
 
 {/* ✅ KEEP GOING — DO NOT CLOSE THE COMPONENT HERE */}
 
-/* DESKTOP STATUS BOX */
+{/* DESKTOP STATUS BOX */}
 {!isMobile && status && (
   <Card
     className={`mb-6 ${
