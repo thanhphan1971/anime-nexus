@@ -14,6 +14,12 @@ import { FREE_ODDS, PAID_ODDS, PREMIUM_PAID_ODDS, FREE_SUMMON_LIMITS, PAID_SUMMO
 import { getDrawLockTime, getCooldownEndTime, getDrawCycleStatus } from "./drawCycle";
 import { fromZonedTime } from "date-fns-tz";
 
+// Helper to check if Stripe is configured
+function stripeIsConfigured(): boolean {
+  const key = process.env.STRIPE_SECRET_KEY;
+  return Boolean(key && key.startsWith("sk_"));
+}
+
 const createProfileSchema = z.object({
   id: z.string().min(1),
   email: z.string().email(),
@@ -5321,53 +5327,47 @@ export async function registerRoutes(
   });
 
   // Admin: Get game activity logs
-  app.get("/api/admin/game/logs", verifySupabaseToken, async (req, res) => {
-    try {
-      const user = await storage.getUserBySupabaseId(req.supabaseUser!.id);
-      if (!user?.isAdmin) {
-        return res.status(403).json({ error: "Admin access required" });
-      }
-
-      const userId = req.query.userId as string;
-      const date = req.query.date as string;
-
-      if (userId && date) {
-        const logs = await storage.getGameActivityLogsForDate(userId, date);
-        res.json({ logs });
-      } else if (userId) {
-        const logs = await storage.getUserGameActivityLogs(userId, 100);
-        res.json({ logs });
-      } else {
-        res.status(400).json({ error: "userId is required" });
-      }
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
+app.get("/api/admin/game/logs", verifySupabaseToken, async (req, res) => {
+  try {
+    const user = await storage.getUserBySupabaseId(req.supabaseUser!.id);
+    if (!user?.isAdmin) {
+      return res.status(403).json({ error: "Admin access required" });
     }
-  });
 
-  // =====================
-  // STRIPE PAYMENT ROUTES
-  // =====================
+    const userId = req.query.userId as string;
+    const date = req.query.date as string;
 
-  // Get Stripe publishable key
-  app.get("/api/stripe/config", async (req, res) => {
-    try {
-      const publishableKey = process.env.STRIPE_PUBLISHABLE_KEY || "";
-      res.json({ publishableKey });
-    } catch (error: any) {
-      res.status(500).json({ error: "Failed to get Stripe config" });
+    if (userId && date) {
+      const logs = await storage.getGameActivityLogsForDate(userId, date);
+      return res.json({ logs });
+    } else if (userId) {
+      const logs = await storage.getUserGameActivityLogs(userId, 100);
+      return res.json({ logs });
+    } else {
+      return res.status(400).json({ error: "userId is required" });
     }
-  });
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+});
 
-  // Create checkout session for S-Class subscription
-  app.post("/api/stripe/checkout", verifySupabaseToken, async (req, res) => {
-    try {
-      const user = await storage.getUserBySupabaseId(req.supabaseUser!.id);
-      if (!user) {
-        return res.status(401).json({ error: "User not found" });
-      }
+// Create checkout session for S-Class subscription
+app.post("/api/stripe/checkout", verifySupabaseToken, async (req, res) => {
+  try {
+    // 🔒 BILLING DISABLED GUARD
+    if (!stripeIsConfigured()) {
+      return res.status(503).json({
+        error: "Billing is temporarily disabled during launch testing.",
+        billingEnabled: false,
+      });
+    }
 
-      // 🚫 ADMIN GRANT GUARD
+    const user = await storage.getUserBySupabaseId(req.supabaseUser!.id);
+    if (!user) {
+      return res.status(401).json({ error: "User not found" });
+    }
+
+    // 🚫 ADMIN GRANT GUARD
     if (user.accessSource === "admin_grant" && user.accessExpiresAt) {
       const expiresAt = new Date(user.accessExpiresAt);
       if (expiresAt > new Date()) {
@@ -5383,9 +5383,8 @@ export async function registerRoutes(
     // ------------------------------------
     // 📦 INPUT
     // ------------------------------------
-    const { priceId, plan } = req.body;
+    const { priceId, plan } = req.body ?? {};
 
-    // Map plan names to Stripe price IDs
     const PRICE_IDS: Record<string, string> = {
       monthly: "price_1SkuHDRdxAAD3924utTKVVEA",
       yearly: "price_1SlFUbRdxAAD392445O8ScqK",
@@ -5398,7 +5397,7 @@ export async function registerRoutes(
 
     const { stripe } = await import("./stripeClient");
 
-    let customerId = user.stripeCustomerId as string | null;
+    let customerId = (user.stripeCustomerId as string | null) ?? null;
 
     // ------------------------------------
     // 👤 STRIPE CUSTOMER RESOLUTION
@@ -5411,18 +5410,16 @@ export async function registerRoutes(
         if (e.code === "resource_missing" || e.statusCode === 404) {
           customerId = null;
         } else {
-          return res
-            .status(500)
-            .json({ error: "Unable to verify billing account." });
+          return res.status(500).json({ error: "Unable to verify billing account." });
         }
       }
     }
 
     if (!customerId) {
       const customer = await stripe.customers.create({
-        email: user.email,
+        email: user.email || undefined,
         metadata: {
-          userId: user.id,
+          userId: String(user.id),
           username: user.username || "",
         },
       });
@@ -5469,7 +5466,7 @@ export async function registerRoutes(
       success_url: `${baseUrl}/account?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${baseUrl}/account?checkout=cancel`,
       metadata: {
-        userId: user.id,
+        userId: String(user.id),
         plan: plan || "",
       },
       customer_update: {
@@ -5482,7 +5479,7 @@ export async function registerRoutes(
   } catch (error: any) {
     console.error("Checkout error:", error);
     return res.status(500).json({
-      error: error.message || "Failed to create checkout session",
+      error: error?.message || "Failed to create checkout session",
     });
   }
 });
@@ -5490,6 +5487,14 @@ export async function registerRoutes(
 // ===================== BILLING PORTAL (SAFE) =====================
 app.post("/api/stripe/portal", verifySupabaseToken, async (req: any, res: any) => {
   try {
+    // 🔒 BILLING DISABLED GUARD
+    if (!stripeIsConfigured()) {
+      return res.status(503).json({
+        error: "Billing is temporarily disabled during launch testing.",
+        billingEnabled: false,
+      });
+    }
+
     const user = await storage.getUserBySupabaseId(req.supabaseUser!.id);
     if (!user) return res.status(401).json({ error: "User not found" });
 
@@ -5537,11 +5542,26 @@ app.post("/api/stripe/portal", verifySupabaseToken, async (req: any, res: any) =
   }
 });
 
+
 // ===================== SUBSCRIPTION SYNC (GET + POST) =====================
 const stripeSubscriptionSyncHandler = async (req: any, res: any) => {
   try {
     const user = await storage.getUserBySupabaseId(req.supabaseUser!.id);
     if (!user) return res.status(401).json({ error: "User not found" });
+
+    // 🔒 BILLING DISABLED: do NOT call Stripe; return stored/local state instead
+    if (!stripeIsConfigured()) {
+      return res.json({
+        billingEnabled: false,
+        error: "Billing is temporarily disabled during launch testing.",
+        isPremium: !!user.isPremium,
+        subscriptionStatus: user.subscriptionStatus || "free",
+        stripeSubscriptionId: user.stripeSubscriptionId || null,
+        premiumEndDate: user.premiumEndDate || null,
+        subscriptionType: user.subscriptionType || null,
+        willCancelAtPeriodEnd: !!user.willCancelAtPeriodEnd,
+      });
+    }
 
     const { stripe } = await import("./stripeClient");
 
@@ -5557,6 +5577,7 @@ const stripeSubscriptionSyncHandler = async (req: any, res: any) => {
       });
 
       return res.json({
+        billingEnabled: true,
         isPremium: false,
         subscriptionStatus: "free",
         stripeSubscriptionId: null,
@@ -5672,16 +5693,25 @@ const stripeSubscriptionSyncHandler = async (req: any, res: any) => {
 app.get("/api/stripe/subscription", verifySupabaseToken, stripeSubscriptionSyncHandler);
 app.post("/api/stripe/subscription", verifySupabaseToken, stripeSubscriptionSyncHandler);
 
-// 👇 PASTE THIS WHOLE BLOCK HERE
 // Reactivate subscription (undo cancel_at_period_end)
 // Frontend must send { stripeSubscriptionId }
 app.post("/api/stripe/subscription/reactivate", verifySupabaseToken, async (req: any, res) => {
   try {
+    // 🔒 BILLING DISABLED GUARD
+    if (!stripeIsConfigured()) {
+      return res.status(503).json({
+        error: "Billing is temporarily disabled during launch testing.",
+        billingEnabled: false,
+      });
+    }
+
     const { stripeSubscriptionId } = req.body ?? {};
 
     if (!stripeSubscriptionId || typeof stripeSubscriptionId !== "string") {
       return res.status(400).json({ error: "Missing stripeSubscriptionId" });
     }
+
+    const { stripe } = await import("./stripeClient");
 
     const current = await stripe.subscriptions.retrieve(stripeSubscriptionId);
 
@@ -5695,7 +5725,13 @@ app.post("/api/stripe/subscription/reactivate", verifySupabaseToken, async (req:
       return res.json({
         ok: true,
         message: "Subscription already active (not scheduled to cancel).",
-        subscription: current,
+        subscription: {
+          id: current.id,
+          status: current.status,
+          cancel_at_period_end: current.cancel_at_period_end,
+          cancel_at: current.cancel_at,
+          current_period_end: current.current_period_end,
+        },
       });
     }
 
@@ -5716,12 +5752,11 @@ app.post("/api/stripe/subscription/reactivate", verifySupabaseToken, async (req:
     });
   } catch (error: any) {
     console.error("Reactivate subscription error:", error);
-    return res.status(500).json({ error: error?.message || "Failed to reactivate subscription" });
+    return res.status(500).json({
+      error: error?.message || "Failed to reactivate subscription",
+    });
   }
 });
-
-
-  
 
   return httpServer;
 }

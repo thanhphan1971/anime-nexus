@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect } from "react"; 
 import { useLocation } from "wouter";
 import { Crown, Check, ArrowLeft, Loader2, Shield, CreditCard, Globe, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -52,11 +52,25 @@ export default function CheckoutPage() {
           setPrices(data.prices || []);
         }
       } catch (error: any) {
-        toast.error("Failed to load subscription options");
+        // ✅ BILLING DISABLED HANDLING
+        if (error?.status === 503) {
+          toast.error("Billing is temporarily disabled during launch testing.");
+          setProduct(null);
+          setPrices([]);
+        } else {
+          toast.error("Failed to load subscription options");
+        }
       } finally {
         setLoading(false);
       }
     }
+
+    fetchProducts();
+  }, []);
+
+  // rest of your component continues unchanged…
+}
+
     fetchProducts();
   }, []);
 
