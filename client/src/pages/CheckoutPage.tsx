@@ -68,12 +68,6 @@ export default function CheckoutPage() {
     fetchProducts();
   }, []);
 
-  // rest of your component continues unchanged…
-}
-
-    fetchProducts();
-  }, []);
-
   const monthlyPrice = prices.find(p => p.interval === 'month' || p.recurring?.interval === 'month');
   const yearlyPrice = prices.find(p => p.interval === 'year' || p.recurring?.interval === 'year');
   const selectedPrice = selectedPlan === 'yearly' ? yearlyPrice : monthlyPrice;

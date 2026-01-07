@@ -14,11 +14,17 @@ import { FREE_ODDS, PAID_ODDS, PREMIUM_PAID_ODDS, FREE_SUMMON_LIMITS, PAID_SUMMO
 import { getDrawLockTime, getCooldownEndTime, getDrawCycleStatus } from "./drawCycle";
 import { fromZonedTime } from "date-fns-tz";
 
-// Helper to check if Stripe is configured
+// 🔒 Stripe configuration guard
 function stripeIsConfigured(): boolean {
-  const key = process.env.STRIPE_SECRET_KEY;
-  return Boolean(key && key.startsWith("sk_"));
+  const sk = process.env.STRIPE_SECRET_KEY;
+  const pk = process.env.STRIPE_PUBLISHABLE_KEY;
+
+  if (!sk || !sk.startsWith("sk_")) return false;
+  if (!pk || !pk.startsWith("pk_")) return false;
+
+  return true;
 }
+
 
 const createProfileSchema = z.object({
   id: z.string().min(1),
