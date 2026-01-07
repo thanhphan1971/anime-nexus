@@ -5672,6 +5672,57 @@ const stripeSubscriptionSyncHandler = async (req: any, res: any) => {
 app.get("/api/stripe/subscription", verifySupabaseToken, stripeSubscriptionSyncHandler);
 app.post("/api/stripe/subscription", verifySupabaseToken, stripeSubscriptionSyncHandler);
 
+// 👇 PASTE THIS WHOLE BLOCK HERE
+// Reactivate subscription (undo cancel_at_period_end)
+// Frontend must send { stripeSubscriptionId }
+app.post("/api/stripe/subscription/reactivate", verifySupabaseToken, async (req: any, res) => {
+  try {
+    const { stripeSubscriptionId } = req.body ?? {};
+
+    if (!stripeSubscriptionId || typeof stripeSubscriptionId !== "string") {
+      return res.status(400).json({ error: "Missing stripeSubscriptionId" });
+    }
+
+    const current = await stripe.subscriptions.retrieve(stripeSubscriptionId);
+
+    if (current.status === "canceled") {
+      return res.status(400).json({
+        error: "Subscription is already canceled. Create a new subscription instead.",
+      });
+    }
+
+    if (!current.cancel_at_period_end) {
+      return res.json({
+        ok: true,
+        message: "Subscription already active (not scheduled to cancel).",
+        subscription: current,
+      });
+    }
+
+    const updated = await stripe.subscriptions.update(stripeSubscriptionId, {
+      cancel_at_period_end: false,
+      cancel_at: null,
+    });
+
+    return res.json({
+      ok: true,
+      subscription: {
+        id: updated.id,
+        status: updated.status,
+        cancel_at_period_end: updated.cancel_at_period_end,
+        cancel_at: updated.cancel_at,
+        current_period_end: updated.current_period_end,
+      },
+    });
+  } catch (error: any) {
+    console.error("Reactivate subscription error:", error);
+    return res.status(500).json({ error: error?.message || "Failed to reactivate subscription" });
+  }
+});
+
+
+  
+
   return httpServer;
 }
 
