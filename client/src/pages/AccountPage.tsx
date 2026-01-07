@@ -77,6 +77,9 @@ export default function AccountPage() {
   // ✅ Cancellation intent flag (still active until premiumEndDate)
   const isCancelingAtPeriodEnd = sclassStatus?.willCancelAtPeriodEnd === true;
 
+  // ✅ Billing enabled flag (false when Stripe is not configured)
+  const billingEnabled = sclassStatus?.billingEnabled !== false;
+
   const statusBadge = () => {
     if (isAdminGranted) {
       return (
@@ -201,96 +204,115 @@ useEffect(() => {
     sync();
   }, [accessToken, refreshUser]);
 
-  // ---------- actions ----------
-  const handleSubscribe = async (plan: "monthly" | "yearly") => {
-    if (!accessToken) {
-      toast.error("Please log in again to subscribe.");
-      return;
+ // ---------- actions ----------
+const handleSubscribe = async (plan: "monthly" | "yearly") => {
+  if (!accessToken) {
+    toast.error("Please log in again to subscribe.");
+    return;
+  }
+
+  if (isLoadingCheckout) return;
+
+  setIsLoadingCheckout(plan);
+
+  try {
+    const res = await fetch("/api/stripe/checkout", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      credentials: "include",
+      body: JSON.stringify({ plan }),
+    });
+
+    // Read response safely (JSON or text)
+    const raw = await res.text().catch(() => "");
+    let data: any = {};
+    try {
+      data = raw ? JSON.parse(raw) : {};
+    } catch {
+      // keep raw text
     }
 
-    if (isLoadingCheckout) return;
-
-    setIsLoadingCheckout(plan);
-
-    try {
-      const res = await fetch("/api/stripe/checkout", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-        credentials: "include",
-        body: JSON.stringify({ plan }),
-      });
-
-      const data = await res.json().catch(() => ({} as any));
-
-      if (!res.ok) {
-        throw new Error(data?.error || "Failed to create checkout session");
-      }
-
-      if (!data?.url) {
-         throw new Error("No checkout URL returned");
-      }
-
-      window.location.href = data.url;
-    } catch (err: any) {
-      console.error("[AccountPage] checkout error:", err);
-      toast.error(err?.message || "Checkout failed");
-    } finally {
-      setIsLoadingCheckout(null);
-    }
-  };
-
-  const handleManageBilling = async () => {
-    if (isLoadingPortal) return;
-
-    setIsLoadingPortal(true);
-
-    try {
-      // Always pull a fresh token at click time (prevents stale/empty token 401)
-      const supabase = await getSupabase();
-      const { data } = await supabase.auth.getSession();
-      const token = data.session?.access_token;
-
-      if (!token) {
-        toast.error("Session expired. Please log in again.");
+    // Explicit billing-disabled handling
+    if (!res.ok) {
+      if (res.status === 503 && data?.billingEnabled === false) {
+        toast.info(
+          data?.error || "Billing is temporarily disabled during launch testing."
+        );
         return;
       }
 
-      const res = await fetch("/api/stripe/portal", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-      });
-
-      const raw = await res.text();
-      let json: any = {};
-      try {
-        json = JSON.parse(raw);
-      } catch {
-        // keep raw
-      }
-
-      if (!res.ok) {
-        throw new Error(json?.error || raw || `Portal failed (${res.status})`);
-      }
-
-      if (!json?.url) {
-        throw new Error("Portal did not return a URL");
-      }
-
-      window.location.href = json.url;
-    } catch (err: any) {
-      console.error("[AccountPage] portal error:", err);
-      toast.error(err?.message || "Failed to open billing portal");
-    } finally {
-      setIsLoadingPortal(false);
+      throw new Error(
+        data?.error || raw || `Failed to create checkout session (${res.status})`
+      );
     }
-  };
+
+    if (!data?.url) {
+      throw new Error("No checkout URL returned");
+    }
+
+    window.location.href = data.url;
+  } catch (err: any) {
+    console.error("[AccountPage] checkout error:", err);
+    toast.error(err?.message || "Checkout failed");
+  } finally {
+    setIsLoadingCheckout(null);
+  }
+};
+
+const handleManageBilling = async () => {
+  if (isLoadingPortal) return;
+
+  setIsLoadingPortal(true);
+
+  try {
+    // Always pull a fresh token at click time (prevents stale/empty token 401)
+    const supabase = await getSupabase();
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+
+    if (!token) {
+      toast.error("Session expired. Please log in again.");
+      setIsLoadingPortal(false); // ✅ important
+      return;
+    }
+
+    const res = await fetch("/api/stripe/portal", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+    });
+
+    const raw = await res.text();
+    let json: any = {};
+    try {
+      json = JSON.parse(raw);
+    } catch {
+      // keep raw
+    }
+
+    if (!res.ok) {
+      throw new Error(json?.error || raw || `Portal failed (${res.status})`);
+    }
+
+    if (!json?.url) {
+      throw new Error("Portal did not return a URL");
+    }
+
+    window.location.href = json.url;
+  } catch (err: any) {
+    console.error("[AccountPage] portal error:", err);
+    toast.error(err?.message || "Failed to open billing portal");
+  } finally {
+    setIsLoadingPortal(false);
+  }
+};
+
 
   if (!user) return null;
 
@@ -421,49 +443,59 @@ useEffect(() => {
             )}
 
             {isAdminGranted && sclassStatus?.accessExpiresAt && (
-              <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">Access Expires</span>
-                </div>
-                <span className="text-sm font-medium" data-testid="text-account-grant-expires">
-                  {formatDate(sclassStatus.accessExpiresAt)}
-                </span>
-              </div>
-            )}
-          </div>
+  <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+    <div className="flex items-center gap-2">
+      <Calendar className="h-4 w-4 text-muted-foreground" />
+      <span className="text-sm text-muted-foreground">Access Expires</span>
+    </div>
+    <span className="text-sm font-medium" data-testid="text-account-grant-expires">
+      {formatDate(sclassStatus.accessExpiresAt)}
+    </span>
+  </div>
+)}
+</div>
 
-          <Separator className="bg-white/10" />
+<Separator className="bg-white/10" />
 
-          {!isSClass && !user.isAdmin && (
-            <div className="space-y-3">
-              <p className="text-sm text-muted-foreground text-center">
-                Upgrade to S-Class for premium benefits
-              </p>
+{!isSClass && !user.isAdmin && (
+  <div className="space-y-3">
+    <p className="text-sm text-muted-foreground text-center">
+      Upgrade to S-Class for premium benefits
+    </p>
 
-              <div className="grid grid-cols-2 gap-3">
-                <Button
-                  onClick={() => handleSubscribe("monthly")}
-                  disabled={isLoadingCheckout !== null || isTokenLoading}
-                  className="bg-primary hover:bg-primary/80"
-                  data-testid="button-subscribe-monthly"
-                >
-                  {isTokenLoading ? (
-                    "Loading..."
-                  ) : isLoadingCheckout === "monthly" ? (
-                    "Redirecting..."
-                  ) : (
-                    <>Monthly $9.99</>
-                  )}
-                </Button>
+    {/* ✅ ADD: billing disabled message */}
+    {!billingEnabled && (
+      <p className="text-xs text-center text-muted-foreground">
+        Billing is temporarily disabled during launch testing.
+      </p>
+    )}
 
-                <Button
-                  onClick={() => handleSubscribe("yearly")}
-                  disabled={isLoadingCheckout !== null || isTokenLoading}
-                  variant="outline"
-                  className="border-yellow-500/50 text-yellow-400 hover:bg-yellow-500/10"
-                  data-testid="button-subscribe-yearly"
-                >
+    <div className="grid grid-cols-2 gap-3">
+      <Button
+        onClick={() => handleSubscribe("monthly")}
+        disabled={!billingEnabled || isLoadingCheckout !== null || isTokenLoading}
+        className="bg-primary hover:bg-primary/80"
+        data-testid="button-subscribe-monthly"
+      >
+        {isTokenLoading ? (
+          "Loading..."
+        ) : !billingEnabled ? (
+          "Unavailable"
+        ) : isLoadingCheckout === "monthly" ? (
+          "Redirecting..."
+        ) : (
+          <>Monthly $9.99</>
+        )}
+      </Button>
+
+      <Button
+        onClick={() => handleSubscribe("yearly")}
+        disabled={!billingEnabled || isLoadingCheckout !== null || isTokenLoading}
+        variant="outline"
+        className="border-yellow-500/50 text-yellow-400 hover:bg-yellow-500/10"
+        data-testid="button-subscribe-yearly"
+      >
+
                   {isTokenLoading ? (
                     "Loading..."
                   ) : isLoadingCheckout === "yearly" ? (
