@@ -2,7 +2,16 @@ import express, { type Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
-import { insertUserSchema, insertPostSchema, insertSwipeActionSchema, insertCommunityMessageSchema, insertDrawSchema, insertPrizeSchema, insertDrawEntrySchema, insertCardCategorySchema } from "@shared/schema";
+import {
+  insertUserSchema,
+  insertPostSchema,
+  insertSwipeActionSchema,
+  insertCommunityMessageSchema,
+  insertDrawSchema,
+  insertPrizeSchema,
+  insertDrawEntrySchema,
+  insertCardCategorySchema,
+} from "@shared/schema";
 import { supabaseAdmin } from "./lib/supabaseAdmin";
 import { nanoid } from "nanoid";
 import bcrypt from "bcrypt";
@@ -10,12 +19,28 @@ import { verifySupabaseToken, optionalSupabaseAuth } from "./lib/supabaseAuth";
 import { sql } from "drizzle-orm";
 import { z } from "zod";
 import { calculateAgeBand, canViewFullProfile } from "./lib/dbAdapter";
-import { FREE_ODDS, PAID_ODDS, PREMIUM_PAID_ODDS, FREE_SUMMON_LIMITS, PAID_SUMMON_CONFIG, PAID_SUMMON_REMINDER, selectRarity, getNextResetTime, getNext7PMETResetTime, needsReset } from "./config/gachaOdds";
+import {
+  FREE_ODDS,
+  PAID_ODDS,
+  PREMIUM_PAID_ODDS,
+  FREE_SUMMON_LIMITS,
+  PAID_SUMMON_CONFIG,
+  PAID_SUMMON_REMINDER,
+  selectRarity,
+  getNextResetTime,
+  getNext7PMETResetTime,
+  needsReset,
+} from "./config/gachaOdds";
 import { getDrawLockTime, getCooldownEndTime, getDrawCycleStatus } from "./drawCycle";
 import { fromZonedTime } from "date-fns-tz";
 
-// 🔒 Stripe configuration guard
+// 🔒 Stripe configuration guard (feature-flagged)
 function stripeIsConfigured(): boolean {
+  // Master kill-switch: billing OFF unless explicitly enabled
+  if ((process.env.BILLING_ENABLED || "").toLowerCase() === "false") {
+    return false;
+  }
+
   const sk = process.env.STRIPE_SECRET_KEY;
   const pk = process.env.STRIPE_PUBLISHABLE_KEY;
 
@@ -24,7 +49,6 @@ function stripeIsConfigured(): boolean {
 
   return true;
 }
-
 
 const createProfileSchema = z.object({
   id: z.string().min(1),
@@ -35,11 +59,12 @@ const createProfileSchema = z.object({
   avatar: z.string().url().optional(),
   bio: z.string().max(500).optional(),
   animeInterests: z.array(z.string()).max(20).optional(),
-  theme: z.enum(['cyberpunk', 'neon', 'sakura', 'ocean']).optional(),
+  theme: z.enum(["cyberpunk", "neon", "sakura", "ocean"]).optional(),
   birthDate: z.string().optional(),
   isMinor: z.boolean().optional(),
   parentEmail: z.string().email().optional().nullable(),
 });
+
 
 export async function registerRoutes(
   httpServer: Server,

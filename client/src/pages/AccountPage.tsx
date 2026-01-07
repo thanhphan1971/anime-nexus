@@ -431,18 +431,18 @@ const handleManageBilling = async () => {
             </div>
 
             {user?.subscriptionPlan && (
-              <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <CreditCard className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">Plan</span>
-                </div>
-                <span className="text-sm font-medium" data-testid="text-account-plan">
-                  {user.subscriptionPlan}
-                </span>
-              </div>
-            )}
+  <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+    <div className="flex items-center gap-2">
+      <CreditCard className="h-4 w-4 text-muted-foreground" />
+      <span className="text-sm text-muted-foreground">Plan</span>
+    </div>
+    <span className="text-sm font-medium" data-testid="text-account-plan">
+      {user.subscriptionPlan}
+    </span>
+  </div>
+)}
 
-            {isAdminGranted && sclassStatus?.accessExpiresAt && (
+{isAdminGranted && sclassStatus?.accessExpiresAt && (
   <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
     <div className="flex items-center gap-2">
       <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -463,7 +463,6 @@ const handleManageBilling = async () => {
       Upgrade to S-Class for premium benefits
     </p>
 
-    {/* ✅ ADD: billing disabled message */}
     {!billingEnabled && (
       <p className="text-xs text-center text-muted-foreground">
         Billing is temporarily disabled during launch testing.
@@ -495,31 +494,33 @@ const handleManageBilling = async () => {
         className="border-yellow-500/50 text-yellow-400 hover:bg-yellow-500/10"
         data-testid="button-subscribe-yearly"
       >
-
-                  {isTokenLoading ? (
-                    "Loading..."
-                  ) : isLoadingCheckout === "yearly" ? (
-                   "Redirecting..."
-                  ) : (
-                    <>Yearly $79.99</>
-                  )}
-                </Button>
-              </div>
-
-                          <p className="text-xs text-muted-foreground text-center">
-              Save ~33% with yearly billing
-            </p>
-          </div>
+        {isTokenLoading ? (
+          "Loading..."
+        ) : !billingEnabled ? (
+          "Unavailable"
+        ) : isLoadingCheckout === "yearly" ? (
+          "Redirecting..."
+        ) : (
+          <>Yearly $79.99</>
         )}
+      </Button>
+    </div>
 
-        {/* S-Class info (always visible for comparison) */}
-        <Card className="mt-4">
-            <CardHeader>
-              <CardTitle>S-Class Membership</CardTitle>
-              <CardDescription>
-                Unlock premium perks that power your daily progress.
-              </CardDescription>
-            </CardHeader>
+    <p className="text-xs text-muted-foreground text-center">
+      Save ~33% with yearly billing
+    </p>
+  </div>
+)}
+
+{/* S-Class info (always visible for comparison) */}
+<Card className="mt-4">
+  <CardHeader>
+    <CardTitle>S-Class Membership</CardTitle>
+    <CardDescription>
+      Unlock premium perks that power your daily progress.
+    </CardDescription>
+  </CardHeader>
+
 
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
