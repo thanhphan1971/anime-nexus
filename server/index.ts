@@ -18,6 +18,17 @@ import { createClient } from "@supabase/supabase-js";
 enforceProductionConfig();
 
 // ------------------------------------
+// Environment-aware Supabase config
+// ------------------------------------
+const isDev = process.env.NODE_ENV === 'development';
+const SUPABASE_URL = isDev 
+  ? process.env.DEV_SUPABASE_URL 
+  : process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = isDev 
+  ? process.env.DEV_SUPABASE_SERVICE_ROLE_KEY 
+  : process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+// ------------------------------------
 // App + server
 // ------------------------------------
 const app = express();
@@ -29,8 +40,8 @@ const httpServer = createServer(app);
 // Supabase ADMIN client (SERVER ONLY)
 // ------------------------------------
 const supabaseAdmin = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!, // ⚠️ server secret
+  SUPABASE_URL!,
+  SUPABASE_SERVICE_ROLE_KEY!, // ⚠️ server secret
   { auth: { persistSession: false } }
 );
 
@@ -59,7 +70,8 @@ async function requireUser(req: Request) {
 // ------------------------------------
 // DEBUG: verify runtime environment
 // ------------------------------------
-console.log("SUPABASE_URL =", process.env.SUPABASE_URL);
+console.log("NODE_ENV =", process.env.NODE_ENV);
+console.log("SUPABASE_URL =", SUPABASE_URL);
 console.log("APP_BASE_URL =", process.env.APP_BASE_URL);
 console.log(
   "STRIPE_SECRET_KEY starts with =",
