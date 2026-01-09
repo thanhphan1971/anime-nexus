@@ -20,13 +20,34 @@ enforceProductionConfig();
 // ------------------------------------
 // Environment-aware Supabase config
 // ------------------------------------
-const isDev = process.env.NODE_ENV === 'development';
-const SUPABASE_URL = isDev 
-  ? process.env.DEV_SUPABASE_URL 
+
+// Treat the published deployment as production, even if NODE_ENV is mis-set.
+const isDeployed =
+  process.env.REPLIT_DEPLOYMENT === "true" ||
+  process.env.REPLIT_DEPLOYMENT === "1" ||
+  !!process.env.REPLIT_DEPLOYMENT;
+
+const isDev = !isDeployed && process.env.NODE_ENV === "development";
+
+const SUPABASE_URL = isDev
+  ? process.env.DEV_SUPABASE_URL
   : process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_ROLE_KEY = isDev 
-  ? process.env.DEV_SUPABASE_SERVICE_ROLE_KEY 
+
+const SUPABASE_SERVICE_ROLE_KEY = isDev
+  ? process.env.DEV_SUPABASE_SERVICE_ROLE_KEY
   : process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+// ✅ Safe environment check: log only the Supabase hostname (never keys)
+try {
+  const host = SUPABASE_URL ? new URL(SUPABASE_URL).hostname : "(missing)";
+  console.log(
+    `[ENV CHECK] deployed=${isDeployed} node_env=${process.env.NODE_ENV} supabase_host=${host}`
+  );
+} catch {
+  console.log(
+    `[ENV CHECK] deployed=${isDeployed} node_env=${process.env.NODE_ENV} supabase_host=(invalid_url)`
+  );
+}
 
 // ------------------------------------
 // App + server
@@ -66,6 +87,7 @@ async function requireUser(req: Request) {
 
   return { user: data.user };
 }
+
 
 // ------------------------------------
 // DEBUG: verify runtime environment
