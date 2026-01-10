@@ -52,6 +52,31 @@ try {
 // App + server
 // ------------------------------------
 const app = express();
+
+// 🔍 Environment check endpoint (safe for prod)
+app.get("/api/env-check", (_req, res) => {
+  const runtime = process.env.APP_RUNTIME || "(unset)";
+  const isProd = runtime === "prod";
+
+  const selectedUrl = isProd
+    ? process.env.SUPABASE_URL
+    : process.env.DEV_SUPABASE_URL;
+
+  let host = "(missing)";
+  try {
+    host = selectedUrl ? new URL(selectedUrl).hostname : "(missing)";
+  } catch {
+    host = "(invalid_url)";
+  }
+
+  res.json({
+    appRuntime: runtime,
+    prod: isProd,
+    supabaseHost: host,
+    nodeEnv: process.env.NODE_ENV,
+  });
+});
+
 let frontendReady = false;
 
 const httpServer = createServer(app);
