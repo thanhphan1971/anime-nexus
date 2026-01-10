@@ -18,36 +18,35 @@ import { createClient } from "@supabase/supabase-js";
 enforceProductionConfig();
 
 // ------------------------------------
-// Environment-aware Supabase config
+// Environment-aware Supabase config (Replit-safe)
 // ------------------------------------
 
-// Treat the published deployment as production, even if NODE_ENV is mis-set.
-const isDeployed =
-  process.env.REPLIT_DEPLOYMENT === "true" ||
-  process.env.REPLIT_DEPLOYMENT === "1" ||
-  !!process.env.REPLIT_DEPLOYMENT;
+// IMPORTANT:
+// - Do NOT set APP_RUNTIME in Workspace secrets.
+// - Set APP_RUNTIME=prod ONLY in Deployment secrets.
+// This avoids Replit secret sync issues.
+const isProd = process.env.APP_RUNTIME === "prod";
 
-const isDev = !isDeployed && process.env.NODE_ENV === "development";
+const SUPABASE_URL = isProd
+  ? process.env.SUPABASE_URL
+  : process.env.DEV_SUPABASE_URL;
 
-const SUPABASE_URL = isDev
-  ? process.env.DEV_SUPABASE_URL
-  : process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = isProd
+  ? process.env.SUPABASE_SERVICE_ROLE_KEY
+  : process.env.DEV_SUPABASE_SERVICE_ROLE_KEY;
 
-const SUPABASE_SERVICE_ROLE_KEY = isDev
-  ? process.env.DEV_SUPABASE_SERVICE_ROLE_KEY
-  : process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-// ✅ Safe environment check: log only the Supabase hostname (never keys)
+// ✅ Safe environment diagnostics (never logs secrets)
 try {
   const host = SUPABASE_URL ? new URL(SUPABASE_URL).hostname : "(missing)";
   console.log(
-    `[ENV CHECK] deployed=${isDeployed} node_env=${process.env.NODE_ENV} supabase_host=${host}`
+    `[ENV CHECK] APP_RUNTIME=${process.env.APP_RUNTIME || "(unset)"} prod=${isProd} supabase_host=${host}`
   );
 } catch {
   console.log(
-    `[ENV CHECK] deployed=${isDeployed} node_env=${process.env.NODE_ENV} supabase_host=(invalid_url)`
+    `[ENV CHECK] APP_RUNTIME=${process.env.APP_RUNTIME || "(unset)"} prod=${isProd} supabase_host=(invalid_url)`
   );
 }
+
 
 // ------------------------------------
 // App + server
