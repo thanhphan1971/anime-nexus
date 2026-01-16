@@ -29,13 +29,14 @@ import GamePage from "@/pages/GamePage";
 import UniversePage from "@/pages/UniversePage";
 import CheckoutPage from "@/pages/CheckoutPage";
 import AccountPage from "@/pages/AccountPage";
+import ActivatePage from "@/pages/ActivatePage";
 import Layout from "@/components/layout/Layout";
 import OnboardingFlow from "@/components/OnboardingFlow";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 
 function Router() {
   const { user, isLoading } = useAuth();
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingChecked, setOnboardingChecked] = useState(false);
 
@@ -56,6 +57,10 @@ function Router() {
     setShowOnboarding(false);
     setLocation("/");
   };
+
+  if (location === "/activate") {
+    return <ActivatePage />;
+  }
 
   if (isLoading) {
     return (
