@@ -63,9 +63,13 @@ async function createSClassProducts() {
   console.log('Yearly Price ID:', yearlyPrice.id);
 }
 
-createSClassProducts()
-  .then(() => process.exit(0))
-  .catch((error) => {
-    console.error('Error creating products:', error);
-    process.exit(1);
-  });
+if (process.env.RUN_STRIPE_SEED === "true") {
+  createSClassProducts()
+    .then(() => {
+      console.log("[stripe seed] done");
+    })
+    .catch((error) => {
+      console.error("[stripe seed] failed:", error);
+    });
+}
+

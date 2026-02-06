@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { supabaseAdmin } from "./supabaseAdmin";
+import { supabaseAdmin, isSupabaseConfigured } from "./supabaseAdmin";
 import { storage } from "../storage";
 import type { User } from "@shared/schema";
 
@@ -22,6 +22,12 @@ function getBearerToken(req: Request): string | null {
 }
 
 export async function verifySupabaseToken(req: Request, res: Response, next: NextFunction) {
+  if (!isSupabaseConfigured) {
+    req.supabaseUser = null;
+    req.dbUser = null;
+    return res.status(503).json({ error: "Authentication service not configured" });
+  }
+
   const token = getBearerToken(req);
 
   if (!token) {
@@ -46,7 +52,6 @@ export async function verifySupabaseToken(req: Request, res: Response, next: Nex
       email: user.email || "",
     };
 
-    // Best-effort: attach DB user if present
     const dbUser = await storage.getUserBySupabaseId(user.id);
     req.dbUser = dbUser || null;
 
@@ -55,12 +60,17 @@ export async function verifySupabaseToken(req: Request, res: Response, next: Nex
     console.error("Token verification error:", err);
     req.supabaseUser = null;
     req.dbUser = null;
-    // ✅ internal failure is 500, not 401
     return res.status(500).json({ error: "Auth verification failed" });
   }
 }
 
 export async function optionalSupabaseAuth(req: Request, _res: Response, next: NextFunction) {
+  if (!isSupabaseConfigured) {
+    req.supabaseUser = null;
+    req.dbUser = null;
+    return next();
+  }
+
   const token = getBearerToken(req);
 
   if (!token) {
@@ -89,7 +99,6 @@ export async function optionalSupabaseAuth(req: Request, _res: Response, next: N
 
     return next();
   } catch (err) {
-    // treat as anonymous
     req.supabaseUser = null;
     req.dbUser = null;
     return next();

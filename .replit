@@ -9,7 +9,6 @@ packages = ["lsof"]
 [deployment]
 deploymentTarget = "autoscale"
 build = ["npm", "run", "build"]
-publicDir = "dist/public"
 run = ["npm", "run", "start"]
 
 [[ports]]
@@ -42,6 +41,7 @@ waitForPort = 5000
 [agent]
 mockupState = "FULLSTACK"
 integrations = ["stripe:2.0.0"]
+expertMode = true
 
 [userenv]
 

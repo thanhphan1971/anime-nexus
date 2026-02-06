@@ -1,3 +1,13 @@
+let startupError: unknown = null;
+
+console.log("[BOOT] starting server");
+console.log("[ENV] SUPABASE_URL present:", !!process.env.SUPABASE_URL);
+console.log("[ENV] SUPABASE_SERVICE_ROLE_KEY present:", !!process.env.SUPABASE_SERVICE_ROLE_KEY);
+console.log(
+  "[ENV] keys starting with SUPABASE:",
+  Object.keys(process.env).filter(k => k.startsWith("SUPABASE")).sort()
+);
+
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
@@ -11,11 +21,20 @@ import { stripe } from "./stripeClient";
 import { storage } from "./storage";
 
 import { createClient } from "@supabase/supabase-js";
+import { isSupabaseConfigured } from "./lib/supabaseAdmin";
 
 // ------------------------------------
 // Validate config early (production safety)
 // ------------------------------------
-enforceProductionConfig();
+const strictProdEnv = process.env.STRICT_PROD_ENV === "true";
+
+try {
+  enforceProductionConfig();
+} catch (err) {
+  console.error("WARN: Production config validation failed:", err);
+  if (strictProdEnv) throw err;
+}
+
 
 // ------------------------------------
 // Environment-aware Supabase config (Replit-safe)
@@ -84,16 +103,22 @@ const httpServer = createServer(app);
 // ------------------------------------
 // Supabase ADMIN client (SERVER ONLY)
 // ------------------------------------
-const supabaseAdmin = createClient(
-  SUPABASE_URL!,
-  SUPABASE_SERVICE_ROLE_KEY!, // ⚠️ server secret
-  { auth: { persistSession: false } }
-);
+const supabaseAdminLocal = (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY)
+  ? createClient(
+      SUPABASE_URL,
+      SUPABASE_SERVICE_ROLE_KEY,
+      { auth: { persistSession: false } }
+    )
+  : null;
 
 // ------------------------------------
 // Auth helper (used by Stripe + others)
 // ------------------------------------
 async function requireUser(req: Request) {
+  if (!supabaseAdminLocal) {
+    return { error: "Authentication service not configured" as const };
+  }
+
   const authHeader = req.headers.authorization || "";
   const token = authHeader.startsWith("Bearer ")
     ? authHeader.slice(7)
@@ -103,7 +128,7 @@ async function requireUser(req: Request) {
     return { error: "Missing Authorization token" as const };
   }
 
-  const { data, error } = await supabaseAdmin.auth.getUser(token);
+  const { data, error } = await supabaseAdminLocal.auth.getUser(token);
 
   if (error || !data?.user) {
     return { error: "Invalid or expired token" as const };
@@ -428,12 +453,15 @@ httpServer.listen(
           await setupVite(httpServer, app);
         }
 
-        frontendReady = true;
-        log("Server fully initialized");
-      } catch (err) {
-        console.error("Server initialization error:", err);
-        process.exit(1);
-      }
-    })();
-  }
+      frontendReady = true;
+log("Server fully initialized");
+} catch (err) {
+  console.error("Server initialization error:", err);
+  // Do NOT exit in production; it causes crash loops on Replit.
+  // Mark server as not ready so health checks can show a failure.
+  frontendReady = false;
+}
+})();
+}
 );
+

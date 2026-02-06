@@ -12,7 +12,7 @@ import {
   insertDrawEntrySchema,
   insertCardCategorySchema,
 } from "@shared/schema";
-import { supabaseAdmin } from "./lib/supabaseAdmin";
+import { supabaseAdmin, isSupabaseConfigured } from "./lib/supabaseAdmin";
 import { nanoid } from "nanoid";
 import bcrypt from "bcrypt";
 import { verifySupabaseToken, optionalSupabaseAuth } from "./lib/supabaseAuth";
@@ -1351,6 +1351,10 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Invalid content type. Only images allowed." });
       }
       
+      if (!isSupabaseConfigured) {
+        return res.status(503).json({ error: "Media storage not configured - Supabase credentials required" });
+      }
+
       const extension = contentType.split('/')[1] || 'png';
       const filename = `${nanoid()}.${extension}`;
       const objectKey = `cards/${filename}`;

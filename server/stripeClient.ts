@@ -1,7 +1,13 @@
 import Stripe from "stripe";
 
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error("Missing STRIPE_SECRET_KEY");
+const STRIPE_CONFIGURED = !!process.env.STRIPE_SECRET_KEY && process.env.STRIPE_SECRET_KEY.startsWith('sk_');
+
+if (!STRIPE_CONFIGURED) {
+  console.warn('[MIGRATION MODE] Stripe credentials not found - payment features will be unavailable');
 }
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+export const stripe = STRIPE_CONFIGURED 
+  ? new Stripe(process.env.STRIPE_SECRET_KEY!)
+  : null as any;
+
+export const isStripeConfigured = STRIPE_CONFIGURED;

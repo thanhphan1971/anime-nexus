@@ -68,8 +68,8 @@ export function enforceProductionConfig(): void {
     console.error('The following variables must be set:\n');
     result.missing.forEach(v => console.error(`  - ${v}`));
     console.error('\nServer cannot start in production mode without these variables.');
-    console.error('Please set them in your environment or secrets.\n');
-    process.exit(1);
+   throw new Error('Please set them in your environment or secrets.');
+
   }
 
   if (process.env.NODE_ENV === 'production') {
