@@ -440,6 +440,9 @@ const port = parseInt(process.env.PORT || "5000", 10);
       await setupVite(httpServer, app);
     }
 
+frontendReady = true;
+log("Server fully initialized");
+
     // 🔍 List all registered routes (debug)
     console.log(
       "[ROUTES]",
