@@ -419,6 +419,16 @@ app.use((req, res, next) => {
 // Start listening IMMEDIATELY (Replit)
 // -----------------------------
 const port = parseInt(process.env.PORT || "5000", 10);
+// 🔍 List all registered routes (debug)
+console.log(
+  "[ROUTES]",
+  (app as any)._router?.stack
+    ?.filter((r: any) => r.route)
+    .map((r: any) =>
+      `${Object.keys(r.route.methods).join(",").toUpperCase()} ${r.route.path}`
+    )
+);
+
 httpServer.listen(
   {
     port,
