@@ -416,62 +416,58 @@ app.use((req, res, next) => {
 });
 
 // -----------------------------
-// Start listening IMMEDIATELY (Replit)
+// Start server (Replit)
 // -----------------------------
 const port = parseInt(process.env.PORT || "5000", 10);
-// 🔍 List all registered routes (debug)
-console.log(
-  "[ROUTES]",
-  (app as any)._router?.stack
-    ?.filter((r: any) => r.route)
-    .map((r: any) =>
-      `${Object.keys(r.route.methods).join(",").toUpperCase()} ${r.route.path}`
-    )
-);
 
-httpServer.listen(
-  {
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  },
-  () => {
-    log(`serving on port ${port}`);
+(async () => {
+  try {
+    // ✅ Register API routes BEFORE listening
+    await registerRoutes(httpServer, app);
 
-    // Do async initialization AFTER listening
-    (async () => {
-      try {
-        // Seed database on startup
-        const { seedDatabase } = await import("./seed");
-        await seedDatabase();
+    // Error handler (after routes)
+    app.use((err: any, _req: any, res: any, _next: any) => {
+      const status = err.status || err.statusCode || 500;
+      const message = err.message || "Internal Server Error";
+      res.status(status).json({ message });
+    });
 
-        // Register API routes
-        await registerRoutes(httpServer, app);
+    // Static serving / Vite dev server
+    if (process.env.NODE_ENV === "production") {
+      serveStatic(app);
+    } else {
+      const { setupVite } = await import("./vite");
+      await setupVite(httpServer, app);
+    }
 
-        // Error handler
-        app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-          const status = err.status || err.statusCode || 500;
-          const message = err.message || "Internal Server Error";
-          res.status(status).json({ message });
-        });
+    // 🔍 List all registered routes (debug)
+    console.log(
+      "[ROUTES]",
+      (app as any)._router?.stack
+        ?.filter((r: any) => r.route)
+        .map((r: any) =>
+          `${Object.keys(r.route.methods).join(",").toUpperCase()} ${r.route.path}`
+        )
+    );
 
-        // Static serving / Vite dev server
-        if (process.env.NODE_ENV === "production") {
-          serveStatic(app);
-        } else {
-          const { setupVite } = await import("./vite");
-          await setupVite(httpServer, app);
-        }
+    httpServer.listen(
+      { port, host: "0.0.0.0", reusePort: true },
+      () => {
+        log(`serving on port ${port}`);
 
-      frontendReady = true;
-log("Server fully initialized");
-} catch (err) {
-  console.error("Server initialization error:", err);
-  // Do NOT exit in production; it causes crash loops on Replit.
-  // Mark server as not ready so health checks can show a failure.
-  frontendReady = false;
-}
+        // Optional: seed after start (won’t block routes)
+        (async () => {
+          try {
+            const { seedDatabase } = await import("./seed");
+            await seedDatabase();
+          } catch (e) {
+            console.error("[seed] failed:", e);
+          }
+        })();
+      }
+    );
+  } catch (err) {
+    console.error("Server initialization error:", err);
+    process.exit(1);
+  }
 })();
-}
-);
-
