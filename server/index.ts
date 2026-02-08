@@ -47,12 +47,12 @@ try {
 const isProd = process.env.APP_RUNTIME === "prod";
 
 const SUPABASE_URL = isProd
-  ? process.env.SUPABASE_URL
-  : process.env.DEV_SUPABASE_URL;
+  ? (process.env.SUPABASE_URL || process.env.DEV_SUPABASE_URL)
+  : (process.env.DEV_SUPABASE_URL || process.env.SUPABASE_URL);
 
 const SUPABASE_SERVICE_ROLE_KEY = isProd
-  ? process.env.SUPABASE_SERVICE_ROLE_KEY
-  : process.env.DEV_SUPABASE_SERVICE_ROLE_KEY;
+  ? (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.DEV_SUPABASE_SERVICE_ROLE_KEY)
+  : (process.env.DEV_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY);
 
 // ✅ Safe environment diagnostics (never logs secrets)
 try {

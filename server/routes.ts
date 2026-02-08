@@ -74,12 +74,14 @@ export async function registerRoutes(
   // Supabase config endpoint (public keys only)
   // Use DEV_ prefix in development, regular names in production
   const isDev = process.env.NODE_ENV === 'development';
-  app.get("/api/config/supabase", (req, res) => {
-    res.json({
-      url: isDev ? process.env.DEV_SUPABASE_URL : process.env.SUPABASE_URL,
-      anonKey: isDev ? process.env.DEV_SUPABASE_ANON_KEY : process.env.SUPABASE_ANON_KEY,
-    });
+ app.get("/api/config/supabase", (req, res) => {
+  res.json({
+    url: process.env.SUPABASE_URL,
+    anonKey: process.env.SUPABASE_ANON_KEY,
+    env: process.env.NODE_ENV
   });
+});
+
   
   // Profile routes for Supabase Auth
   app.get("/api/profiles/:id", verifySupabaseToken, async (req, res) => {
