@@ -1,10 +1,25 @@
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  CardFooter,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState, useMemo } from "react";
-import { Zap, ArrowRight, Sparkles, Eye, EyeOff, AlertTriangle, Shield } from "lucide-react";
+import {
+  Zap,
+  ArrowRight,
+  Sparkles,
+  Eye,
+  EyeOff,
+  AlertTriangle,
+  Shield,
+} from "lucide-react";
 import { useLocation } from "wouter";
 import heroBg from "@assets/generated_images/futuristic_neo-tokyo_cityscape.png";
 import { toast } from "sonner";
@@ -23,14 +38,17 @@ export default function AuthPage() {
     parentEmail: "",
   });
   const [showPassword, setShowPassword] = useState(false);
-  
+
   const userAge = useMemo(() => {
     if (!formData.birthDate) return null;
     const birth = new Date(formData.birthDate);
     const today = new Date();
     let age = today.getFullYear() - birth.getFullYear();
     const monthDiff = today.getMonth() - birth.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    if (
+      monthDiff < 0 ||
+      (monthDiff === 0 && today.getDate() < birth.getDate())
+    ) {
       age--;
     }
     return age;
@@ -41,20 +59,33 @@ export default function AuthPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    console.log("✅ AUTH SUBMIT", {
+      isLogin,
+      email: formData.email,
+      hasPassword: !!formData.password,
+      time: Date.now(),
+    });
+
     try {
       if (isLogin) {
+        console.log("➡️ calling login()");
         await login(formData.email, formData.password);
+        console.log("✅ login() resolved");
+
         toast.success("Welcome back!");
         setLocation("/");
       } else {
         if (isUnder13 && !formData.parentEmail) {
-          toast.error("Parent/guardian email is required for users under 13 (COPPA compliance)");
+          toast.error(
+            "Parent/guardian email is required for users under 13 (COPPA compliance)"
+          );
           return;
         }
-        
+
         const avatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${formData.username}`;
-        
+
+        console.log("➡️ calling signup()");
         await signup({
           email: formData.email,
           username: formData.username,
@@ -69,23 +100,36 @@ export default function AuthPage() {
           isMinor,
           parentEmail: isUnder13 ? formData.parentEmail : undefined,
         });
-        
+        console.log("✅ signup() resolved");
+
         if (isUnder13) {
-          toast.success("Account created! A verification email has been sent to your parent/guardian for COPPA compliance.");
+          toast.success(
+            "Account created! A verification email has been sent to your parent/guardian for COPPA compliance."
+          );
         } else {
           toast.success("Account created! Welcome to AniRealm!");
         }
         setLocation("/");
       }
     } catch (error: any) {
-      toast.error(error.message || "Authentication failed");
+      console.error("❌ AUTH ERROR", error);
+      toast.error(
+        error?.message ||
+          error?.error ||
+          error?.toString?.() ||
+          "Authentication failed"
+      );
     }
   };
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-background relative overflow-hidden">
       <div className="absolute inset-0 z-0">
-        <img src={heroBg} alt="Background" className="w-full h-full object-cover opacity-30" />
+        <img
+          src={heroBg}
+          alt="Background"
+          className="w-full h-full object-cover opacity-30"
+        />
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent" />
       </div>
 
@@ -108,8 +152,8 @@ export default function AuthPage() {
               {isLogin ? "SYSTEM LOGIN" : "CREATE IDENTITY"}
             </CardTitle>
             <CardDescription className="text-center">
-              {isLogin 
-                ? "Enter your credentials to access the network." 
+              {isLogin
+                ? "Enter your credentials to access the network."
                 : "Generate your AI profile and join the world."}
             </CardDescription>
           </CardHeader>
@@ -119,78 +163,101 @@ export default function AuthPage() {
                 <>
                   <div className="space-y-2">
                     <Label htmlFor="name">Display Name</Label>
-                    <Input 
-                      id="name" 
-                      type="text" 
+                    <Input
+                      id="name"
+                      type="text"
                       placeholder="NeoKai"
                       value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, name: e.target.value })
+                      }
                       className="bg-white/5 border-white/10 focus:border-primary focus:ring-primary/20"
                       data-testid="input-name"
                     />
                   </div>
+
                   <div className="space-y-2">
                     <Label htmlFor="username">Username</Label>
-                    <Input 
-                      id="username" 
-                      type="text" 
+                    <Input
+                      id="username"
+                      type="text"
                       placeholder="neokai"
                       value={formData.username}
-                      onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, username: e.target.value })
+                      }
                       required
                       className="bg-white/5 border-white/10 focus:border-primary focus:ring-primary/20"
                       data-testid="input-username"
                     />
                   </div>
+
                   <div className="space-y-2">
                     <Label htmlFor="handle">Handle</Label>
-                    <Input 
-                      id="handle" 
-                      type="text" 
+                    <Input
+                      id="handle"
+                      type="text"
                       placeholder="@neokai"
                       value={formData.handle}
-                      onChange={(e) => setFormData({ ...formData, handle: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, handle: e.target.value })
+                      }
                       className="bg-white/5 border-white/10 focus:border-primary focus:ring-primary/20"
                       data-testid="input-handle"
                     />
                   </div>
+
                   <div className="space-y-2">
                     <Label htmlFor="birthDate">Date of Birth</Label>
-                    <Input 
-                      id="birthDate" 
-                      type="date" 
+                    <Input
+                      id="birthDate"
+                      type="date"
                       value={formData.birthDate}
-                      onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, birthDate: e.target.value })
+                      }
                       className="bg-white/5 border-white/10 focus:border-primary focus:ring-primary/20"
                       data-testid="input-birthdate"
                       required
                     />
                   </div>
-                  
+
                   {isUnder13 && (
                     <div className="space-y-3">
                       <div className="bg-orange-500/20 border border-orange-500/30 rounded-lg p-3">
                         <div className="flex items-start gap-2">
                           <AlertTriangle className="h-5 w-5 text-orange-400 mt-0.5 flex-shrink-0" />
                           <div className="text-sm">
-                            <p className="font-bold text-orange-300">COPPA Compliance (Under 13)</p>
+                            <p className="font-bold text-orange-300">
+                              COPPA Compliance (Under 13)
+                            </p>
                             <p className="text-muted-foreground">
-                              A parent/guardian email is required for users under 13. They will verify your account.
+                              A parent/guardian email is required for users
+                              under 13. They will verify your account.
                             </p>
                           </div>
                         </div>
                       </div>
+
                       <div className="space-y-2">
-                        <Label htmlFor="parentEmail" className="flex items-center gap-2">
+                        <Label
+                          htmlFor="parentEmail"
+                          className="flex items-center gap-2"
+                        >
                           <Shield className="h-4 w-4 text-blue-400" />
                           Parent/Guardian Email
                         </Label>
-                        <Input 
-                          id="parentEmail" 
-                          type="email" 
+                        <Input
+                          id="parentEmail"
+                          type="email"
                           placeholder="parent@email.com"
                           value={formData.parentEmail}
-                          onChange={(e) => setFormData({ ...formData, parentEmail: e.target.value })}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              parentEmail: e.target.value,
+                            })
+                          }
                           className="bg-white/5 border-white/10 focus:border-primary focus:ring-primary/20"
                           data-testid="input-parent-email"
                           required
@@ -198,15 +265,19 @@ export default function AuthPage() {
                       </div>
                     </div>
                   )}
-                  
+
                   {isMinor && !isUnder13 && (
                     <div className="bg-blue-500/20 border border-blue-500/30 rounded-lg p-3">
                       <div className="flex items-start gap-2">
                         <Shield className="h-5 w-5 text-blue-400 mt-0.5 flex-shrink-0" />
                         <div className="text-sm">
-                          <p className="font-bold text-blue-300">Teen Account (13-17)</p>
+                          <p className="font-bold text-blue-300">
+                            Teen Account (13-17)
+                          </p>
                           <p className="text-muted-foreground">
-                            You can explore, collect cards, chat, and make friends! Parent approval is only needed for purchases.
+                            You can explore, collect cards, chat, and make
+                            friends! Parent approval is only needed for
+                            purchases.
                           </p>
                         </div>
                       </div>
@@ -214,28 +285,34 @@ export default function AuthPage() {
                   )}
                 </>
               )}
+
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
-                <Input 
-                  id="email" 
-                  type="email" 
+                <Input
+                  id="email"
+                  type="email"
                   placeholder="you@example.com"
                   value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, email: e.target.value })
+                  }
                   required
                   className="bg-white/5 border-white/10 focus:border-primary focus:ring-primary/20"
                   data-testid="input-email"
                 />
               </div>
+
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
                 <div className="relative">
-                  <Input 
-                    id="password" 
+                  <Input
+                    id="password"
                     type={showPassword ? "text" : "password"}
                     placeholder="••••••••"
                     value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, password: e.target.value })
+                    }
                     required
                     className="bg-white/5 border-white/10 focus:border-primary focus:ring-primary/20 pr-10"
                     data-testid="input-password"
@@ -254,9 +331,9 @@ export default function AuthPage() {
                   </button>
                 </div>
               </div>
-              
-              <Button 
-                type="submit" 
+
+              <Button
+                type="submit"
                 className="w-full h-12 text-lg font-bold bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-opacity shadow-[0_0_20px_hsl(var(--primary)/0.4)]"
                 disabled={isLoading}
                 data-testid="button-submit"
@@ -265,20 +342,24 @@ export default function AuthPage() {
                   <Sparkles className="animate-spin mr-2" />
                 ) : (
                   <>
-                    {isLogin ? "INITIALIZE LINK" : "GENERATE PROFILE"} <ArrowRight className="ml-2 h-5 w-5" />
+                    {isLogin ? "INITIALIZE LINK" : "GENERATE PROFILE"}{" "}
+                    <ArrowRight className="ml-2 h-5 w-5" />
                   </>
                 )}
               </Button>
             </form>
           </CardContent>
+
           <CardFooter className="flex justify-center">
-            <button 
+            <button
               type="button"
               onClick={() => setIsLogin(!isLogin)}
               className="text-sm text-muted-foreground hover:text-primary transition-colors"
               data-testid="button-toggle-mode"
             >
-              {isLogin ? "New to the system? Create account" : "Already linked? Login"}
+              {isLogin
+                ? "New to the system? Create account"
+                : "Already linked? Login"}
             </button>
           </CardFooter>
         </Card>
