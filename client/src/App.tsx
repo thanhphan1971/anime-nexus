@@ -14,7 +14,6 @@ import CommunityDetailPage from "@/pages/CommunityDetailPage";
 import AnimeListPage from "@/pages/AnimeListPage";
 import CardsPage from "@/pages/CardsPage";
 import CardCatalogPage from "@/pages/CardCatalogPage";
-import PremiumPage from "@/pages/PremiumPage";
 import BenefitsPage from "@/pages/BenefitsPage";
 import CreatePostPage from "@/pages/CreatePostPage";
 import HelpPage from "@/pages/HelpPage";
@@ -34,15 +33,54 @@ import Layout from "@/components/layout/Layout";
 import OnboardingFlow from "@/components/OnboardingFlow";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 
+// ✅ Added: fixes "Redirect is not defined" + avoids full page reloads
+function Redirect({ to }: { to: string }) {
+  const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    setLocation(to);
+  }, [to, setLocation]);
+
+  return null;
+}
+
 function Router() {
   const { user, isLoading } = useAuth();
   const [location, setLocation] = useLocation();
+
+  // ✅ Detect legacy auth URLs
+  const legacyAuthPaths = [
+    "/login",
+    "/signup",
+    "/sign-in",
+    "/sign-up",
+    "/auth",
+    "/auth/callback",
+    "/reset-password",
+  ];
+
+  const isLegacyAuth = legacyAuthPaths.some(
+    (p) =>
+      location === p ||
+      location.startsWith(p + "?") ||
+      location.startsWith(p + "/")
+  );
+
+  // ✅ HARD redirect immediately (prevents dim overlay completely)
+  useEffect(() => {
+    if (isLegacyAuth) {
+      window.location.replace("/");
+    }
+  }, [isLegacyAuth]);
+
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingChecked, setOnboardingChecked] = useState(false);
 
   useEffect(() => {
     if (user && !isLoading) {
-      const hasSeenOnboarding = localStorage.getItem(`onboarding_seen_${user.id}`);
+      const hasSeenOnboarding = localStorage.getItem(
+        `onboarding_seen_${user.id}`
+      );
       if (!hasSeenOnboarding) {
         setShowOnboarding(true);
       }
@@ -52,13 +90,19 @@ function Router() {
 
   const handleOnboardingComplete = () => {
     if (user) {
-      localStorage.setItem(`onboarding_seen_${user.id}`, 'true');
+      localStorage.setItem(`onboarding_seen_${user.id}`, "true");
     }
     setShowOnboarding(false);
     setLocation("/");
   };
 
-  if (location === "/activate") {
+  // ✅ Do NOT render anything while redirecting
+  if (isLegacyAuth) {
+    return null;
+  }
+
+  // ✅ Small hardening: supports /activate?token=...
+  if (location.startsWith("/activate")) {
     return <ActivatePage />;
   }
 
@@ -67,12 +111,15 @@ function Router() {
       <div className="h-screen w-screen flex items-center justify-center bg-background text-primary">
         <div className="flex flex-col items-center gap-4">
           <div className="h-12 w-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-          <p className="font-display tracking-widest animate-pulse">INITIALIZING...</p>
+          <p className="font-display tracking-widest animate-pulse">
+            INITIALIZING...
+          </p>
         </div>
       </div>
     );
   }
 
+  // Logged out -> show Auth page
   if (!user) {
     return <AuthPage />;
   }
@@ -96,25 +143,62 @@ function Router() {
         <Route path="/cards" component={CardsPage} />
         <Route path="/cards/catalog" component={CardCatalogPage} />
         <Route path="/draws" component={DrawsPage} />
-        <Route path="/sclass">{() => { window.location.href = "/account"; return null; }}</Route>
+
+        {/* Existing redirects */}
+        <Route path="/sclass">
+          <Redirect to="/account" />
+        </Route>
+        <Route path="/premium">
+          <Redirect to="/account" />
+        </Route>
+
         <Route path="/benefits" component={BenefitsPage} />
         <Route path="/create" component={CreatePostPage} />
         <Route path="/help" component={HelpPage} />
         <Route path="/ethics" component={CodeOfEthicsPage} />
         <Route path="/admin" component={AdminPage} />
-        <Route path="/admin/payments-exceptions" component={AdminPaymentExceptionsPage} />
-        <Route path="/admin/security-metrics" component={AdminSecurityMetricsPage} />
+        <Route
+          path="/admin/payments-exceptions"
+          component={AdminPaymentExceptionsPage}
+        />
+        <Route
+          path="/admin/security-metrics"
+          component={AdminSecurityMetricsPage}
+        />
         <Route path="/tokens" component={TokenShopPage} />
         <Route path="/parent" component={ParentDashboardPage} />
         <Route path="/game" component={GamePage} />
         <Route path="/universe" component={UniversePage} />
         <Route path="/checkout" component={CheckoutPage} />
         <Route path="/account" component={AccountPage} />
-        {/* Legacy routes redirecting or redundant */}
+
+        {/* Legacy routes */}
         <Route path="/gacha" component={CardsPage} />
         <Route path="/market" component={CardsPage} />
-        <Route path="/premium">{() => { window.location.href = "/account"; return null; }}</Route>
-        
+
+        {/* Fix: handle old auth URLs so they never hit NotFound */}
+        <Route path="/login">
+          <Redirect to="/" />
+        </Route>
+        <Route path="/signup">
+          <Redirect to="/" />
+        </Route>
+        <Route path="/sign-in">
+          <Redirect to="/" />
+        </Route>
+        <Route path="/sign-up">
+          <Redirect to="/" />
+        </Route>
+        <Route path="/auth">
+          <Redirect to="/" />
+        </Route>
+        <Route path="/auth/callback">
+          <Redirect to="/" />
+        </Route>
+        <Route path="/reset-password">
+          <Redirect to="/" />
+        </Route>
+
         <Route component={NotFound} />
       </Switch>
     </Layout>

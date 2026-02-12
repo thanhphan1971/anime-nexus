@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useEffect, useRef, useState } from "react";
 import { getSupabase } from "@/lib/supabaseClient";
 import type { User as SupabaseUser, Session } from "@supabase/supabase-js";
 
@@ -36,17 +36,6 @@ interface Profile {
   stripeCustomerId?: string;
 }
 
-interface AuthContextType {
-  user: Profile | null;
-  supabaseUser: SupabaseUser | null;
-  session: Session | null;
-  login: (email: string, password: string) => Promise<void>;
-  signup: (data: SignupData) => Promise<void>;
-  logout: () => Promise<void>;
-  isLoading: boolean;
-  refreshUser: () => Promise<void>;
-}
-
 interface SignupData {
   email: string;
   password: string;
@@ -62,7 +51,90 @@ interface SignupData {
   parentEmail?: string;
 }
 
+interface AuthContextType {
+  user: Profile | null;
+  supabaseUser: SupabaseUser | null;
+  session: Session | null;
+  login: (email: string, password: string) => Promise<void>;
+  signup: (data: SignupData) => Promise<void>;
+  logout: () => Promise<void>;
+  isLoading: boolean;
+  refreshUser: () => Promise<void>;
+}
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+/**
+ * Fetch the logged-in user's profile from your API.
+ * Uses AbortSignal so we can cancel old requests and prevent race-condition state bugs.
+ */
+async function fetchProfile(accessToken: string, signal?: AbortSignal): Promise<Profile | null> {
+  try {
+    const response = await fetch("/api/profiles/me", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      signal,
+    });
+
+    if (response.status === 404) return null;
+    if (response.ok) return await response.json();
+
+    const text = await response.text().catch(() => "");
+    console.error("Failed to fetch profile:", response.status, text);
+    return null;
+  } catch (err: any) {
+    if (err?.name === "AbortError") return null;
+    console.error("Failed to fetch profile:", err);
+    return null;
+  }
+}
+
+/**
+ * Create a profile if it doesn't exist yet (common in preview/dev).
+ * IMPORTANT: do NOT send avatar: "" (backend may validate avatar as URL).
+ */
+async function createProfileFromSession(accessToken: string, u: SupabaseUser): Promise<Profile | null> {
+  try {
+    const md: any = u.user_metadata || {};
+    const username = md.username || u.email?.split("@")[0] || "user";
+    const handle = md.handle || `@${username}`;
+
+    const payload: any = {
+      id: u.id,
+      email: u.email,
+      username,
+      name: md.name || md.username || "User",
+      handle,
+      bio: "New to AniRealm",
+      animeInterests: [],
+      theme: md.theme || "cyberpunk",
+    };
+
+    // Only include avatar if it exists and is not empty (and ideally is a real URL)
+    if (typeof md.avatar === "string" && md.avatar.trim() !== "") {
+      payload.avatar = md.avatar.trim();
+    }
+
+    const res = await fetch("/api/profiles", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      console.error("Failed to create profile:", res.status, text);
+      return null;
+    }
+
+    return await res.json();
+  } catch (err) {
+    console.error("Failed to create profile:", err);
+    return null;
+  }
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<Profile | null>(null);
@@ -70,151 +142,113 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchProfile = async (userId: string, accessToken: string): Promise<Profile | null> => {
-    try {
-      const response = await fetch(`/api/profiles/${userId}`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
-      if (response.ok) {
-        return await response.json();
-      }
-      return null;
-    } catch (error) {
-      console.error("Failed to fetch profile:", error);
-      return null;
+  // Cancels in-flight profile requests so older responses can't overwrite newer state.
+  const profileAbortRef = useRef<AbortController | null>(null);
+
+  const applySession = async (newSession: Session | null) => {
+    setSession(newSession);
+    setSupabaseUser(newSession?.user ?? null);
+
+    // cancel any previous profile fetch
+    profileAbortRef.current?.abort();
+    profileAbortRef.current = new AbortController();
+
+    if (!newSession?.access_token) {
+      setUser(null);
+      return;
     }
+
+    // 1) Try to load profile
+    let profile = await fetchProfile(newSession.access_token, profileAbortRef.current.signal);
+
+    // 2) If missing (404), auto-create from session + metadata
+    if (!profile && newSession.user) {
+      profile = await createProfileFromSession(newSession.access_token, newSession.user);
+    }
+
+    // 3) Still missing: keep session but user stays null (avoid hard logout loops)
+    if (!profile) {
+      setUser(null);
+      return;
+    }
+
+    // Optional: auto-signout banned users
+    if (profile.isBanned) {
+      try {
+        const supabase = await getSupabase();
+        await supabase.auth.signOut();
+      } catch {}
+      setUser(null);
+      setSession(null);
+      setSupabaseUser(null);
+      return;
+    }
+
+    setUser(profile);
   };
 
   const refreshUser = async () => {
     try {
       const supabase = await getSupabase();
-      const { data: { session: currentSession } } = await supabase.auth.getSession();
-      
-      if (currentSession?.user) {
-        setSession(currentSession);
-        setSupabaseUser(currentSession.user);
-        const profile = await fetchProfile(currentSession.user.id, currentSession.access_token);
-        setUser(profile);
-      } else {
-        setSession(null);
-        setSupabaseUser(null);
-        setUser(null);
-      }
-    } catch (error) {
-      console.error("Failed to refresh user:", error);
+      const { data, error } = await supabase.auth.getSession();
+      if (error) throw error;
+      await applySession(data.session ?? null);
+    } catch (err) {
+      console.error("Failed to refresh user:", err);
+      setUser(null);
       setSession(null);
       setSupabaseUser(null);
-      setUser(null);
     }
   };
 
   useEffect(() => {
     let mounted = true;
-    
-    const initAuth = async () => {
+    let unsubscribe: (() => void) | null = null;
+
+    (async () => {
       try {
         const supabase = await getSupabase();
-        
-        const { data: { session: initialSession } } = await supabase.auth.getSession();
-        
-        if (mounted && initialSession?.user) {
-          setSession(initialSession);
-          setSupabaseUser(initialSession.user);
-          const profile = await fetchProfile(initialSession.user.id, initialSession.access_token);
-          setUser(profile);
-        }
-        
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+
+        // 1) Load existing session on boot
+        const { data, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        if (!mounted) return;
+        await applySession(data.session ?? null);
+
+        // 2) Listen to future auth changes (and properly unsubscribe on cleanup)
+        const { data: listener } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
           if (!mounted) return;
-          
-          setSession(newSession);
-          setSupabaseUser(newSession?.user ?? null);
-          
-          if (newSession?.user) {
-            const profile = await fetchProfile(newSession.user.id, newSession.access_token);
-            setUser(profile);
-          } else {
-            setUser(null);
-          }
+          await applySession(newSession ?? null);
         });
-        
-        return () => {
-          subscription.unsubscribe();
-        };
-      } catch (error) {
-        console.error("Auth initialization failed:", error);
+
+        unsubscribe = () => listener.subscription.unsubscribe();
+      } catch (err) {
+        console.error("Auth initialization failed:", err);
       } finally {
-        if (mounted) {
-          setIsLoading(false);
-        }
+        if (mounted) setIsLoading(false);
       }
-    };
-    
-    initAuth();
-    
+    })();
+
     return () => {
       mounted = false;
+      profileAbortRef.current?.abort();
+      unsubscribe?.();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
       const supabase = await getSupabase();
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      
-      if (error) {
-        throw new Error(error.message);
-      }
-      
-      if (data.session && data.user) {
-        setSession(data.session);
-        setSupabaseUser(data.user);
-        let profile = await fetchProfile(data.user.id, data.session.access_token);
-        
-        // If profile doesn't exist, create it from user metadata (for email-confirmed users)
-        if (!profile && data.user.user_metadata) {
-          const metadata = data.user.user_metadata;
-          const profileResponse = await fetch("/api/profiles", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${data.session.access_token}`,
-            },
-            body: JSON.stringify({
-              id: data.user.id,
-              email: data.user.email,
-              username: metadata.username || data.user.email?.split('@')[0],
-              name: metadata.name || metadata.username || 'User',
-              handle: metadata.handle || `@${metadata.username || data.user.email?.split('@')[0]}`,
-              bio: "New to AniRealm",
-              animeInterests: [],
-              theme: "cyberpunk",
-            }),
-          });
-          
-          if (profileResponse.ok) {
-            profile = await profileResponse.json();
-          }
-        }
-        
-        if (!profile) {
-          throw new Error("Profile not found. Please contact support.");
-        }
-        if (profile.isBanned) {
-          await supabase.auth.signOut();
-          throw new Error("Account banned");
-        }
-        setUser(profile);
-      }
-    } catch (error: any) {
-      console.error("Login failed:", error?.message || error);
-      throw error;
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw new Error(error.message);
+
+      // applySession will fetch profile and auto-create if missing
+      await applySession(data.session ?? null);
+    } catch (err: any) {
+      console.error("Login failed:", err?.message || err);
+      throw err;
     } finally {
       setIsLoading(false);
     }
@@ -224,7 +258,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(true);
     try {
       const supabase = await getSupabase();
-      
+
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: data.email,
         password: data.password,
@@ -233,58 +267,61 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             username: data.username,
             name: data.name,
             handle: data.handle,
+            ...(data.avatar?.trim() ? { avatar: data.avatar.trim() } : {}),
+            theme: data.theme,
           },
         },
       });
-      
-      if (authError) {
-        throw new Error(authError.message);
-      }
-      
-      if (!authData.user) {
-        throw new Error("Failed to create account");
-      }
-      
-      // Check if email confirmation is required (session will be null)
+
+      if (authError) throw new Error(authError.message);
+      if (!authData.user) throw new Error("Failed to create account");
+
+      // If email confirmation is ON, session is null.
+      // Not a failure; UI should show "Check your email".
       if (!authData.session) {
-        throw new Error("Please check your email to confirm your account before logging in.");
+        return;
       }
-      
+
+      // Create profile now that we have a session token
+      const profilePayload: any = {
+        id: authData.user.id,
+        email: data.email,
+        username: data.username,
+        name: data.name,
+        handle: data.handle,
+        bio: data.bio || "New to AniRealm",
+        animeInterests: data.animeInterests || [],
+        theme: data.theme || "cyberpunk",
+        birthDate: data.birthDate?.toISOString(),
+        isMinor: data.isMinor,
+        parentEmail: data.parentEmail,
+      };
+
+      if (data.avatar?.trim()) {
+        profilePayload.avatar = data.avatar.trim();
+      }
+
       const profileResponse = await fetch("/api/profiles", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${authData.session.access_token}`,
         },
-        body: JSON.stringify({
-          id: authData.user.id,
-          email: data.email,
-          username: data.username,
-          name: data.name,
-          handle: data.handle,
-          avatar: data.avatar,
-          bio: data.bio || "New to AniRealm",
-          animeInterests: data.animeInterests || [],
-          theme: data.theme || "cyberpunk",
-          birthDate: data.birthDate?.toISOString(),
-          isMinor: data.isMinor,
-          parentEmail: data.parentEmail,
-        }),
+        body: JSON.stringify(profilePayload),
       });
-      
+
       if (!profileResponse.ok) {
-        const errorData = await profileResponse.json();
-        throw new Error(errorData.error || "Failed to create profile");
+        const text = await profileResponse.text().catch(() => "");
+        throw new Error(`Failed to create profile: ${profileResponse.status} ${text}`);
       }
-      
+
       const profile = await profileResponse.json();
-      
-      setSession(authData.session);
-      setSupabaseUser(authData.user);
+
+      await applySession(authData.session);
       setUser(profile);
-    } catch (error: any) {
-      console.error("Signup failed:", error);
-      throw error;
+    } catch (err: any) {
+      console.error("Signup failed:", err);
+      throw err;
     } finally {
       setIsLoading(false);
     }
@@ -294,11 +331,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const supabase = await getSupabase();
       await supabase.auth.signOut();
+    } catch (err) {
+      console.error("Logout failed:", err);
+    } finally {
+      profileAbortRef.current?.abort();
       setUser(null);
       setSupabaseUser(null);
       setSession(null);
-    } catch (error) {
-      console.error("Logout failed:", error);
     }
   };
 
@@ -311,8 +350,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
+  if (context === undefined) throw new Error("useAuth must be used within an AuthProvider");
   return context;
 }

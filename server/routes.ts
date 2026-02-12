@@ -1,9 +1,14 @@
-import { registerRoutes } from "./routes";
+import type { Express } from "express";
+import type { Server } from "http";
 
-import express, { type Express } from "express";
-import { createServer, type Server } from "http";
+import bcrypt from "bcrypt";
+
+import { z } from "zod";
+import { sql } from "drizzle-orm";
+import { fromZonedTime } from "date-fns-tz";
+
 import { storage } from "./storage";
-import { db } from "./db";
+
 import {
   insertUserSchema,
   insertPostSchema,
@@ -11,37 +16,32 @@ import {
   insertCommunityMessageSchema,
   insertDrawSchema,
   insertPrizeSchema,
-  insertDrawEntrySchema,
   insertCardCategorySchema,
 } from "@shared/schema";
-import { supabaseAdmin, isSupabaseConfigured } from "./lib/supabaseAdmin";
-import { nanoid } from "nanoid";
-import bcrypt from "bcrypt";
-import { verifySupabaseToken, optionalSupabaseAuth } from "./lib/supabaseAuth";
-import { sql } from "drizzle-orm";
-import { z } from "zod";
-import { calculateAgeBand, canViewFullProfile } from "./lib/dbAdapter";
+
+  
+
+
+import { verifySupabaseToken, optionalSupabaseAuth, requireAdmin } from "./lib/supabaseAuth";
+import { calculateAgeBand } from "./lib/dbAdapter";
+
+
 import {
   FREE_ODDS,
-  PAID_ODDS,
-  PREMIUM_PAID_ODDS,
   FREE_SUMMON_LIMITS,
-  PAID_SUMMON_CONFIG,
   PAID_SUMMON_REMINDER,
   selectRarity,
   getNextResetTime,
   getNext7PMETResetTime,
   needsReset,
 } from "./config/gachaOdds";
-import { getDrawLockTime, getCooldownEndTime, getDrawCycleStatus } from "./drawCycle";
-import { fromZonedTime } from "date-fns-tz";
+
+import { getDrawLockTime, getCooldownEndTime } from "./drawCycle";
+
 
 // 🔒 Stripe configuration guard (feature-flagged)
 function stripeIsConfigured(): boolean {
-  // Master kill-switch: billing OFF unless explicitly enabled
-  if ((process.env.BILLING_ENABLED || "").toLowerCase() === "false") {
-    return false;
-  }
+  if ((process.env.BILLING_ENABLED || "").toLowerCase() === "false") return false;
 
   const sk = process.env.STRIPE_SECRET_KEY;
   const pk = process.env.STRIPE_PUBLISHABLE_KEY;
@@ -52,444 +52,301 @@ function stripeIsConfigured(): boolean {
   return true;
 }
 
-const createProfileSchema = z.object({
-  id: z.string().min(1),
-  email: z.string().email(),
-  username: z.string().min(3).max(30).regex(/^[a-zA-Z0-9_]+$/),
-  name: z.string().min(1).max(100),
-  handle: z.string().min(3).max(30).regex(/^@[a-zA-Z0-9_]+$/),
-  avatar: z.string().url().optional(),
-  bio: z.string().max(500).optional(),
-  animeInterests: z.array(z.string()).max(20).optional(),
-  theme: z.enum(["cyberpunk", "neon", "sakura", "ocean"]).optional(),
-  birthDate: z.string().optional(),
-  isMinor: z.boolean().optional(),
-  parentEmail: z.string().email().optional().nullable(),
-});
 
 
-export async function registerRoutes(
-  httpServer: Server,
-  app: Express
-): Promise<Server> {
-  
-  // Supabase config endpoint (public keys only)
-app.get("/api/config/supabase", (_req, res) => {
-  res.json({
-    url: process.env.SUPABASE_URL || process.env.SB_URL,
-    anonKey: process.env.SUPABASE_ANON_KEY || process.env.SB_ANON,
-    env: process.env.NODE_ENV,
-  });
-});
+export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
 
+  // ================= AUTH ROUTES =================
 
-
-  
-  // Profile routes for Supabase Auth
-  app.get("/api/profiles/:id", verifySupabaseToken, async (req, res) => {
-    try {
-      // First try to find by Supabase user ID, then fall back to database ID
-      let user = await storage.getUserBySupabaseId(req.params.id);
-      if (!user) {
-        user = await storage.getUser(req.params.id);
-      }
-      if (!user) {
-        return res.status(404).json({ error: "Profile not found" });
-      }
-      
-      const { password, ...profile } = user;
-      
-      // Check if requester can see full profile (owner or approved parent)
-      const requesterId = req.dbUser?.id;
-      const approvedParentLink = user.isMinor ? await storage.getParentLink(user.id) : undefined;
-      const canViewFull = canViewFullProfile(requesterId, user.id, approvedParentLink?.parentId);
-      
-      // Calculate ageBand from birthDate if not set
-      const ageBand = user.ageBand || calculateAgeBand(user.birthDate);
-      
-      if (canViewFull) {
-        // Owner or parent - return full profile including birthDate
-        res.json({ ...profile, ageBand });
-      } else {
-        // Public view - hide sensitive fields
-        const { birthDate, email, parentEmail, ...publicProfile } = profile;
-        res.json({ ...publicProfile, ageBand });
-      }
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-  
-  app.post("/api/profiles", verifySupabaseToken, async (req, res) => {
-    try {
-      const validationResult = createProfileSchema.safeParse(req.body);
-      if (!validationResult.success) {
-        return res.status(400).json({ error: validationResult.error.errors[0]?.message || "Invalid profile data" });
-      }
-      
-      const { id, email, username, name, handle, avatar, bio, animeInterests, theme, birthDate, isMinor, parentEmail } = validationResult.data;
-      
-      // Verify the request is from the same user
-      if (req.supabaseUser?.id !== id) {
-        return res.status(403).json({ error: "Unauthorized" });
-      }
-      
-      // Check if username or handle already exists
-      const existingUser = await storage.getUserByUsername(username);
-      if (existingUser) {
-        return res.status(400).json({ error: "Username already taken" });
-      }
-      
-      const existingHandle = await storage.getUserByHandle(handle);
-      if (existingHandle) {
-        return res.status(400).json({ error: "Handle already taken" });
-      }
-      
-      // Check if email already exists
-      const existingEmail = await storage.getUserByEmail(email);
-      if (existingEmail) {
-        return res.status(400).json({ error: "Email already in use" });
-      }
-      
-      // Calculate age-related fields from birthDate
-      const parsedBirthDate = birthDate ? new Date(birthDate) : undefined;
-      const ageBand = calculateAgeBand(parsedBirthDate || null);
-      const birthYear = parsedBirthDate ? parsedBirthDate.getFullYear() : undefined;
-      const calculatedIsMinor = ageBand === 'child' || ageBand === 'teen';
-      
-      // Create profile with Supabase user ID
-      const user = await storage.createUserWithId(id, {
-        email,
-        username,
-        name,
-        handle,
-        avatar,
-        bio: bio || "New to AniRealm",
-        animeInterests: animeInterests || [],
-        theme: theme || "cyberpunk",
-        birthDate: parsedBirthDate,
-        birthYear,
-        ageBand,
-        isMinor: calculatedIsMinor,
-        parentEmail,
-        password: '', // No local password for Supabase Auth users
-      });
-      
-      // Link the Supabase user ID to the profile
-      await storage.updateUserSupabaseId(user.id, id);
-      
-      const { password, ...profile } = user;
-      res.json({ ...profile, supabaseUserId: id });
-    } catch (error: any) {
-      console.error("Profile creation error:", error);
-      res.status(400).json({ error: error.message || "Failed to create profile" });
-    }
-  });
-  
-  // Auth routes
   app.post("/api/auth/signup", async (req, res) => {
     try {
-      // Parse birthDate from ISO string if provided
+      const legacyAuthEnabled = process.env.LEGACY_AUTH_ENABLED !== "false";
+      if (!legacyAuthEnabled) {
+        return res.status(410).json({
+          error: "Legacy authentication is no longer available. Please use Supabase Auth to sign up.",
+          code: "LEGACY_AUTH_DISABLED",
+        });
+      }
+
       const bodyWithParsedDate = {
         ...req.body,
-        birthDate: req.body.birthDate ? new Date(req.body.birthDate) : undefined,
+        birthDate: req.body?.birthDate ? new Date(req.body.birthDate) : undefined,
       };
-      
+
       const validatedData = insertUserSchema.parse(bodyWithParsedDate);
-      
-      // Check if username or handle already exists
+
       const existingUser = await storage.getUserByUsername(validatedData.username);
-      if (existingUser) {
-        return res.status(400).json({ error: "Username already taken" });
-      }
-      
+      if (existingUser) return res.status(400).json({ error: "Username already taken" });
+
       const existingHandle = await storage.getUserByHandle(validatedData.handle);
-      if (existingHandle) {
-        return res.status(400).json({ error: "Handle already taken" });
-      }
-      
-      // Hash password (only if provided - Supabase Auth users won't have local password)
-      const hashedPassword = validatedData.password 
-        ? await bcrypt.hash(validatedData.password, 10)
-        : '';
-      
-      // Create user
+      if (existingHandle) return res.status(400).json({ error: "Handle already taken" });
+
+      const hashedPassword = validatedData.password ? await bcrypt.hash(validatedData.password, 10) : "";
+
       const user = await storage.createUser({
         ...validatedData,
         password: hashedPassword,
       });
-      
-      // Set session
-      req.session.userId = user.id;
-      
-      // Remove password before sending
-      const { password, ...userWithoutPassword } = user;
-      res.json(userWithoutPassword);
+
+      const { password: _pw, ...userWithoutPassword } = user as any;
+      return res.json(userWithoutPassword);
     } catch (error: any) {
-      res.status(400).json({ error: error.message || "Signup failed" });
+      const isZod = !!error?.issues || error?.name === "ZodError";
+      if (isZod) return res.status(400).json({ error: "Invalid signup data" });
+
+      console.error("[signup] failed:", error);
+      return res.status(500).json({ error: "Signup failed" });
     }
   });
-  
+
   app.post("/api/auth/login", async (req, res) => {
     try {
-      // Check legacy auth kill switch
-      const legacyAuthEnabled = process.env.LEGACY_AUTH_ENABLED !== 'false';
+      const legacyAuthEnabled = process.env.LEGACY_AUTH_ENABLED !== "false";
       if (!legacyAuthEnabled) {
-        return res.status(410).json({ 
+        return res.status(410).json({
           error: "Legacy authentication is no longer available. Please use Supabase Auth to sign in.",
-          code: "LEGACY_AUTH_DISABLED"
+          code: "LEGACY_AUTH_DISABLED",
         });
       }
-      
-      const { username, password } = req.body;
-      
+
+      const { username, password } = req.body ?? {};
+      if (typeof username !== "string" || typeof password !== "string" || !username || !password) {
+        return res.status(400).json({ error: "Username and password are required" });
+      }
+
       const user = await storage.getUserByUsername(username);
-      if (!user) {
-        return res.status(401).json({ error: "Invalid credentials" });
-      }
-      
-      if (user.isBanned) {
-        return res.status(403).json({ error: "Account banned" });
-      }
-      
-      const validPassword = user.password && await bcrypt.compare(password, user.password);
-      if (!validPassword) {
-        return res.status(401).json({ error: "Invalid credentials" });
-      }
-      
-      // Set session
-      req.session.userId = user.id;
-      
-      // Remove password before sending
-      const { password: _, ...userWithoutPassword } = user;
-      res.json(userWithoutPassword);
+      if (!user) return res.status(401).json({ error: "Invalid credentials" });
+      if ((user as any).isBanned) return res.status(403).json({ error: "Account banned" });
+      if (!(user as any).password) return res.status(401).json({ error: "Invalid credentials" });
+
+      const validPassword = await bcrypt.compare(password, (user as any).password);
+      if (!validPassword) return res.status(401).json({ error: "Invalid credentials" });
+
+      const { password: _pw, ...userWithoutPassword } = user as any;
+      return res.json(userWithoutPassword);
     } catch (error: any) {
-      res.status(400).json({ error: error.message || "Login failed" });
+      console.error("[login] failed:", error);
+      return res.status(500).json({ error: "Login failed" });
     }
   });
-  
-  app.post("/api/auth/logout", async (req, res) => {
-    req.session.destroy(() => {
-      res.json({ success: true });
-    });
+
+  app.post("/api/auth/logout", async (_req, res) => {
+    return res.json({ success: true });
   });
-  
-  // Migrate legacy user to Supabase Auth
-  // Links a legacy user account to a Supabase Auth account by matching email
+
+  // ================= MIGRATION =================
+
   app.post("/api/auth/migrate", verifySupabaseToken, async (req, res) => {
     try {
       const supabaseUser = req.supabaseUser;
-      if (!supabaseUser || !supabaseUser.email) {
+      if (!supabaseUser?.email || !supabaseUser?.id) {
         return res.status(401).json({ error: "Supabase authentication required" });
       }
-      
-      // Check if this Supabase user is already linked to an account
+
       const existingLinkedUser = await storage.getUserBySupabaseId(supabaseUser.id);
       if (existingLinkedUser) {
-        const { password, ...userWithoutPassword } = existingLinkedUser;
-        return res.json({ 
-          message: "Already linked",
-          user: userWithoutPassword 
-        });
+        const { password: _pw, ...userWithoutPassword } = existingLinkedUser as any;
+        return res.json({ message: "Already linked", user: userWithoutPassword });
       }
-      
-      // Find legacy user by email
+
       const legacyUser = await storage.getUserByEmail(supabaseUser.email);
       if (!legacyUser) {
-        return res.status(404).json({ 
-          error: "No legacy account found with this email",
-          code: "NO_LEGACY_ACCOUNT"
-        });
+        return res.status(404).json({ error: "No legacy account found with this email", code: "NO_LEGACY_ACCOUNT" });
       }
-      
-      // Check if legacy user is already linked to a different Supabase account
-      if (legacyUser.supabaseUserId && legacyUser.supabaseUserId !== supabaseUser.id) {
-        return res.status(409).json({ 
+
+      if ((legacyUser as any).supabaseUserId && (legacyUser as any).supabaseUserId !== supabaseUser.id) {
+        return res.status(409).json({
           error: "This account is already linked to a different Supabase user",
-          code: "ALREADY_LINKED"
+          code: "ALREADY_LINKED",
         });
       }
-      
-      // Link the legacy user to the Supabase account
-      const updatedUser = await storage.updateUserSupabaseId(legacyUser.id, supabaseUser.id);
-      if (!updatedUser) {
-        return res.status(500).json({ error: "Failed to link accounts" });
-      }
-      
-      const { password, ...userWithoutPassword } = updatedUser;
-      res.json({ 
-        message: "Account successfully linked",
-        user: userWithoutPassword 
-      });
+
+      const updatedUser = await storage.updateUserSupabaseId((legacyUser as any).id, supabaseUser.id);
+      if (!updatedUser) return res.status(500).json({ error: "Failed to link accounts" });
+
+      const { password: _pw, ...userWithoutPassword } = updatedUser as any;
+      return res.json({ message: "Account successfully linked", user: userWithoutPassword });
     } catch (error: any) {
-      console.error("Migration error:", error);
-      res.status(500).json({ error: error.message || "Migration failed" });
+      console.error("[migrate] failed:", error);
+      return res.status(500).json({ error: "Migration failed" });
     }
-  });
-  
-  app.get("/api/auth/me", async (req, res) => {
-    if (!req.session.userId) {
-      return res.status(401).json({ error: "Not authenticated" });
-    }
-    
-    const user = await storage.getUser(req.session.userId);
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
-    
-    const { password, ...userWithoutPassword } = user;
-    res.json(userWithoutPassword);
   });
 
-  // ========== ONBOARDING ENDPOINTS ==========
-  
-  // Get onboarding status
+  // ================= CURRENT USER =================
+
+  app.get("/api/auth/me", verifySupabaseToken, async (req, res) => {
+    try {
+      if (!req.dbUser) return res.json({ user: null });
+
+      const user = await storage.getUser(req.dbUser.id);
+      if (!user) return res.json({ user: null });
+
+      const { password: _pw, ...safeUser } = user as any;
+      return res.json({ user: safeUser });
+    } catch (error: any) {
+      console.error("[auth/me] failed:", error);
+      return res.status(500).json({ error: "Failed to load user" });
+    }
+  });
+
+  // ================= ONBOARDING =================
+
   app.get("/api/onboarding/status", verifySupabaseToken, async (req, res) => {
     try {
-      if (!req.dbUser) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
-      
+      if (!req.dbUser) return res.status(401).json({ error: "Not authenticated" });
+
       const status = await storage.getOnboardingStatus(req.dbUser.id);
-      const hasBadge = await storage.hasUserBadge(req.dbUser.id, 'REALMWALKER_I');
-      
-      res.json({
+      const hasBadge = await storage.hasUserBadge(req.dbUser.id, "REALMWALKER_I");
+
+      return res.json({
         completed: status.completed,
         steps: {
           claimFreeSummon: !!status.firstSummonAt,
           earnFirstBadge: hasBadge,
-          shareFirstPull: !!status.firstShareAt, // Optional step
+          shareFirstPull: !!status.firstShareAt,
         },
         firstSummonAt: status.firstSummonAt,
         firstShareAt: status.firstShareAt,
       });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("[onboarding/status] failed:", error);
+      return res.status(500).json({ error: "Failed to load onboarding status" });
     }
   });
 
-  // Dismiss onboarding banner (called when user dismisses the completion banner)
   app.post("/api/onboarding/dismiss", verifySupabaseToken, async (req, res) => {
     try {
-      if (!req.dbUser) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
-      
-      // Mark onboarding as completed (in case it wasn't already)
+      if (!req.dbUser) return res.status(401).json({ error: "Not authenticated" });
+
       await storage.completeOnboarding(req.dbUser.id);
-      
-      res.json({ success: true });
+      return res.json({ success: true });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("[onboarding/dismiss] failed:", error);
+      return res.status(500).json({ error: "Failed to dismiss onboarding" });
     }
   });
 
   // ========== END ONBOARDING ==========
-  
-  // User routes
-  app.get("/api/users", async (req, res) => {
+
+  // User routes (protected)
+  app.get("/api/users", verifySupabaseToken, async (_req, res) => {
+
     try {
       const users = await storage.getAllUsers();
-      const sanitizedUsers = users.map(user => {
+
+      const sanitizedUsers = users.map((user: any) => {
         const { password, email, parentEmail, birthDate, stripeCustomerId, stripeSubscriptionId, ...publicUser } = user;
+
+        const bd = birthDate ? (birthDate instanceof Date ? birthDate : new Date(birthDate as any)) : null;
+
         return {
           ...publicUser,
-          ageBand: user.ageBand || calculateAgeBand(birthDate ? new Date(birthDate) : null),
+          ageBand: user.ageBand || calculateAgeBand(bd),
         };
       });
-      res.json(sanitizedUsers);
+
+      return res.json(sanitizedUsers);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("[users] failed:", error);
+      return res.status(500).json({ error: "Failed to load users" });
     }
   });
-  
-  app.get("/api/users/:id", async (req, res) => {
+
+  app.get("/api/users/:id", verifySupabaseToken, async (req, res) => {
     try {
       const user = await storage.getUser(req.params.id);
-      if (!user) {
-        return res.status(404).json({ error: "User not found" });
-      }
-      const { password, email, parentEmail, birthDate, stripeCustomerId, stripeSubscriptionId, ...publicUser } = user;
-      res.json({
+      if (!user) return res.status(404).json({ error: "User not found" });
+
+      const { password, email, parentEmail, birthDate, stripeCustomerId, stripeSubscriptionId, ...publicUser } = user as any;
+
+      const bd = birthDate ? (birthDate instanceof Date ? birthDate : new Date(birthDate as any)) : null;
+
+      return res.json({
         ...publicUser,
-        ageBand: user.ageBand || calculateAgeBand(birthDate ? new Date(birthDate) : null),
+        ageBand: (user as any).ageBand || calculateAgeBand(bd),
       });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("[users/:id] failed:", error);
+      return res.status(500).json({ error: "Failed to load user" });
     }
   });
-  
+
   app.patch("/api/users/:id", verifySupabaseToken, async (req, res) => {
     try {
-      if (!req.dbUser) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
-      
-      if (req.dbUser.id !== req.params.id && !req.dbUser.isAdmin) {
+      if (!req.dbUser) return res.status(401).json({ error: "Not authenticated" });
+
+      if (req.dbUser.id !== req.params.id && !(req.dbUser as any).isAdmin) {
         return res.status(403).json({ error: "Not authorized to update this user" });
       }
-      
-      const user = await storage.updateUser(req.params.id, req.body);
-      if (!user) {
-        return res.status(404).json({ error: "User not found" });
-      }
-      const { password, ...userWithoutPassword } = user;
-      res.json(userWithoutPassword);
+
+      const {
+        isAdmin,
+        isBanned,
+        stripeCustomerId,
+        stripeSubscriptionId,
+        password,
+        supabaseUserId,
+        supabaseId,
+        ...safePatch
+      } = (req.body ?? {}) as any;
+
+      const updated = await storage.updateUser(req.params.id, safePatch);
+      if (!updated) return res.status(404).json({ error: "User not found" });
+
+      const { password: _pw, ...userWithoutPassword } = updated as any;
+      return res.json(userWithoutPassword);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("[users/patch] failed:", error);
+      return res.status(500).json({ error: "Failed to update user" });
     }
   });
 
   // Preset avatars whitelist (security: only allow these IDs)
   const PRESET_AVATARS = [
-    'preset_001', 'preset_002', 'preset_003', 'preset_004',
-    'preset_005', 'preset_006', 'preset_007', 'preset_008',
-    'preset_009', 'preset_010', 'preset_011', 'preset_012',
+    "preset_001", "preset_002", "preset_003", "preset_004",
+    "preset_005", "preset_006", "preset_007", "preset_008",
+    "preset_009", "preset_010", "preset_011", "preset_012",
   ];
 
   // Update user avatar
   app.patch("/api/users/:id/avatar", verifySupabaseToken, async (req, res) => {
     try {
-      if (!req.dbUser) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
-      
-      if (req.dbUser.id !== req.params.id) {
-        return res.status(403).json({ error: "Not authorized" });
-      }
-      
-      const { avatarId } = req.body;
-      if (!avatarId || typeof avatarId !== 'string') {
+      if (!req.dbUser) return res.status(401).json({ error: "Not authenticated" });
+      if (req.dbUser.id !== req.params.id) return res.status(403).json({ error: "Not authorized" });
+
+      const { avatarId } = req.body ?? {};
+      if (!avatarId || typeof avatarId !== "string") {
         return res.status(400).json({ error: "avatarId is required" });
       }
-      
-      // Validate against whitelist
+
       if (!PRESET_AVATARS.includes(avatarId)) {
         return res.status(400).json({ error: "Invalid avatar selection" });
       }
-      
+
       const avatarUrl = `/avatars/${avatarId}.svg`;
-      
+
       const updatedUser = await storage.updateUser(req.params.id, {
         avatar: avatarUrl,
-        avatarType: 'preset',
-        avatarId: avatarId,
+        avatarType: "preset",
+        avatarId,
         avatarUpdatedAt: new Date(),
       });
-      
-      if (!updatedUser) {
-        return res.status(404).json({ error: "User not found" });
-      }
-      
-      const { password, ...userWithoutPassword } = updatedUser;
-      res.json(userWithoutPassword);
+
+      if (!updatedUser) return res.status(404).json({ error: "User not found" });
+
+      const { password: _pw, ...userWithoutPassword } = updatedUser as any;
+      return res.json(userWithoutPassword);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("[users/avatar] failed:", error);
+      return res.status(500).json({ error: "Failed to update avatar" });
     }
   });
 
+  
+
+
   // Get available preset avatars
-  app.get("/api/avatars/presets", (req, res) => {
+  app.get("/api/avatars/presets", (_req, res) => {
     const presets = PRESET_AVATARS.map(id => ({
       id,
       url: `/avatars/${id}.svg`,
@@ -729,14 +586,15 @@ app.get("/api/config/supabase", (_req, res) => {
   });
 
   // Get all available badges (for admin panel)
-  app.get("/api/badges", async (req, res) => {
-    try {
-      const allBadges = await storage.getAllBadges();
-      res.json(allBadges);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
+  app.get("/api/badges", async (_req, res) => {
+  try {
+    const allBadges = await storage.getAllBadges();
+    res.json(allBadges);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 
   // Reserved words that cannot be used as handles (all lowercase for comparison)
   const RESERVED_HANDLES = [
@@ -980,26 +838,21 @@ app.get("/api/config/supabase", (_req, res) => {
   });
   
   // Card routes
-  app.get("/api/cards", async (req, res) => {
-    try {
-      const cards = await storage.getAllCards();
-      res.json(cards);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
+  
 
   // Trending cards - most acquired in last 7 days
   app.get("/api/cards/trending", async (req, res) => {
-    try {
-      const limit = Math.min(parseInt(req.query.limit as string) || 10, 20);
-      const trendingCards = await storage.getTrendingCards(limit);
-      res.json(trendingCards);
-    } catch (error: any) {
-      console.error("Error fetching trending cards:", error);
-      res.json([]); // Graceful empty state
-    }
-  });
+  try {
+    const limit = Math.min(parseInt(req.query.limit as string) || 10, 20);
+    const trendingCards = await storage.getTrendingCards(limit);
+    res.json(trendingCards);
+  } catch (error: any) {
+    console.error("Error fetching trending cards:", error);
+    res.json([]); // Graceful empty state
+  }
+});
+
+
 
   // Top collectors - users with most unique cards
   app.get("/api/collectors/top", async (req, res) => {
@@ -1327,141 +1180,78 @@ app.get("/api/config/supabase", (_req, res) => {
   });
   
   // Admin: Update card
-  app.patch("/api/cards/:id", verifySupabaseToken, async (req, res) => {
-    try {
-      if (!req.dbUser || !req.dbUser.isAdmin) {
-        return res.status(403).json({ error: "Admin access required" });
-      }
-      
-      const card = await storage.updateCard(req.params.id, req.body);
-      if (!card) {
-        return res.status(404).json({ error: "Card not found" });
-      }
-      res.json(card);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
+app.patch("/api/cards/:id", verifySupabaseToken, async (req, res) => {
+  try {
+    if (!req.dbUser || !req.dbUser.isAdmin) {
+      return res.status(403).json({ error: "Admin access required" });
     }
-  });
-  
-  // Admin: Get signed upload URL for card images
-  app.post("/api/admin/cards/upload-url", verifySupabaseToken, async (req, res) => {
-    try {
-      if (!req.dbUser || !req.dbUser.isAdmin) {
-        return res.status(403).json({ error: "Admin access required" });
-      }
-      
-      const { contentType } = req.body;
-      if (!contentType || !contentType.startsWith('image/')) {
-        return res.status(400).json({ error: "Invalid content type. Only images allowed." });
-      }
-      
-      if (!isSupabaseConfigured) {
-        return res.status(503).json({ error: "Media storage not configured - Supabase credentials required" });
-      }
 
-      const extension = contentType.split('/')[1] || 'png';
-      const filename = `${nanoid()}.${extension}`;
-      const objectKey = `cards/${filename}`;
-      
-      const { data, error } = await supabaseAdmin.storage
-        .from('media')
-        .createSignedUploadUrl(objectKey, { upsert: false });
-      
-      if (error || !data) {
-        console.error('Supabase upload URL error:', error);
-        return res.status(500).json({ error: error?.message || 'Failed to create upload URL' });
-      }
-      
-      const { data: publicUrlData } = supabaseAdmin.storage
-        .from('media')
-        .getPublicUrl(objectKey);
-      
-      res.json({
-        uploadUrl: data.signedUrl,
-        objectKey,
-        publicUrl: publicUrlData.publicUrl,
-      });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
+    const card = await storage.updateCard(req.params.id, req.body);
+    if (!card) {
+      return res.status(404).json({ error: "Card not found" });
     }
-  });
-  
-  // Admin: Get scheduled cards
-  app.get("/api/admin/cards/scheduled", verifySupabaseToken, async (req, res) => {
-    try {
-      if (!req.dbUser || !req.dbUser.isAdmin) {
-        return res.status(403).json({ error: "Admin access required" });
-      }
-      
-      const cards = await storage.getScheduledCards();
-      res.json(cards);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
+
+    res.json(card);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.use("/api/admin", verifySupabaseToken, requireAdmin);
+
   
   // Admin: Get cards by status
-  app.get("/api/admin/cards/by-status/:status", verifySupabaseToken, async (req, res) => {
-    try {
-      if (!req.dbUser || !req.dbUser.isAdmin) {
-        return res.status(403).json({ error: "Admin access required" });
-      }
-      
-      const validStatuses = ['draft', 'scheduled', 'active', 'retired'];
-      if (!validStatuses.includes(req.params.status)) {
-        return res.status(400).json({ error: "Invalid status" });
-      }
-      
-      const cards = await storage.getCardsByStatus(req.params.status);
-      res.json(cards);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
+app.get("/api/admin/cards/by-status/:status", async (req, res) => {
+  try {
+    const validStatuses = ["draft", "scheduled", "active", "retired"];
+    if (!validStatuses.includes(req.params.status)) {
+      return res.status(400).json({ error: "Invalid status" });
     }
-  });
-  
-  // Admin: Update card status (scheduling)
-  app.patch("/api/admin/cards/:id/status", verifySupabaseToken, async (req, res) => {
-    try {
-      if (!req.dbUser || !req.dbUser.isAdmin) {
-        return res.status(403).json({ error: "Admin access required" });
-      }
-      
-      const { status, scheduledReleaseDate } = req.body;
-      const validStatuses = ['draft', 'scheduled', 'active', 'retired'];
-      if (!validStatuses.includes(status)) {
-        return res.status(400).json({ error: "Invalid status" });
-      }
-      
-      if (status === 'scheduled' && !scheduledReleaseDate) {
-        return res.status(400).json({ error: "Scheduled status requires a release date" });
-      }
-      
-      const releaseDate = scheduledReleaseDate ? new Date(scheduledReleaseDate) : null;
-      const card = await storage.updateCardStatus(req.params.id, status, releaseDate);
-      
-      if (!card) {
-        return res.status(404).json({ error: "Card not found" });
-      }
-      
-      res.json(card);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
+
+    const cards = await storage.getCardsByStatus(req.params.status);
+    res.json(cards);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Admin: Update card status (scheduling)
+app.patch("/api/admin/cards/:id/status", async (req, res) => {
+  try {
+    const { status, scheduledReleaseDate } = req.body;
+
+    const validStatuses = ["draft", "scheduled", "active", "retired"];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ error: "Invalid status" });
     }
-  });
-  
-  // Admin: Activate all scheduled cards that are past their release date
-  app.post("/api/admin/cards/activate-scheduled", verifySupabaseToken, async (req, res) => {
-    try {
-      if (!req.dbUser || !req.dbUser.isAdmin) {
-        return res.status(403).json({ error: "Admin access required" });
-      }
-      
-      const activated = await storage.activateScheduledCards();
-      res.json({ activated, message: `${activated} card(s) activated` });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
+
+    if (status === "scheduled" && !scheduledReleaseDate) {
+      return res.status(400).json({ error: "Scheduled status requires a release date" });
     }
-  });
+
+    const releaseDate = scheduledReleaseDate ? new Date(scheduledReleaseDate) : null;
+    const card = await storage.updateCardStatus(req.params.id, status, releaseDate);
+
+    if (!card) {
+      return res.status(404).json({ error: "Card not found" });
+    }
+
+    res.json(card);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Admin: Activate all scheduled cards that are past their release date
+app.post("/api/admin/cards/activate-scheduled", async (_req, res) => {
+  try {
+    const activated = await storage.activateScheduledCards();
+    res.json({ activated, message: `${activated} card(s) activated` });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
   
   // Get cards for a specific pool (daily, weekly, monthly, event)
   app.get("/api/cards/pool/:pool", async (req, res) => {
@@ -1478,65 +1268,51 @@ app.get("/api/config/supabase", (_req, res) => {
     }
   });
   
-  // Admin: Card Categories CRUD
-  app.get("/api/admin/card-categories", verifySupabaseToken, async (req, res) => {
-    try {
-      if (!req.dbUser || !req.dbUser.isAdmin) {
-        return res.status(403).json({ error: "Admin access required" });
-      }
-      
-      const categories = await storage.getAllCardCategories();
-      res.json(categories);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
+    // Admin: Card Categories CRUD
+app.get("/api/admin/card-categories", async (_req, res) => {
+  try {
+    const categories = await storage.getAllCardCategories();
+    res.json(categories);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/api/admin/card-categories", async (req, res) => {
+  try {
+    const validatedData = insertCardCategorySchema.parse(req.body);
+    const category = await storage.createCardCategory(validatedData);
+    res.json(category);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+app.patch("/api/admin/card-categories/:id", async (req, res) => {
+  try {
+    const category = await storage.updateCardCategory(req.params.id, req.body);
+    if (!category) {
+      return res.status(404).json({ error: "Category not found" });
     }
-  });
+    res.json(category);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
   
-  app.post("/api/admin/card-categories", verifySupabaseToken, async (req, res) => {
-    try {
-      if (!req.dbUser || !req.dbUser.isAdmin) {
-        return res.status(403).json({ error: "Admin access required" });
-      }
-      
-      const validatedData = insertCardCategorySchema.parse(req.body);
-      const category = await storage.createCardCategory(validatedData);
-      res.json(category);
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
-  });
-  
-  app.patch("/api/admin/card-categories/:id", verifySupabaseToken, async (req, res) => {
-    try {
-      if (!req.dbUser || !req.dbUser.isAdmin) {
-        return res.status(403).json({ error: "Admin access required" });
-      }
-      
-      const category = await storage.updateCardCategory(req.params.id, req.body);
-      if (!category) {
-        return res.status(404).json({ error: "Category not found" });
-      }
-      res.json(category);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-  
-  app.delete("/api/admin/card-categories/:id", verifySupabaseToken, async (req, res) => {
-    try {
-      if (!req.dbUser || !req.dbUser.isAdmin) {
-        return res.status(403).json({ error: "Admin access required" });
-      }
-      
-      await storage.deleteCardCategory(req.params.id);
-      res.json({ success: true });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
+  app.delete("/api/admin/card-categories/:id", async (req, res) => {
+  try {
+    await storage.deleteCardCategory(req.params.id);
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
   
   // Marketplace routes
-  app.get("/api/market/listings", async (req, res) => {
+  app.get("/api/market/listings", async (_req, res) => {
     try {
       const listings = await storage.getActiveListings();
       res.json(listings);
@@ -1545,37 +1321,42 @@ app.get("/api/config/supabase", (_req, res) => {
     }
   });
   
-  app.post("/api/market/listings", async (req, res) => {
-    try {
-      if (!req.session.userId) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
-      
-      const listing = await storage.createListing({
-        ...req.body,
-        sellerId: req.session.userId,
-      });
-      res.json(listing);
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
+  app.post("/api/market/listings", verifySupabaseToken, async (req, res) => {
+  try {
+    const sellerId = (req as any).userId;
+    if (!sellerId) {
+      return res.status(401).json({ error: "Not authenticated" });
     }
-  });
-  
-  app.post("/api/market/listings/:id/purchase", async (req, res) => {
-    try {
-      if (!req.session.userId) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
-      
-      await storage.purchaseListing(req.params.id, req.session.userId);
-      res.json({ success: true });
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
+
+    const listing = await storage.createListing({
+      ...req.body,
+      sellerId,
+    });
+
+    res.json(listing);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+app.post("/api/market/listings/:id/purchase", verifySupabaseToken, async (req, res) => {
+  try {
+    const buyerId = (req as any).userId;
+    if (!buyerId) {
+      return res.status(401).json({ error: "Not authenticated" });
     }
-  });
+
+    await storage.purchaseListing(req.params.id, buyerId);
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+
   
   // Community routes
-  app.get("/api/communities", async (req, res) => {
+  app.get("/api/communities", async (_req, res) => {
     try {
       const communities = await storage.getAllCommunities();
       res.json(communities);
@@ -1595,14 +1376,14 @@ app.get("/api/config/supabase", (_req, res) => {
   
   app.post("/api/communities/:id/messages", async (req, res) => {
     try {
-      if (!req.session.userId) {
+      if (!(req as any).userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
       const validatedData = insertCommunityMessageSchema.parse({
         ...req.body,
         communityId: req.params.id,
-        userId: req.session.userId,
+        userId: (req as any).userId,
       });
       
       const message = await storage.sendMessage(validatedData);
@@ -1615,11 +1396,11 @@ app.get("/api/config/supabase", (_req, res) => {
   // Swipe routes (Find Nakama)
   app.get("/api/swipe/candidates", async (req, res) => {
     try {
-      if (!req.session.userId) {
+      if (!(req as any).userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
-      const candidates = await storage.getSwipeCandidates(req.session.userId);
+      const candidates = await storage.getSwipeCandidates((req as any).userId);
       const candidatesWithoutPasswords = candidates.map(({ password, ...user }) => user);
       res.json(candidatesWithoutPasswords);
     } catch (error: any) {
@@ -1629,13 +1410,13 @@ app.get("/api/config/supabase", (_req, res) => {
   
   app.post("/api/swipe", async (req, res) => {
     try {
-      if (!req.session.userId) {
+      if (!(req as any).userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
       const validatedData = insertSwipeActionSchema.parse({
         ...req.body,
-        fromUserId: req.session.userId,
+        fromUserId: (req as any).userId,
       });
       
       const swipe = await storage.recordSwipe(validatedData);
@@ -1647,11 +1428,11 @@ app.get("/api/config/supabase", (_req, res) => {
   
   app.get("/api/swipe/matches", async (req, res) => {
     try {
-      if (!req.session.userId) {
+      if (!(req as any).userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
-      const matches = await storage.getMatches(req.session.userId);
+      const matches = await storage.getMatches((req as any).userId);
       const matchesWithoutPasswords = matches.map(({ password, ...user }) => user);
       res.json(matchesWithoutPasswords);
     } catch (error: any) {
@@ -1943,7 +1724,7 @@ app.get("/api/config/supabase", (_req, res) => {
   });
 
   // Prize routes
-  app.get("/api/prizes", async (req, res) => {
+  app.get("/api/prizes", async (_req, res) => {
     try {
       const prizes = await storage.getAllPrizes();
       res.json(prizes);
@@ -1954,11 +1735,11 @@ app.get("/api/config/supabase", (_req, res) => {
 
   app.post("/api/admin/prizes", async (req, res) => {
     try {
-      if (!req.session.userId) {
+      if (!(req as any).userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
-      const admin = await storage.getUser(req.session.userId);
+      const admin = await storage.getUser((req as any).userId);
       if (!admin || !admin.isAdmin) {
         return res.status(403).json({ error: "Not authorized" });
       }
@@ -1972,7 +1753,7 @@ app.get("/api/config/supabase", (_req, res) => {
   });
 
   // Draw routes - public
-  app.get("/api/draws", async (req, res) => {
+  app.get("/api/draws", async (_req, res) => {
     try {
       const draws = await storage.getAllDraws();
       res.json(draws);
@@ -1981,7 +1762,7 @@ app.get("/api/config/supabase", (_req, res) => {
     }
   });
 
-  app.get("/api/draws/active", async (req, res) => {
+  app.get("/api/draws/active", async (_req, res) => {
     try {
       const draws = await storage.getActiveDraws();
       res.json(draws);
@@ -1990,7 +1771,7 @@ app.get("/api/config/supabase", (_req, res) => {
     }
   });
 
-  app.get("/api/draws/featured", async (req, res) => {
+  app.get("/api/draws/featured", async (_req, res) => {
     try {
       const draw = await storage.getFeaturedDraw();
       res.json(draw || null);
@@ -2166,11 +1947,11 @@ app.get("/api/config/supabase", (_req, res) => {
 
       // Use dbUser from optionalSupabaseAuth middleware (Supabase token) or fallback to session
       let user = req.dbUser ?? null;
-      const userId = user?.id || req.session?.userId || null;
+      const userId = user?.id || null;
       
       // Fallback: if no dbUser but session exists, fetch user
-      if (!user && req.session?.userId) {
-        user = (await storage.getUser(req.session.userId)) ?? null;
+      if (!user) {
+        user = (await storage.getUser((req as any).userId)) ?? null;
       }
       
       let weeklyEntry = null;
@@ -2298,7 +2079,7 @@ app.get("/api/config/supabase", (_req, res) => {
         return res.status(404).json({ error: "Draw not found" });
       }
 
-      const userId = req.session?.userId || null;
+      const userId = (req as any).userId || null;
       let userEntry = null;
       let user = null;
       let eligibility = { eligible: false, reason: "Login required" };
@@ -2358,7 +2139,7 @@ app.get("/api/config/supabase", (_req, res) => {
       const winners = await storage.getDrawWinners(req.params.id);
       const entryCount = await storage.getEntryCount(req.params.id);
       
-      const userId = req.session?.userId || null;
+      const userId = (req as any).userId || null;
       let userEntry = null;
       let userWon = null;
 
@@ -2603,11 +2384,11 @@ app.get("/api/config/supabase", (_req, res) => {
   // Claim prize
   app.post("/api/draws/winners/:winnerId/claim", async (req, res) => {
     try {
-      if (!req.session.userId) {
+      if (!(req as any).userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
-      const claimed = await storage.claimPrize(req.params.winnerId, req.session.userId);
+      const claimed = await storage.claimPrize(req.params.winnerId, (req as any).userId);
       if (!claimed) {
         return res.status(400).json({ error: "Unable to claim prize" });
       }
@@ -2621,18 +2402,18 @@ app.get("/api/config/supabase", (_req, res) => {
   // Admin draw management
   app.post("/api/admin/draws", async (req, res) => {
     try {
-      if (!req.session.userId) {
+      if (!(req as any).userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
-      const admin = await storage.getUser(req.session.userId);
+      const admin = await storage.getUser((req as any).userId);
       if (!admin || !admin.isAdmin) {
         return res.status(403).json({ error: "Not authorized" });
       }
       
       const validatedData = insertDrawSchema.parse({
         ...req.body,
-        createdBy: req.session.userId,
+        createdBy: (req as any).userId,
       });
       
       const draw = await storage.createDraw(validatedData);
@@ -2644,11 +2425,11 @@ app.get("/api/config/supabase", (_req, res) => {
 
   app.patch("/api/admin/draws/:id", async (req, res) => {
     try {
-      if (!req.session.userId) {
+      if (!(req as any).userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
-      const admin = await storage.getUser(req.session.userId);
+      const admin = await storage.getUser((req as any).userId);
       if (!admin || !admin.isAdmin) {
         return res.status(403).json({ error: "Not authorized" });
       }
@@ -2662,17 +2443,17 @@ app.get("/api/config/supabase", (_req, res) => {
 
   app.post("/api/admin/draws/:id/override", async (req, res) => {
     try {
-      if (!req.session.userId) {
+      if (!(req as any).userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
-      const admin = await storage.getUser(req.session.userId);
+      const admin = await storage.getUser((req as any).userId);
       if (!admin || !admin.isAdmin) {
         return res.status(403).json({ error: "Not authorized" });
       }
       
       const { reason, ...updates } = req.body;
-      const draw = await storage.overrideDraw(req.params.id, req.session.userId, reason, updates);
+      const draw = await storage.overrideDraw(req.params.id, (req as any).userId, reason, updates);
       res.json(draw);
     } catch (error: any) {
       res.status(400).json({ error: error.message });
@@ -2681,11 +2462,11 @@ app.get("/api/config/supabase", (_req, res) => {
 
   app.post("/api/admin/draws/:id/select-winner", async (req, res) => {
     try {
-      if (!req.session.userId) {
+      if (!(req as any).userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
-      const admin = await storage.getUser(req.session.userId);
+      const admin = await storage.getUser((req as any).userId);
       if (!admin || !admin.isAdmin) {
         return res.status(403).json({ error: "Not authorized" });
       }
@@ -2708,11 +2489,11 @@ app.get("/api/config/supabase", (_req, res) => {
 
   app.post("/api/admin/draws/:id/open", async (req, res) => {
     try {
-      if (!req.session.userId) {
+      if (!(req as any).userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
-      const admin = await storage.getUser(req.session.userId);
+      const admin = await storage.getUser((req as any).userId);
       if (!admin || !admin.isAdmin) {
         return res.status(403).json({ error: "Not authorized" });
       }
@@ -2726,17 +2507,17 @@ app.get("/api/config/supabase", (_req, res) => {
 
   app.post("/api/admin/draws/:id/cancel", async (req, res) => {
     try {
-      if (!req.session.userId) {
+      if (!(req as any).userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
-      const admin = await storage.getUser(req.session.userId);
+      const admin = await storage.getUser((req as any).userId);
       if (!admin || !admin.isAdmin) {
         return res.status(403).json({ error: "Not authorized" });
       }
       
       const { reason } = req.body;
-      const draw = await storage.overrideDraw(req.params.id, req.session.userId, reason || 'Cancelled by admin', { status: 'cancelled' });
+      const draw = await storage.overrideDraw(req.params.id, (req as any).userId, reason || 'Cancelled by admin', { status: 'cancelled' });
       res.json(draw);
     } catch (error: any) {
       res.status(400).json({ error: error.message });
@@ -2748,17 +2529,18 @@ app.get("/api/config/supabase", (_req, res) => {
   // Create a parent-child link (called when minor registers with parent email)
   app.post("/api/parent/link", async (req, res) => {
     try {
-      if (!req.session.userId) {
+      if (!(req as any).userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
-      const { childId, parentEmail } = req.body;
+      const { childId, parentEmail: _parentEmail } = req.body;
+
       
       // Generate verification code
       const verificationCode = Math.random().toString(36).substring(2, 8).toUpperCase();
       
       const link = await storage.createParentChildLink({
-        parentId: req.session.userId, // Will be updated when parent verifies
+        parentId: (req as any).userId, // Will be updated when parent verifies
         childId,
         verificationCode,
       });
@@ -2778,7 +2560,7 @@ app.get("/api/config/supabase", (_req, res) => {
   // Verify parent-child link (parent clicks verification link or enters code)
   app.post("/api/parent/verify", async (req, res) => {
     try {
-      if (!req.session.userId) {
+      if (!(req as any).userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
@@ -2798,7 +2580,7 @@ app.get("/api/config/supabase", (_req, res) => {
       
       // Create default parental controls
       await storage.createParentalControls({
-        parentId: req.session.userId,
+        parentId: (req as any).userId,
         childId: link.childId,
       });
       
@@ -2818,11 +2600,11 @@ app.get("/api/config/supabase", (_req, res) => {
   // Get linked children for current parent
   app.get("/api/parent/children", async (req, res) => {
     try {
-      if (!req.session.userId) {
+      if (!(req as any).userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
-      const parentId = req.session.userId;
+      const parentId = (req as any).userId;
       
       // Cleanup expired purchase requests in the background
       storage.expireOldPurchaseRequests().catch(err => 
@@ -2851,11 +2633,11 @@ app.get("/api/config/supabase", (_req, res) => {
   // Get parental controls for a specific child
   app.get("/api/parent/controls/:childId", async (req, res) => {
     try {
-      if (!req.session.userId) {
+      if (!(req as any).userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
-      const controls = await storage.getParentalControls(req.session.userId, req.params.childId);
+      const controls = await storage.getParentalControls((req as any).userId, req.params.childId);
       if (!controls) {
         return res.status(404).json({ error: "Controls not found" });
       }
@@ -2869,12 +2651,12 @@ app.get("/api/config/supabase", (_req, res) => {
   // Update parental controls for a child
   app.put("/api/parent/controls/:childId", async (req, res) => {
     try {
-      if (!req.session.userId) {
+      if (!(req as any).userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
       // Verify parent has link to this child
-      const link = await storage.getParentChildLink(req.session.userId, req.params.childId);
+      const link = await storage.getParentChildLink((req as any).userId, req.params.childId);
       if (!link || link.status !== 'active') {
         return res.status(403).json({ error: "Not authorized to manage this child's controls" });
       }
@@ -2893,7 +2675,7 @@ app.get("/api/config/supabase", (_req, res) => {
         notifyOnDraw,
       } = req.body;
       
-      const controls = await storage.updateParentalControls(req.session.userId, req.params.childId, {
+      const controls = await storage.updateParentalControls((req as any).userId, req.params.childId, {
         purchasesEnabled,
         dailySpendLimit,
         monthlySpendLimit,
@@ -2916,7 +2698,7 @@ app.get("/api/config/supabase", (_req, res) => {
   // Revoke parent-child link
   app.delete("/api/parent/link/:linkId", async (req, res) => {
     try {
-      if (!req.session.userId) {
+      if (!(req as any).userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
@@ -2930,17 +2712,17 @@ app.get("/api/config/supabase", (_req, res) => {
   // Get parent info for a child (for minor's account view)
   app.get("/api/parent/my-parent", async (req, res) => {
     try {
-      if (!req.session.userId) {
+      if (!(req as any).userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
-      const link = await storage.getParentLink(req.session.userId);
+      const link = await storage.getParentLink((req as any).userId);
       if (!link) {
         return res.json({ hasParent: false });
       }
       
       const parent = await storage.getUser(link.parentId);
-      const controls = await storage.getControlsForChild(req.session.userId);
+      const controls = await storage.getControlsForChild((req as any).userId);
       
       res.json({
         hasParent: true,
@@ -2958,20 +2740,20 @@ app.get("/api/config/supabase", (_req, res) => {
   // Create purchase request (minor requests parent approval for token purchase)
   app.post("/api/parent/purchase-request", async (req, res) => {
     try {
-      if (!req.session.userId) {
+      if (!(req as any).userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
       const { packId, baseTokens, bonusTokens, totalTokens, unitAmountCents, currency, childMessage } = req.body;
       
       // Get parent link for this child
-      const parentLink = await storage.getParentLink(req.session.userId);
+      const parentLink = await storage.getParentLink((req as any).userId);
       if (!parentLink || parentLink.status !== 'active') {
         return res.status(400).json({ code: "NO_PARENT_LINK", error: "No active parent link found" });
       }
       
       // Get child and parent info for notifications
-      const child = await storage.getUser(req.session.userId);
+      const child = await storage.getUser((req as any).userId);
       const parent = await storage.getUser(parentLink.parentId);
       
       if (!child || !parent) {
@@ -2979,7 +2761,7 @@ app.get("/api/config/supabase", (_req, res) => {
       }
       
       // CRITICAL #3: Enforce parental controls and spend limits
-      const controls = await storage.getControlsForChild(req.session.userId);
+      const controls = await storage.getControlsForChild((req as any).userId);
       
       if (controls) {
         // Check if purchases are enabled
@@ -2988,7 +2770,7 @@ app.get("/api/config/supabase", (_req, res) => {
             eventType: 'REQUEST_BLOCKED',
             reason: 'PURCHASES_DISABLED',
             parentId: parentLink.parentId,
-            childId: req.session.userId,
+            childId: (req as any).userId,
             priceCents: unitAmountCents,
             tokenAmount: totalTokens,
             metadata: { route: '/api/parent/purchase-request' },
@@ -3000,14 +2782,14 @@ app.get("/api/config/supabase", (_req, res) => {
         }
         
         // Check daily spend limit
-        const dailySpent = await storage.getChildDailySpend(req.session.userId);
+        const dailySpent = await storage.getChildDailySpend((req as any).userId);
         if (controls.dailySpendLimit && (dailySpent + unitAmountCents) > controls.dailySpendLimit) {
           const remainingCents = Math.max(0, controls.dailySpendLimit - dailySpent);
           await storage.logSecurityEvent({
             eventType: 'REQUEST_BLOCKED',
             reason: 'DAILY_LIMIT',
             parentId: parentLink.parentId,
-            childId: req.session.userId,
+            childId: (req as any).userId,
             priceCents: unitAmountCents,
             tokenAmount: totalTokens,
             metadata: { route: '/api/parent/purchase-request', dailySpent, limit: controls.dailySpendLimit },
@@ -3019,14 +2801,14 @@ app.get("/api/config/supabase", (_req, res) => {
         }
         
         // Check monthly spend limit
-        const monthlySpent = await storage.getChildMonthlySpend(req.session.userId);
+        const monthlySpent = await storage.getChildMonthlySpend((req as any).userId);
         if (controls.monthlySpendLimit && (monthlySpent + unitAmountCents) > controls.monthlySpendLimit) {
           const remainingCents = Math.max(0, controls.monthlySpendLimit - monthlySpent);
           await storage.logSecurityEvent({
             eventType: 'REQUEST_BLOCKED',
             reason: 'MONTHLY_LIMIT',
             parentId: parentLink.parentId,
-            childId: req.session.userId,
+            childId: (req as any).userId,
             priceCents: unitAmountCents,
             tokenAmount: totalTokens,
             metadata: { route: '/api/parent/purchase-request', monthlySpent, limit: controls.monthlySpendLimit },
@@ -3039,7 +2821,7 @@ app.get("/api/config/supabase", (_req, res) => {
       }
       
       const request = await storage.createPurchaseRequest({
-        childUserId: req.session.userId,
+        childUserId: (req as any).userId,
         parentUserId: parentLink.parentId,
         packId,
         baseTokens,
@@ -3055,7 +2837,7 @@ app.get("/api/config/supabase", (_req, res) => {
         eventType: 'REQUEST_CREATED',
         reason: 'SUCCESS',
         parentId: parentLink.parentId,
-        childId: req.session.userId,
+        childId: (req as any).userId,
         purchaseRequestId: request.id,
         priceCents: unitAmountCents,
         tokenAmount: totalTokens,
@@ -3111,11 +2893,11 @@ app.get("/api/config/supabase", (_req, res) => {
   // Get pending purchase requests for parent
   app.get("/api/parent/purchase-requests", async (req, res) => {
     try {
-      if (!req.session.userId) {
+      if (!(req as any).userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
-      const requests = await storage.getPendingPurchaseRequests(req.session.userId);
+      const requests = await storage.getPendingPurchaseRequests((req as any).userId);
       res.json(requests);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -3125,11 +2907,11 @@ app.get("/api/config/supabase", (_req, res) => {
   // Get child's pending requests
   app.get("/api/parent/my-pending-requests", async (req, res) => {
     try {
-      if (!req.session.userId) {
+      if (!(req as any).userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
-      const requests = await storage.getChildPendingPurchaseRequests(req.session.userId);
+      const requests = await storage.getChildPendingPurchaseRequests((req as any).userId);
       res.json(requests);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -3139,7 +2921,7 @@ app.get("/api/config/supabase", (_req, res) => {
   // Respond to purchase request (parent approves or denies)
   app.post("/api/parent/purchase-request/:requestId/respond", async (req, res) => {
     try {
-      if (!req.session.userId) {
+      if (!(req as any).userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
@@ -3155,7 +2937,7 @@ app.get("/api/config/supabase", (_req, res) => {
         return res.status(404).json({ error: "Request not found" });
       }
       
-      if (purchaseRequest.parentUserId !== req.session.userId) {
+      if (purchaseRequest.parentUserId !== (req as any).userId) {
         return res.status(403).json({ error: "Not authorized to respond to this request" });
       }
       
@@ -3179,7 +2961,7 @@ app.get("/api/config/supabase", (_req, res) => {
         await storage.logSecurityEvent({
           eventType: 'APPROVAL_BLOCKED',
           reason: 'REQUEST_EXPIRED',
-          parentId: req.session.userId,
+          parentId: (req as any).userId,
           childId: purchaseRequest.childUserId,
           purchaseRequestId: purchaseRequest.id,
           priceCents: purchaseRequest.unitAmountCents,
@@ -3193,7 +2975,7 @@ app.get("/api/config/supabase", (_req, res) => {
       }
       
       // Get user info for notifications
-      const parent = await storage.getUser(req.session.userId);
+      const parent = await storage.getUser((req as any).userId);
       const child = await storage.getUser(purchaseRequest.childUserId);
       
       if (!parent || !child) {
@@ -3253,7 +3035,7 @@ app.get("/api/config/supabase", (_req, res) => {
           await storage.logSecurityEvent({
             eventType: 'APPROVAL_BLOCKED',
             reason: 'DAILY_LIMIT',
-            parentId: req.session.userId,
+            parentId: (req as any).userId,
             childId: purchaseRequest.childUserId,
             purchaseRequestId: purchaseRequest.id,
             priceCents: purchaseRequest.unitAmountCents,
@@ -3271,7 +3053,7 @@ app.get("/api/config/supabase", (_req, res) => {
           await storage.logSecurityEvent({
             eventType: 'APPROVAL_BLOCKED',
             reason: 'MONTHLY_LIMIT',
-            parentId: req.session.userId,
+            parentId: (req as any).userId,
             childId: purchaseRequest.childUserId,
             purchaseRequestId: purchaseRequest.id,
             priceCents: purchaseRequest.unitAmountCents,
@@ -3362,7 +3144,7 @@ app.get("/api/config/supabase", (_req, res) => {
   // Cancel checkout and return to PENDING_PARENT state
   app.post("/api/parent/purchase-request/:requestId/cancel-checkout", async (req, res) => {
     try {
-      if (!req.session.userId) {
+      if (!(req as any).userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
@@ -3371,7 +3153,7 @@ app.get("/api/config/supabase", (_req, res) => {
         return res.status(404).json({ error: "Request not found" });
       }
       
-      if (purchaseRequest.parentUserId !== req.session.userId) {
+      if (purchaseRequest.parentUserId !== (req as any).userId) {
         return res.status(403).json({ error: "Not authorized" });
       }
       
@@ -3398,14 +3180,14 @@ app.get("/api/config/supabase", (_req, res) => {
   // Get parent notifications
   app.get("/api/parent/notifications", async (req, res) => {
     try {
-      if (!req.session.userId) {
+      if (!(req as any).userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
       const unreadOnly = req.query.unreadOnly === 'true';
       const limit = parseInt(req.query.limit as string) || 50;
       
-      const notifications = await storage.getParentNotifications(req.session.userId, {
+      const notifications = await storage.getParentNotifications((req as any).userId, {
         unreadOnly,
         limit
       });
@@ -3419,14 +3201,14 @@ app.get("/api/config/supabase", (_req, res) => {
   // Mark notifications as read
   app.post("/api/parent/notifications/mark-read", async (req, res) => {
     try {
-      if (!req.session.userId) {
+      if (!(req as any).userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
       const { notificationIds, markAll } = req.body;
       
       if (markAll) {
-        await storage.markAllNotificationsRead(req.session.userId);
+        await storage.markAllNotificationsRead((req as any).userId);
       } else if (notificationIds && Array.isArray(notificationIds) && notificationIds.length > 0) {
         await storage.markNotificationsRead(notificationIds);
       } else {
@@ -3442,12 +3224,12 @@ app.get("/api/config/supabase", (_req, res) => {
   // Get unread notification count and pending purchase requests
   app.get("/api/parent/notifications/unread-count", async (req, res) => {
     try {
-      if (!req.session.userId) {
+      if (!(req as any).userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
-      const unreadCount = await storage.getUnreadNotificationCount(req.session.userId);
-      const pendingPurchaseRequests = await storage.getPendingPurchaseRequestCount(req.session.userId);
+      const unreadCount = await storage.getUnreadNotificationCount((req as any).userId);
+      const pendingPurchaseRequests = await storage.getPendingPurchaseRequestCount((req as any).userId);
       
       res.json({ unreadCount, pendingPurchaseRequests });
     } catch (error: any) {
@@ -3724,12 +3506,12 @@ app.get("/api/config/supabase", (_req, res) => {
 
   app.post("/api/admin/settings", async (req, res) => {
     try {
-      if (!req.session.userId) {
+      if (!(req as any).userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
       // Verify admin status
-      const user = await storage.getUser(req.session.userId);
+      const user = await storage.getUser((req as any).userId);
       if (!user?.isAdmin) {
         return res.status(403).json({ error: "Admin access required" });
       }
@@ -3739,7 +3521,7 @@ app.get("/api/config/supabase", (_req, res) => {
         return res.status(400).json({ error: "Key and value are required" });
       }
       
-      await storage.setSiteSetting(key, String(value), req.session.userId);
+      await storage.setSiteSetting(key, String(value), (req as any).userId);
       res.json({ success: true, key, value });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -3747,7 +3529,7 @@ app.get("/api/config/supabase", (_req, res) => {
   });
 
   // Story routes
-  app.get("/api/stories", async (req, res) => {
+  app.get("/api/stories", async (_req, res) => {
     try {
       const stories = await storage.getActiveStories();
       res.json(stories);
@@ -3939,11 +3721,11 @@ app.get("/api/config/supabase", (_req, res) => {
   // Admin: Cleanup expired stories and media
   app.post("/api/admin/cleanup-expired-stories", async (req, res) => {
     try {
-      if (!req.session.userId) {
+      if (!(req as any).userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
 
-      const user = await storage.getUser(req.session.userId);
+      const user = await storage.getUser((req as any).userId);
       if (!user?.isAdmin) {
         return res.status(403).json({ error: "Admin access required" });
       }
@@ -3981,7 +3763,7 @@ app.get("/api/config/supabase", (_req, res) => {
   // Media upload routes
   app.post("/api/media/upload-url", async (req, res) => {
     try {
-      if (!req.session.userId) {
+      if (!(req as any).userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
 
@@ -4000,7 +3782,7 @@ app.get("/api/config/supabase", (_req, res) => {
       const adapter = getMediaAdapter();
 
       const result = await adapter.getSignedUploadUrl({
-        userId: req.session.userId,
+        userId: (req as any).userId,
         contentType,
         sizeBytes,
         kind,
@@ -4015,7 +3797,7 @@ app.get("/api/config/supabase", (_req, res) => {
 
   app.post("/api/media/complete", async (req, res) => {
     try {
-      if (!req.session.userId) {
+      if (!(req as any).userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
 
@@ -4029,7 +3811,7 @@ app.get("/api/config/supabase", (_req, res) => {
       const adapter = getMediaAdapter();
 
       const finalizeResult = await adapter.finalizeUpload({
-        userId: req.session.userId,
+        userId: (req as any).userId,
         objectKey,
         kind,
         metadata,
@@ -4038,7 +3820,7 @@ app.get("/api/config/supabase", (_req, res) => {
       const expiresAt = kind === 'story' ? new Date(Date.now() + 24 * 60 * 60 * 1000) : undefined;
 
       const mediaRecord = await storage.createMedia({
-        userId: req.session.userId,
+        userId: (req as any).userId,
         storageProvider: process.env.MEDIA_PROVIDER || 'supabase',
         bucket: 'media',
         objectKey,
@@ -4063,7 +3845,7 @@ app.get("/api/config/supabase", (_req, res) => {
 
   app.delete("/api/media/:id", async (req, res) => {
     try {
-      if (!req.session.userId) {
+      if (!(req as any).userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
 
@@ -4072,8 +3854,8 @@ app.get("/api/config/supabase", (_req, res) => {
         return res.status(404).json({ error: "Media not found" });
       }
 
-      if (mediaRecord.userId !== req.session.userId) {
-        const user = await storage.getUser(req.session.userId);
+      if (mediaRecord.userId !== (req as any).userId) {
+        const user = await storage.getUser((req as any).userId);
         if (!user?.isAdmin) {
           return res.status(403).json({ error: "Not authorized to delete this media" });
         }
@@ -4101,14 +3883,16 @@ app.get("/api/config/supabase", (_req, res) => {
   // FRACTURE TRIAL GAME API
   // ========================
   
-  const { DEFAULT_GAME_CONFIG, getGameConfig } = await import('./config/gameConfig');
+  const { getGameConfig } = await import('./config/gameConfig');
+
   
   // Helper to get current date in YYYY-MM-DD format
   const getTodayDate = () => new Date().toISOString().split('T')[0];
   
   // Get game config with site settings overrides
-  app.get("/api/game/config", async (req, res) => {
-    try {
+app.get("/api/game/config", async (_req, res) => {
+  try {
+
       const allSettings = await storage.getAllSiteSettings();
       const settingsMap = Object.fromEntries(allSettings.map(s => [s.key, s.value]));
       const config = getGameConfig(settingsMap);
@@ -4999,7 +4783,8 @@ app.get("/api/config/supabase", (_req, res) => {
       const user = await storage.getUserBySupabaseId(req.supabaseUser!.id);
       if (!user) return res.status(404).json({ error: "User not found" });
 
-      const { sessionId, clickCount = 0, forceEnd = false } = req.body;
+      const { sessionId, clickCount: _clickCount = 0, forceEnd = false } = req.body;
+
       
       const session = await storage.getGameSession(sessionId);
       if (!session) return res.status(404).json({ error: "Session not found" });
@@ -5054,7 +4839,7 @@ app.get("/api/config/supabase", (_req, res) => {
       
       // Client-reported clicks are used ONLY for display, not for outcome calculation
       // This maintains server authority while giving visual feedback
-      const displayClicks = Math.min(Math.max(0, Math.floor(clickCount || 0)), session.fracturesTotal);
+      
       
       // Outcome determination based on combined performance
       let outcome: 'success' | 'critical_success' | 'failure';
@@ -5301,7 +5086,7 @@ app.get("/api/config/supabase", (_req, res) => {
   });
 
   // Get upcoming events (scaffold)
-  app.get("/api/game/events", async (req, res) => {
+  app.get("/api/game/events", async (_req, res) => {
     try {
       const upcoming = await storage.getUpcomingGameEvents(10);
       const live = await storage.getLiveGameEvents();
@@ -5792,16 +5577,15 @@ app.post("/api/stripe/subscription/reactivate", verifySupabaseToken, async (req:
       },
     });
   } catch (error: any) {
-    console.error("Reactivate subscription error:", error);
-    return res.status(500).json({
-      error: error?.message || "Failed to reactivate subscription",
-    });
-  }
+  console.error("[billing/reactivate] failed:", error);
+  return res.status(500).json({
+    error: error?.message || "Failed to reactivate subscription",
+  });
+}
 });
+
+
+
 
   return httpServer;
 }
-
-
-
-

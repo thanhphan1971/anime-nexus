@@ -1,10 +1,19 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
-import { 
-  Sparkles, Gift, Clock, Star, Coins,
-  ChevronRight, Loader2, Zap, Crown, Share2, Check
+import {
+  Sparkles,
+  Gift,
+  Clock,
+  Star,
+  Coins,
+  ChevronRight,
+  Loader2,
+  Zap,
+  Crown,
+  Share2,
+  Check,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useFreeGachaStatus, useFreeSummon, useShareSummon } from "@/lib/api";
@@ -20,7 +29,7 @@ export function RewardsTodayHub() {
   const { user } = useAuth();
   const { data: freeStatus, refetch: refetchFreeStatus } = useFreeGachaStatus();
   const freeSummonMutation = useFreeSummon();
-  
+
   const [isSummoning, setIsSummoning] = useState(false);
   const [summonedCard, setSummonedCard] = useState<any>(null);
   const [showPortal, setShowPortal] = useState(false);
@@ -29,14 +38,19 @@ export function RewardsTodayHub() {
   const [shareDismissed, setShareDismissed] = useState(false);
   const shareSummon = useShareSummon();
 
+  // ✅ SAFE USER VALUES (prevents runtime crashes when profile/user is null)
+  const tokenBalance = typeof user?.tokens === "number" ? user.tokens : 0;
+  const hasTokens = tokenBalance >= 100;
+  const isPremium = !!user?.isPremium;
+
   const handleShareToFeed = async () => {
     if (!summonedCard) return;
-    
+
     setIsSharing(true);
     try {
       await shareSummon.mutateAsync({
         cardId: summonedCard.id,
-        source: 'daily_free',
+        source: "daily_free",
       });
       setHasShared(true);
       toast.success("Shared to Feed!");
@@ -72,7 +86,7 @@ export function RewardsTodayHub() {
     setSummonedCard(null);
     setHasShared(false);
     setShareDismissed(false);
-    
+
     setTimeout(() => {
       freeSummonMutation.mutate(undefined, {
         onSuccess: (data: any) => {
@@ -106,9 +120,6 @@ export function RewardsTodayHub() {
     }
   };
 
-  const hasTokens = user && user.tokens >= 100;
-  const isPremium = user?.isPremium || false;
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -123,7 +134,7 @@ export function RewardsTodayHub() {
         </h2>
       </div>
 
-      <Card 
+      <Card
         className="relative overflow-hidden border-purple-500/50 bg-gradient-to-br from-purple-950/60 via-slate-950/80 to-cyan-950/40"
         data-testid="card-daily-summon"
       >
@@ -136,28 +147,38 @@ export function RewardsTodayHub() {
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] px-1.5 py-0.5 bg-green-500/20 text-green-400 rounded-full font-bold uppercase">Daily Reward</span>
+                  <span className="text-[10px] px-1.5 py-0.5 bg-green-500/20 text-green-400 rounded-full font-bold uppercase">
+                    Daily Reward
+                  </span>
                 </div>
                 <h3 className="font-bold text-white">Free Summon</h3>
               </div>
             </div>
-            
+
             <div className="flex items-center gap-3">
               {user && freeStatus && (
                 <div className="text-right">
                   <div className="flex items-center gap-1.5 justify-end">
                     <Star className="h-4 w-4 text-yellow-400" />
-                    <span className="font-bold text-white text-sm" data-testid="text-free-summons-remaining">
+                    <span
+                      className="font-bold text-white text-sm"
+                      data-testid="text-free-summons-remaining"
+                    >
                       {freeStatus.remainingToday}/{freeStatus.dailyFreeLimit}
                     </span>
                   </div>
                 </div>
               )}
-              
+
               <Button
                 size="sm"
                 onClick={handleFreeSummon}
-                disabled={!user || isSummoning || !freeStatus || freeStatus.remainingToday <= 0}
+                disabled={
+                  !user ||
+                  isSummoning ||
+                  !freeStatus ||
+                  freeStatus.remainingToday <= 0
+                }
                 className="bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500 text-white font-bold disabled:opacity-50"
                 data-testid="button-claim-free-summon"
               >
@@ -179,15 +200,15 @@ export function RewardsTodayHub() {
               </Button>
             </div>
           </div>
-          
+
           {freeStatus?.remainingToday === 0 && isPremium === false && (
             <div className="mt-3 p-2 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
               <p className="text-xs text-yellow-300 flex items-center gap-2">
                 <Crown className="h-3.5 w-3.5" />
                 S-Class members get 2 free summons daily!
-                <Button 
-                  size="sm" 
-                  variant="link" 
+                <Button
+                  size="sm"
+                  variant="link"
                   className="text-yellow-400 p-0 h-auto text-xs"
                   onClick={() => setLocation("/account")}
                 >
@@ -199,7 +220,7 @@ export function RewardsTodayHub() {
         </CardContent>
       </Card>
 
-      <Card 
+      <Card
         className="relative overflow-hidden border-cyan-500/50 bg-gradient-to-br from-cyan-950/60 via-slate-950/80 to-purple-950/40"
         data-testid="card-paid-summon"
       >
@@ -212,7 +233,9 @@ export function RewardsTodayHub() {
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] px-1.5 py-0.5 bg-cyan-500/20 text-cyan-400 rounded-full font-bold uppercase">Gacha</span>
+                  <span className="text-[10px] px-1.5 py-0.5 bg-cyan-500/20 text-cyan-400 rounded-full font-bold uppercase">
+                    Gacha
+                  </span>
                   <span className="text-[10px] text-muted-foreground flex items-center gap-1">
                     <Coins className="h-3 w-3" /> 100 Tokens
                   </span>
@@ -220,23 +243,29 @@ export function RewardsTodayHub() {
                 <h3 className="font-bold text-white">Premium Summon</h3>
               </div>
             </div>
-            
+
             <div className="flex items-center gap-2">
               {user && (
                 <div className="flex items-center gap-2 px-3 py-1.5 bg-black/40 rounded-lg">
                   <Coins className="h-4 w-4 text-yellow-400" />
-                  <span className="font-mono font-bold text-yellow-400">{user.tokens.toLocaleString()}</span>
-                  <span className="text-xs text-muted-foreground">Current Balance</span>
+                  <span className="font-mono font-bold text-yellow-400">
+                    {tokenBalance.toLocaleString()}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    Current Balance
+                  </span>
                 </div>
               )}
-              
+
               <Button
                 size="sm"
                 onClick={() => setLocation("/cards?mode=paid")}
                 disabled={!user}
-                className={hasTokens 
-                  ? "bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold"
-                  : "bg-muted text-muted-foreground"}
+                className={
+                  hasTokens
+                    ? "bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold"
+                    : "bg-muted text-muted-foreground"
+                }
                 data-testid="button-summon-now"
               >
                 {!user ? (
@@ -252,15 +281,15 @@ export function RewardsTodayHub() {
               </Button>
             </div>
           </div>
-          
+
           {user && !hasTokens && (
             <div className="mt-3 p-2 bg-cyan-500/10 border border-cyan-500/30 rounded-lg">
               <p className="text-xs text-cyan-300 flex items-center gap-2">
                 <Coins className="h-3.5 w-3.5" />
                 Need more tokens?
-                <Button 
-                  size="sm" 
-                  variant="link" 
+                <Button
+                  size="sm"
+                  variant="link"
                   className="text-cyan-400 p-0 h-auto text-xs"
                   onClick={() => setLocation("/tokens")}
                 >
@@ -269,8 +298,8 @@ export function RewardsTodayHub() {
               </p>
             </div>
           )}
-          
-          <button 
+
+          <button
             className="mt-2 text-[10px] text-muted-foreground hover:text-white transition-colors flex items-center gap-1"
             onClick={() => setLocation("/cards")}
           >
@@ -287,7 +316,14 @@ export function RewardsTodayHub() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!summonedCard} onOpenChange={() => { setSummonedCard(null); setHasShared(false); setShareDismissed(false); }}>
+      <Dialog
+        open={!!summonedCard}
+        onOpenChange={() => {
+          setSummonedCard(null);
+          setHasShared(false);
+          setShareDismissed(false);
+        }}
+      >
         <DialogContent className="bg-slate-950/95 border-purple-500/30 max-w-sm p-6">
           {summonedCard && (
             <div className="flex flex-col items-center gap-4">
@@ -295,23 +331,34 @@ export function RewardsTodayHub() {
                 Card Obtained!
               </h3>
               <RarityFrame rarity={summonedCard.rarity}>
-                <img 
-                  src={summonedCard.image} 
-                  alt={summonedCard.name} 
+                <img
+                  src={summonedCard.image}
+                  alt={summonedCard.name}
                   className="w-48 h-64 object-cover rounded-lg"
                 />
               </RarityFrame>
               <div className="text-center">
                 <p className="font-bold text-white">{summonedCard.name}</p>
-                <p className="text-sm text-muted-foreground">{summonedCard.character} • {summonedCard.anime}</p>
-                <p className={`text-xs mt-1 font-bold ${
-                  summonedCard.rarity === 'Mythic' ? 'text-red-400' :
-                  summonedCard.rarity === 'Legendary' ? 'text-yellow-400' :
-                  summonedCard.rarity === 'Epic' ? 'text-purple-400' :
-                  summonedCard.rarity === 'Rare' ? 'text-blue-400' : 'text-gray-400'
-                }`}>{summonedCard.rarity}</p>
+                <p className="text-sm text-muted-foreground">
+                  {summonedCard.character} • {summonedCard.anime}
+                </p>
+                <p
+                  className={`text-xs mt-1 font-bold ${
+                    summonedCard.rarity === "Mythic"
+                      ? "text-red-400"
+                      : summonedCard.rarity === "Legendary"
+                      ? "text-yellow-400"
+                      : summonedCard.rarity === "Epic"
+                      ? "text-purple-400"
+                      : summonedCard.rarity === "Rare"
+                      ? "text-blue-400"
+                      : "text-gray-400"
+                  }`}
+                >
+                  {summonedCard.rarity}
+                </p>
               </div>
-              
+
               {/* Share to Feed Panel */}
               {!shareDismissed && (
                 <div className="w-full bg-slate-900/60 border border-white/10 rounded-lg p-3">
@@ -322,7 +369,9 @@ export function RewardsTodayHub() {
                     </div>
                   ) : (
                     <>
-                      <p className="text-xs text-center text-muted-foreground mb-2">Share your pull?</p>
+                      <p className="text-xs text-center text-muted-foreground mb-2">
+                        Share your pull?
+                      </p>
                       <div className="flex gap-2 justify-center">
                         <Button
                           size="sm"
@@ -353,8 +402,8 @@ export function RewardsTodayHub() {
                 </div>
               )}
 
-              <Button 
-                onClick={handleCloseResult} 
+              <Button
+                onClick={handleCloseResult}
                 className="w-full bg-gradient-to-r from-purple-600 to-cyan-600"
                 data-testid="button-close-card-reveal"
               >
