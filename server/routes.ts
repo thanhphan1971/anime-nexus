@@ -73,6 +73,24 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
     return res.json({ url, anonKey });
   });
+    // ================= PROFILE ROUTES =================
+  app.get("/api/profiles/me", optionalSupabaseAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+
+    if (!req.supabaseUser) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const user = await storage.getUserBySupabaseId(req.supabaseUser.id);
+
+    if (!user) {
+      return res.status(404).json({ error: "Profile not found" });
+    }
+
+    const anyUser = user as any;
+    const { password: _pw, ...safe } = anyUser;
+    return res.json(safe);
+  });
 
   // ================= AUTH ROUTES =================
 
