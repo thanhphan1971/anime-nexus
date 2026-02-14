@@ -422,7 +422,15 @@ const port = parseInt(process.env.PORT || "5000", 10);
 
 (async () => {
   try {
-    // ✅ Register API routes BEFORE listening
+    // Prevent caching...
+
+    app.use("/api", (req, res, next) => {
+      res.setHeader("Cache-Control", "no-store");
+      res.setHeader("Pragma", "no-cache");
+      next();
+    });
+
+    // Register API routes BEFORE static serving
     await registerRoutes(httpServer, app);
 
     // Error handler (after routes)
@@ -431,6 +439,8 @@ const port = parseInt(process.env.PORT || "5000", 10);
       const message = err.message || "Internal Server Error";
       res.status(status).json({ message });
     });
+
+
 
     // Static serving / Vite dev server
     if (process.env.NODE_ENV === "production") {
