@@ -95,6 +95,31 @@ app.get("/api/env-check", (_req, res) => {
     nodeEnv: process.env.NODE_ENV,
   });
 });
+// Supabase public config for client (safe: anon key only)
+app.get("/api/config/supabase", (_req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  res.setHeader("Pragma", "no-cache");
+
+  const url =
+    process.env.SUPABASE_URL ||
+    process.env.DEV_SUPABASE_URL ||
+    process.env.SB_URL;
+
+  const anonKey =
+    process.env.SUPABASE_ANON_KEY ||
+    process.env.DEV_SUPABASE_ANON_KEY ||
+    process.env.SB_ANON;
+
+  if (!url || !anonKey) {
+    return res.status(500).json({
+      error: "Supabase config missing",
+      missing: { url: !url, anonKey: !anonKey },
+    });
+  }
+
+  return res.json({ url, anonKey });
+});
+
 
 let frontendReady = false;
 
@@ -407,11 +432,25 @@ app.use((req, res, next) => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+      if (capturedJsonResponse) {
+  const safe = { ...capturedJsonResponse } as any;
+  if (safe.accessToken) safe.accessToken = "[REDACTED]";
+  if (safe.refreshToken) safe.refreshToken = "[REDACTED]";
+  if (safe.token) safe.token = "[REDACTED]";
+  logLine += ` :: ${JSON.stringify(safe)}`;
+}
+
       log(logLine);
     }
   });
 
+  next();
+});
+
+// Prevent caching for API responses
+app.use("/api", (_req, res, next) => {
+  res.setHeader("Cache-Control", "no-store");
+  res.setHeader("Pragma", "no-cache");
   next();
 });
 
@@ -422,25 +461,34 @@ const port = parseInt(process.env.PORT || "5000", 10);
 
 (async () => {
   try {
-    // Prevent caching...
-
-    app.use("/api", (req, res, next) => {
-      res.setHeader("Cache-Control", "no-store");
-      res.setHeader("Pragma", "no-cache");
-      next();
-    });
-
     // Register API routes BEFORE static serving
     await registerRoutes(httpServer, app);
 
-    // Error handler (after routes)
-    app.use((err: any, _req: any, res: any, _next: any) => {
-      const status = err.status || err.statusCode || 500;
-      const message = err.message || "Internal Server Error";
-      res.status(status).json({ message });
+    // 🔍 DEBUG: list all registered routes AFTER registerRoutes()
+    try {
+      const stack = (app as any)?._router?.stack ?? [];
+      const routes = stack
+        .filter((layer: any) => layer?.route)
+        .map((layer: any) => {
+          const methods = Object.keys(layer.route.methods || {})
+            .join(",")
+            .toUpperCase();
+          return `${methods} ${layer.route.path}`;
+        });
+
+      console.log("REGISTERED ROUTES:", routes);
+    } catch (e) {
+      console.log("REGISTERED ROUTES: failed to list routes", e);
+    }
+
+    // ✅ IMPORTANT: never let missing /api routes fall through to Vite/static (prevents HTML responses)
+    app.all("/api/*", (req, res) => {
+      res.status(404).json({
+        error: "API route not found",
+        path: req.path,
+        method: req.method,
+      });
     });
-
-
 
     // Static serving / Vite dev server
     if (process.env.NODE_ENV === "production") {
@@ -450,37 +498,34 @@ const port = parseInt(process.env.PORT || "5000", 10);
       await setupVite(httpServer, app);
     }
 
-frontendReady = true;
-log("Server fully initialized");
+    frontendReady = true;
+    log("Server fully initialized");
 
-    // 🔍 List all registered routes (debug)
-    console.log(
-      "[ROUTES]",
-      (app as any)._router?.stack
-        ?.filter((r: any) => r.route)
-        .map((r: any) =>
-          `${Object.keys(r.route.methods).join(",").toUpperCase()} ${r.route.path}`
-        )
-    );
+    // Error handler (MUST be last middleware)
+    app.use((err: any, _req: any, res: any, _next: any) => {
+      const status = err.status || err.statusCode || 500;
+      const message = err.message || "Internal Server Error";
+      res.status(status).json({ message });
+    });
 
-    httpServer.listen(
-      { port, host: "0.0.0.0", reusePort: true },
-      () => {
-        log(`serving on port ${port}`);
+    // Start listening last
+    httpServer.listen(port, "0.0.0.0", () => {
+      log(`serving on port ${port}`);
 
-        // Optional: seed after start (won’t block routes)
-        (async () => {
-          try {
-            const { seedDatabase } = await import("./seed");
-            await seedDatabase();
-          } catch (e) {
-            console.error("[seed] failed:", e);
-          }
-        })();
-      }
-    );
+      // Optional: seed after start (won’t block routes)
+      (async () => {
+        try {
+          const { seedDatabase } = await import("./seed");
+          await seedDatabase();
+        } catch (e) {
+          console.error("[seed] failed:", e);
+        }
+      })();
+    });
   } catch (err) {
     console.error("Server initialization error:", err);
     process.exit(1);
   }
 })();
+
+

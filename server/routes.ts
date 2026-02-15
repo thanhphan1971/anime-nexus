@@ -55,45 +55,8 @@ function stripeIsConfigured(): boolean {
 
 
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
-  // ================= CONFIG ROUTES =================
-  // Supabase public config for client (safe: anon key only)
-  app.get("/api/config/supabase", (req, res) => {
-    const url = process.env.SUPABASE_URL;
-    const anonKey = process.env.SUPABASE_ANON_KEY || process.env.SB_ANON;
-
-    if (!url || !anonKey) {
-      return res.status(500).json({
-        error: "Supabase config missing",
-        missing: {
-          SUPABASE_URL: !url,
-          SUPABASE_ANON_KEY_or_SB_ANON: !anonKey,
-        },
-      });
-    }
-
-    return res.json({ url, anonKey });
-  });
-    // ================= PROFILE ROUTES =================
-  app.get("/api/profiles/me", optionalSupabaseAuth, async (req, res) => {
-    res.setHeader("Cache-Control", "no-store");
-
-    if (!req.supabaseUser) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
-
-    const user = await storage.getUserBySupabaseId(req.supabaseUser.id);
-
-    if (!user) {
-      return res.status(404).json({ error: "Profile not found" });
-    }
-
-    const anyUser = user as any;
-    const { password: _pw, ...safe } = anyUser;
-    return res.json(safe);
-  });
 
   // ================= AUTH ROUTES =================
-
 
   app.post("/api/auth/signup", async (req, res) => {
     try {
