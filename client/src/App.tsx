@@ -132,9 +132,13 @@ function Router() {
     <Layout>
       <Switch>
         <Route path="/" component={FeedPage} />
-        <Route path="/profile" component={ProfilePage} />
-        <Route path="/profile/:id" component={ProfilePage} />
-        <Route path="/@:username" component={ProfilePage} />
+        <Route path="/profile">
+          <Redirect to={`/${encodeURIComponent(user.handle || "@me")}`} />
+        </Route>
+
+        <Route path="/profile/:handle" component={ProfilePage} />
+        <Route path="/@:handle" component={ProfilePage} />
+
         <Route path="/settings" component={SettingsPage} />
         <Route path="/friends" component={FriendsPage} />
         <Route path="/communities" component={CommunitiesPage} />
