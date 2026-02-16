@@ -70,71 +70,38 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
  */
 async function fetchProfile(accessToken: string, signal?: AbortSignal): Promise<Profile | null> {
   try {
-    const response = await fetch("/api/profiles/me", {
+    const response = await fetch("/api/auth/me", {
       headers: { Authorization: `Bearer ${accessToken}` },
       signal,
     });
 
+    if (response.status === 401 || response.status === 403) return null;
     if (response.status === 404) return null;
     if (response.ok) return await response.json();
 
     const text = await response.text().catch(() => "");
-    console.error("Failed to fetch profile:", response.status, text);
+    console.error("Failed to fetch auth/me:", response.status, text);
     return null;
   } catch (err: any) {
     if (err?.name === "AbortError") return null;
-    console.error("Failed to fetch profile:", err);
+    console.error("Failed to fetch auth/me:", err);
     return null;
   }
 }
+
 
 /**
  * Create a profile if it doesn't exist yet (common in preview/dev).
  * IMPORTANT: do NOT send avatar: "" (backend may validate avatar as URL).
  */
-async function createProfileFromSession(accessToken: string, u: SupabaseUser): Promise<Profile | null> {
-  try {
-    const md: any = u.user_metadata || {};
-    const username = md.username || u.email?.split("@")[0] || "user";
-    const handle = md.handle || `@${username}`;
-
-    const payload: any = {
-      id: u.id,
-      email: u.email,
-      username,
-      name: md.name || md.username || "User",
-      handle,
-      bio: "New to AniRealm",
-      animeInterests: [],
-      theme: md.theme || "cyberpunk",
-    };
-
-    // Only include avatar if it exists and is not empty (and ideally is a real URL)
-    if (typeof md.avatar === "string" && md.avatar.trim() !== "") {
-      payload.avatar = md.avatar.trim();
-    }
-
-    const res = await fetch("/api/profiles", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify(payload),
-    });
-
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      console.error("Failed to create profile:", res.status, text);
-      return null;
-    }
-
-    return await res.json();
-  } catch (err) {
-    console.error("Failed to create profile:", err);
-    return null;
-  }
+/**
+ * Legacy: backend no longer supports POST /api/profiles.
+ * User creation/linking should happen server-side when calling /api/auth/me.
+ */
+async function createProfileFromSession(_accessToken: string, _u: SupabaseUser): Promise<Profile | null> {
+  return null;
 }
+
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<Profile | null>(null);
@@ -158,13 +125,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // 1) Try to load profile
-    let profile = await fetchProfile(newSession.access_token, profileAbortRef.current.signal);
+    // 1) Load profile via backend
+const profile = await fetchProfile(newSession.access_token, profileAbortRef.current.signal);
 
-    // 2) If missing (404), auto-create from session + metadata
-    if (!profile && newSession.user) {
-      profile = await createProfileFromSession(newSession.access_token, newSession.user);
-    }
 
     // 3) Still missing: keep session but user stays null (avoid hard logout loops)
     if (!profile) {
