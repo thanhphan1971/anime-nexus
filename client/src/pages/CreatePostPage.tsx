@@ -1,3 +1,4 @@
+import { authFetch } from "@/lib/authFetch";
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -5,14 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
-import { Image as ImageIcon, Type, Video, Wand2, Send, X, AlertCircle, Upload, Loader2 } from "lucide-react";
+import { Image as ImageIcon, Type, Video, Wand2, Send, X, AlertCircle, Loader2 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useAuth } from "@/context/AuthContext";
 import { useLocation } from "wouter";
 import { useCreatePost } from "@/lib/api";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { getSupabase } from "@/lib/supabaseClient";
 
 export default function CreatePostPage() {
   const { user } = useAuth();
@@ -32,29 +32,47 @@ export default function CreatePostPage() {
   const storyImageInputRef = useRef<HTMLInputElement>(null);
   const storyVideoInputRef = useRef<HTMLInputElement>(null);
 
-  // Fetch story limits
-  const { data: storyLimits } = useQuery<{ storiesPosted: number; maxStories: number } | null>({
-    queryKey: ["/api/stories/limits"],
-    enabled: !!user,
-  });
+   // Fetch story limits (authorized request)
+const { data: storyLimits } = useQuery<
+  { storiesPosted: number; maxStories: number } | null
+>({
+  queryKey: ["/api/stories/limits"],
+  enabled: !!user,
+  queryFn: async () => {
+    const res = await authFetch("/api/stories/limits");
+
+    // If not authenticated yet, return null (don’t crash UI)
+    if (res.status === 401 || res.status === 403) {
+      return null;
+    }
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(
+        `Failed to load story limits: ${res.status} ${text}`
+      );
+    }
+
+    return res.json();
+  },
+});
+
+
 
   // Create story mutation
   const createStory = useMutation({
     mutationFn: async (data: { mediaUrl: string; mediaType: string; caption?: string; mimeType: string; fileSize: number; videoDuration?: number }) => {
-      const supabase = await getSupabase();
-      const { data: { session } } = await supabase.auth.getSession();
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (session?.access_token) {
-        headers["Authorization"] = `Bearer ${session.access_token}`;
-      }
-      const res = await fetch("/api/stories", {
+      
+      const res = await authFetch("/api/stories", {
         method: "POST",
-        headers,
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
+
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Failed to create story");
+        const err = await res.json().catch(() => ({} as any));
+throw new Error(err?.error || "Failed to create story");
+
       }
       return res.json();
     },
