@@ -459,73 +459,73 @@ app.use("/api", (_req, res, next) => {
 // -----------------------------
 const port = parseInt(process.env.PORT || "5000", 10);
 
-(async () => {
-  try {
-    // Register API routes BEFORE static serving
-    await registerRoutes(httpServer, app);
+// ✅ Open the port ASAP so Replit Preview can reach the app
+httpServer.listen(port, "0.0.0.0", () => {
+  log(`serving on port ${port}`);
 
-    // 🔍 DEBUG: list all registered routes AFTER registerRoutes()
+  // Initialize everything AFTER the port is open
+  (async () => {
     try {
-      const stack = (app as any)?._router?.stack ?? [];
-      const routes = stack
-        .filter((layer: any) => layer?.route)
-        .map((layer: any) => {
-          const methods = Object.keys(layer.route.methods || {})
-            .join(",")
-            .toUpperCase();
-          return `${methods} ${layer.route.path}`;
+      // Register API routes BEFORE static/Vite
+      await registerRoutes(httpServer, app);
+
+     // 🔍 Debug endpoint: list registered routes (view in browser)
+app.get("/api/__routes", (_req, res) => {
+  try {
+    const stack = (app as any)?._router?.stack ?? [];
+    const routes = stack
+      .filter((layer: any) => layer?.route)
+      .map((layer: any) => ({
+        path: layer.route.path,
+        methods: Object.keys(layer.route.methods || {}).map((m) => m.toUpperCase()),
+      }));
+
+    res.json({ count: routes.length, routes });
+  } catch (e: any) {
+    res.status(500).json({ error: "failed to list routes", detail: e?.message || String(e) });
+  }
+});
+
+      app.all("/api/*", (req, res) => {
+        res.status(404).json({
+          error: "API route not found",
+          path: req.path,
+          method: req.method,
         });
-
-      console.log("REGISTERED ROUTES:", routes);
-    } catch (e) {
-      console.log("REGISTERED ROUTES: failed to list routes", e);
-    }
-
-    // ✅ IMPORTANT: never let missing /api routes fall through to Vite/static (prevents HTML responses)
-    app.all("/api/*", (req, res) => {
-      res.status(404).json({
-        error: "API route not found",
-        path: req.path,
-        method: req.method,
       });
-    });
 
-    // Static serving / Vite dev server
-    if (process.env.NODE_ENV === "production") {
-      serveStatic(app);
-    } else {
-      const { setupVite } = await import("./vite");
-      await setupVite(httpServer, app);
-    }
+      // Static serving / Vite dev server
+      const isProdRuntime = process.env.APP_RUNTIME === "prod";
+      if (isProdRuntime) {
+        serveStatic(app);
+      } else {
+        const { setupVite } = await import("./vite");
+        await setupVite(httpServer, app);
+      }
 
-    frontendReady = true;
-    log("Server fully initialized");
+      frontendReady = true;
+      log("Server fully initialized");
 
-    // Error handler (MUST be last middleware)
-    app.use((err: any, _req: any, res: any, _next: any) => {
-      const status = err.status || err.statusCode || 500;
-      const message = err.message || "Internal Server Error";
-      res.status(status).json({ message });
-    });
-
-    // Start listening last
-    httpServer.listen(port, "0.0.0.0", () => {
-      log(`serving on port ${port}`);
+      // Error handler (MUST be last middleware)
+      app.use((err: any, _req: any, res: any, _next: any) => {
+        const status = err.status || err.statusCode || 500;
+        const message = err.message || "Internal Server Error";
+        res.status(status).json({ message });
+      });
 
       // Optional: seed after start (won’t block routes)
-      (async () => {
-        try {
-          const { seedDatabase } = await import("./seed");
-          await seedDatabase();
-        } catch (e) {
-          console.error("[seed] failed:", e);
-        }
-      })();
-    });
-  } catch (err) {
-    console.error("Server initialization error:", err);
-    process.exit(1);
-  }
-})();
+      try {
+        const { seedDatabase } = await import("./seed");
+        await seedDatabase();
+      } catch (e) {
+        console.error("[seed] failed:", e);
+      }
+    } catch (err) {
+      console.error("Post-listen initialization error:", err);
+      // ⚠️ Do NOT process.exit(1) here — keep the port open so you can still hit /api/health and see logs
+    }
+  })();
+});
+
 
 
