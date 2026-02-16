@@ -123,6 +123,8 @@ function Router() {
   if (!user) {
     return <AuthPage />;
   }
+  console.log("[Router user]", user?.id, user?.username, user?.handle);
+
 
   if (showOnboarding && onboardingChecked) {
     return <OnboardingFlow onComplete={handleOnboardingComplete} />;

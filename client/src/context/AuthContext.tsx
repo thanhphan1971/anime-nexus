@@ -77,7 +77,11 @@ async function fetchProfile(accessToken: string, signal?: AbortSignal): Promise<
 
     if (response.status === 401 || response.status === 403) return null;
     if (response.status === 404) return null;
-    if (response.ok) return await response.json();
+    if (response.ok) {
+  const data = await response.json();
+  return data?.user ?? null;
+}
+
 
     const text = await response.text().catch(() => "");
     console.error("Failed to fetch auth/me:", response.status, text);
@@ -273,6 +277,7 @@ const profile = await fetchProfile(newSession.access_token, profileAbortRef.curr
         body: JSON.stringify(profilePayload),
       });
 
+      
       if (!profileResponse.ok) {
         const text = await profileResponse.text().catch(() => "");
         throw new Error(`Failed to create profile: ${profileResponse.status} ${text}`);
