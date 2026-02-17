@@ -1,3 +1,10 @@
+process.on("unhandledRejection", (reason) => {
+  console.error("[FATAL] unhandledRejection:", reason);
+});
+process.on("uncaughtException", (err) => {
+  console.error("[FATAL] uncaughtException:", err);
+});
+
 let startupError: unknown = null;
 
 console.log("[BOOT] starting server");
@@ -209,14 +216,33 @@ app.use((req, res, next) => {
 });
 
 // -----------------------------
-// Preview startup placeholder (non-API GETs)
+// Preview startup placeholder (safe)
 // -----------------------------
 app.use((req, res, next) => {
-  if (!frontendReady && req.method === "GET" && !req.path.startsWith("/api")) {
+  if (req.method !== "GET") return next();
+  if (req.path.startsWith("/api")) return next();
+
+  // Never intercept Vite / assets / common static files
+  if (
+    req.path.startsWith("/@vite") ||
+    req.path.startsWith("/src") ||
+    req.path.startsWith("/assets") ||
+    req.path.startsWith("/@id") ||
+    req.path.startsWith("/node_modules") ||
+    req.path === "/favicon.ico" ||
+    req.path === "/robots.txt" ||
+    req.path === "/manifest.webmanifest"
+  ) {
+    return next();
+  }
+
+  if (!frontendReady) {
     return res.status(200).send("Starting AniRealm...");
   }
-  next();
+
+  return next();
 });
+
 
 // =====================================================
 // STRIPE (CLEAN, OWNED BY YOU)
