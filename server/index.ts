@@ -454,10 +454,19 @@ app.use("/api", (_req, res, next) => {
   next();
 });
 
-// -----------------------------
-// Start server (Replit)
-// -----------------------------
-const port = parseInt(process.env.PORT || "5000", 10);
+
+// Replit requires binding to the PORT it provides
+const port = Number(process.env.PORT) || 5000;
+
+console.log("[BOOT] PORT env =", process.env.PORT);
+app.get("/__status", (_req, res) => {
+  res.json({ frontendReady });
+});
+
+
+
+
+
 
 // ✅ Open the port ASAP so Replit Preview can reach the app
 httpServer.listen(port, "0.0.0.0", () => {
