@@ -1,37 +1,54 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { Switch, Route, useLocation } from "wouter";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
-import NotFound from "@/pages/not-found";
-import FeedPage from "@/pages/FeedPage";
-import ProfilePage from "@/pages/ProfilePage";
-import SettingsPage from "@/pages/SettingsPage";
-import FriendsPage from "@/pages/FriendsPage";
-import AuthPage from "@/pages/AuthPage";
-import CommunitiesPage from "@/pages/CommunitiesPage";
-import CommunityDetailPage from "@/pages/CommunityDetailPage";
-import AnimeListPage from "@/pages/AnimeListPage";
-import CardsPage from "@/pages/CardsPage";
-import CardCatalogPage from "@/pages/CardCatalogPage";
-import BenefitsPage from "@/pages/BenefitsPage";
-import CreatePostPage from "@/pages/CreatePostPage";
-import HelpPage from "@/pages/HelpPage";
-import CodeOfEthicsPage from "@/pages/CodeOfEthicsPage";
-import AdminPage from "@/pages/AdminPage";
-import AdminPaymentExceptionsPage from "@/pages/AdminPaymentExceptionsPage";
-import AdminSecurityMetricsPage from "@/pages/AdminSecurityMetricsPage";
-import DrawsPage from "@/pages/DrawsPage";
-import TokenShopPage from "@/pages/TokenShopPage";
-import ParentDashboardPage from "@/pages/ParentDashboardPage";
-import GamePage from "@/pages/GamePage";
-import UniversePage from "@/pages/UniversePage";
-import CheckoutPage from "@/pages/CheckoutPage";
-import AccountPage from "@/pages/AccountPage";
-import ActivatePage from "@/pages/ActivatePage";
+
 import Layout from "@/components/layout/Layout";
 import OnboardingFlow from "@/components/OnboardingFlow";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
+
+// Keep these eager (small/critical)
+import NotFound from "@/pages/not-found";
+import AuthPage from "@/pages/AuthPage";
+
+// Lazy-load everything else (big bundle win)
+const FeedPage = lazy(() => import("@/pages/FeedPage"));
+const ProfilePage = lazy(() => import("@/pages/ProfilePage"));
+const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
+const FriendsPage = lazy(() => import("@/pages/FriendsPage"));
+const CommunitiesPage = lazy(() => import("@/pages/CommunitiesPage"));
+const CommunityDetailPage = lazy(() => import("@/pages/CommunityDetailPage"));
+const AnimeListPage = lazy(() => import("@/pages/AnimeListPage"));
+const CardsPage = lazy(() => import("@/pages/CardsPage"));
+const CardCatalogPage = lazy(() => import("@/pages/CardCatalogPage"));
+const BenefitsPage = lazy(() => import("@/pages/BenefitsPage"));
+const CreatePostPage = lazy(() => import("@/pages/CreatePostPage"));
+const HelpPage = lazy(() => import("@/pages/HelpPage"));
+const CodeOfEthicsPage = lazy(() => import("@/pages/CodeOfEthicsPage"));
+const AdminPage = lazy(() => import("@/pages/AdminPage"));
+const AdminPaymentExceptionsPage = lazy(() => import("@/pages/AdminPaymentExceptionsPage"));
+const AdminSecurityMetricsPage = lazy(() => import("@/pages/AdminSecurityMetricsPage"));
+const DrawsPage = lazy(() => import("@/pages/DrawsPage"));
+const TokenShopPage = lazy(() => import("@/pages/TokenShopPage"));
+const ParentDashboardPage = lazy(() => import("@/pages/ParentDashboardPage"));
+const GamePage = lazy(() => import("@/pages/GamePage"));
+const UniversePage = lazy(() => import("@/pages/UniversePage"));
+const CheckoutPage = lazy(() => import("@/pages/CheckoutPage"));
+const AccountPage = lazy(() => import("@/pages/AccountPage"));
+const ActivatePage = lazy(() => import("@/pages/ActivatePage"));
+
+// Small loading UI for lazy chunks
+function PageLoading() {
+  return (
+    <div className="h-screen w-screen flex items-center justify-center bg-background text-primary">
+      <div className="flex flex-col items-center gap-4">
+        <div className="h-12 w-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+        <p className="font-display tracking-widest animate-pulse">LOADING...</p>
+      </div>
+    </div>
+  );
+}
 
 // ✅ Added: fixes "Redirect is not defined" + avoids full page reloads
 function Redirect({ to }: { to: string }) {
@@ -103,7 +120,11 @@ function Router() {
 
   // ✅ Small hardening: supports /activate?token=...
   if (location.startsWith("/activate")) {
-    return <ActivatePage />;
+    return (
+      <Suspense fallback={<PageLoading />}>
+        <ActivatePage />
+      </Suspense>
+    );
   }
 
   if (isLoading) {
@@ -119,12 +140,12 @@ function Router() {
     );
   }
 
-  // Logged out -> show Auth page
+  // Logged out -> show Auth page (keep eager)
   if (!user) {
     return <AuthPage />;
   }
-  console.log("[Router user]", user?.id, user?.username, user?.handle);
 
+  console.log("[Router user]", user?.id, user?.username, user?.handle);
 
   if (showOnboarding && onboardingChecked) {
     return <OnboardingFlow onComplete={handleOnboardingComplete} />;
@@ -132,80 +153,75 @@ function Router() {
 
   return (
     <Layout>
-      <Switch>
-        <Route path="/" component={FeedPage} />
-        
-        <Route path="/profile" component={ProfilePage} />
-        <Route path="/profile/:handle" component={ProfilePage} />
-        <Route path="/@:handle" component={ProfilePage} />
+      <Suspense fallback={<PageLoading />}>
+        <Switch>
+          <Route path="/" component={FeedPage} />
 
+          <Route path="/profile" component={ProfilePage} />
+          <Route path="/profile/:handle" component={ProfilePage} />
+          <Route path="/@:handle" component={ProfilePage} />
 
-        <Route path="/settings" component={SettingsPage} />
-        <Route path="/friends" component={FriendsPage} />
-        <Route path="/communities" component={CommunitiesPage} />
-        <Route path="/community/:id" component={CommunityDetailPage} />
-        <Route path="/watchlist" component={AnimeListPage} />
-        <Route path="/cards" component={CardsPage} />
-        <Route path="/cards/catalog" component={CardCatalogPage} />
-        <Route path="/draws" component={DrawsPage} />
+          <Route path="/settings" component={SettingsPage} />
+          <Route path="/friends" component={FriendsPage} />
+          <Route path="/communities" component={CommunitiesPage} />
+          <Route path="/community/:id" component={CommunityDetailPage} />
+          <Route path="/watchlist" component={AnimeListPage} />
+          <Route path="/cards" component={CardsPage} />
+          <Route path="/cards/catalog" component={CardCatalogPage} />
+          <Route path="/draws" component={DrawsPage} />
 
-        {/* Existing redirects */}
-        <Route path="/sclass">
-          <Redirect to="/account" />
-        </Route>
-        <Route path="/premium">
-          <Redirect to="/account" />
-        </Route>
+          {/* Existing redirects */}
+          <Route path="/sclass">
+            <Redirect to="/account" />
+          </Route>
+          <Route path="/premium">
+            <Redirect to="/account" />
+          </Route>
 
-        <Route path="/benefits" component={BenefitsPage} />
-        <Route path="/create" component={CreatePostPage} />
-        <Route path="/help" component={HelpPage} />
-        <Route path="/ethics" component={CodeOfEthicsPage} />
-        <Route path="/admin" component={AdminPage} />
-        <Route
-          path="/admin/payments-exceptions"
-          component={AdminPaymentExceptionsPage}
-        />
-        <Route
-          path="/admin/security-metrics"
-          component={AdminSecurityMetricsPage}
-        />
-        <Route path="/tokens" component={TokenShopPage} />
-        <Route path="/parent" component={ParentDashboardPage} />
-        <Route path="/game" component={GamePage} />
-        <Route path="/universe" component={UniversePage} />
-        <Route path="/checkout" component={CheckoutPage} />
-        <Route path="/account" component={AccountPage} />
+          <Route path="/benefits" component={BenefitsPage} />
+          <Route path="/create" component={CreatePostPage} />
+          <Route path="/help" component={HelpPage} />
+          <Route path="/ethics" component={CodeOfEthicsPage} />
+          <Route path="/admin" component={AdminPage} />
+          <Route path="/admin/payments-exceptions" component={AdminPaymentExceptionsPage} />
+          <Route path="/admin/security-metrics" component={AdminSecurityMetricsPage} />
+          <Route path="/tokens" component={TokenShopPage} />
+          <Route path="/parent" component={ParentDashboardPage} />
+          <Route path="/game" component={GamePage} />
+          <Route path="/universe" component={UniversePage} />
+          <Route path="/checkout" component={CheckoutPage} />
+          <Route path="/account" component={AccountPage} />
 
-        {/* Legacy routes */}
-        <Route path="/gacha" component={CardsPage} />
-        <Route path="/market" component={CardsPage} />
+          {/* Legacy routes */}
+          <Route path="/gacha" component={CardsPage} />
+          <Route path="/market" component={CardsPage} />
 
-        {/* Fix: handle old auth URLs so they never hit NotFound */}
-        <Route path="/login">
-          <Redirect to="/" />
-        </Route>
-        <Route path="/signup">
-          <Redirect to="/" />
-        </Route>
-        <Route path="/sign-in">
-          <Redirect to="/" />
-        </Route>
-        <Route path="/sign-up">
-          <Redirect to="/" />
-        </Route>
-        <Route path="/auth">
-          <Redirect to="/" />
-        </Route>
-        <Route path="/auth/callback">
-          <Redirect to="/" />
-        </Route>
-        <Route path="/reset-password">
-          <Redirect to="/" />
-        </Route>
+          {/* Fix: handle old auth URLs so they never hit NotFound */}
+          <Route path="/login">
+            <Redirect to="/" />
+          </Route>
+          <Route path="/signup">
+            <Redirect to="/" />
+          </Route>
+          <Route path="/sign-in">
+            <Redirect to="/" />
+          </Route>
+          <Route path="/sign-up">
+            <Redirect to="/" />
+          </Route>
+          <Route path="/auth">
+            <Redirect to="/" />
+          </Route>
+          <Route path="/auth/callback">
+            <Redirect to="/" />
+          </Route>
+          <Route path="/reset-password">
+            <Redirect to="/" />
+          </Route>
 
-        <Route component={NotFound} />
-      </Switch>
+          <Route component={NotFound} />
+        </Switch>
+      </Suspense>
     </Layout>
   );
 }

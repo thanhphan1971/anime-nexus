@@ -58,9 +58,10 @@ const trackFirstPurchaseEvent = (eventName: string, context: {
   console.log(`[Analytics] ${eventName}`, context);
 };
 
-import stableSigil from "@assets/generated_images/stable_fracture_blue_sigil.png";
-import volatileSigil from "@assets/generated_images/volatile_fracture_purple_sigil.png";
-import overchargedSigil from "@assets/generated_images/overcharged_rift_gold_sigil.png";
+import stableSigil from "@assets/generated_images/stable_fracture_blue_sigil.webp";
+import volatileSigil from "@assets/generated_images/volatile_fracture_purple_sigil.webp";
+import overchargedSigil from "@assets/generated_images/overcharged_rift_gold_sigil.webp";
+
 
 type TrialType = 'safe' | 'unstable' | 'overcharged';
 type GamePhase = 'selection' | 'playing' | 'result';

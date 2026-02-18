@@ -21,7 +21,8 @@ import {
   Shield,
 } from "lucide-react";
 import { useLocation } from "wouter";
-import heroBg from "@assets/generated_images/futuristic_neo-tokyo_cityscape.png";
+import heroBg from "@assets/generated_images/futuristic_neo-tokyo_cityscape.webp";
+
 import { toast } from "sonner";
 
 export default function AuthPage() {

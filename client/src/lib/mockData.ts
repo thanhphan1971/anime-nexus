@@ -1,11 +1,13 @@
 import { User, Post } from "./types";
 
 // Asset Imports
-import heroBg from "@assets/generated_images/futuristic_neo-tokyo_cityscape.png";
-import avatar1 from "@assets/generated_images/anime_avatar_energetic_swordsman.png";
-import avatar2 from "@assets/generated_images/anime_avatar_cyberpunk_hacker.png";
-import avatar3 from "@assets/generated_images/anime_avatar_fantasy_mage.png";
-import avatar4 from "@assets/generated_images/anime_avatar_mecha_pilot.png";
+import heroBg from "@assets/generated_images/futuristic_neo-tokyo_cityscape.webp";
+
+import avatar1 from "@assets/generated_images/anime_avatar_energetic_swordsman.webp";
+import avatar2 from "@assets/generated_images/anime_avatar_cyberpunk_hacker.webp";
+import avatar3 from "@assets/generated_images/anime_avatar_fantasy_mage.webp";
+import avatar4 from "@assets/generated_images/anime_avatar_mecha_pilot.webp";
+
 
 export const CURRENT_USER: User = {
   id: "u1",

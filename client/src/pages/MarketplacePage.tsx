@@ -7,9 +7,10 @@ import { ArrowRightLeft, Coins, Filter, Search, ShieldCheck } from "lucide-react
 import { Input } from "@/components/ui/input";
 
 // Reuse assets/placeholders
-import card1 from "@assets/generated_images/legendary_anime_dragon_card.png";
-import card2 from "@assets/generated_images/cyberpunk_assassin_card.png";
-import card3 from "@assets/generated_images/magical_girl_ultimate_form_card.png";
+import card1 from "@assets/generated_images/legendary_anime_dragon_card.webp";
+import card2 from "@assets/generated_images/cyberpunk_assassin_card.webp";
+import card3 from "@assets/generated_images/magical_girl_ultimate_form_card.webp";
+
 
 const MARKET_LISTINGS = [
   { 

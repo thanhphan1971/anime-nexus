@@ -1,4 +1,4 @@
-import { build as esbuild } from "esbuild";
+import { build } from "esbuild";
 import { build as viteBuild } from "vite";
 import { rm, readFile } from "fs/promises";
 
@@ -46,7 +46,7 @@ async function buildAll() {
   ];
   const externals = allDeps.filter((dep) => !allowlist.includes(dep));
 
-  await esbuild({
+  await build({
     entryPoints: ["server/index.ts"],
     platform: "node",
     bundle: true,
