@@ -196,38 +196,33 @@ export default function ProfilePage() {
   };
 
   const handleCropConfirm = async () => {
-  if (!imageToCrop || !croppedAreaPixels) return;
+  if (!imageToCrop || !croppedAreaPixels || !currentUser) return;
 
   setIsUploading(true);
+
   try {
-    // Crop to a DataURL (you already have getCroppedImg)
-    const croppedImage = await getCroppedImg(imageToCrop, croppedAreaPixels);
+    // Convert cropped area to Blob
+    const blob = await getCroppedAvatarBlob(imageToCrop, croppedAreaPixels);
 
-    // Upload cropped image to server -> server returns a real URL
-    const res = await fetch("/api/profile/avatar", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ image: croppedImage }),
-    });
+    // Upload to server
+    const { avatarUrl } = await uploadAvatarBlob(blob);
 
-    if (!res.ok) throw new Error(await res.text());
-
-    const { avatarUrl } = (await res.json()) as { avatarUrl: string };
-
-    // Save the real URL into the edit form (this is what Save Changes should persist)
-    setEditForm((prev) => ({ ...prev, avatar: avatarUrl }));
+    // Save returned URL (not base64)
+    setEditForm(prev => ({ ...prev, avatar: avatarUrl }));
     setSelectedPresetId(null);
 
     setCropperOpen(false);
     setImageToCrop(null);
+
     toast.success("Avatar uploaded!");
-  } catch (error: any) {
+  } catch (error) {
     console.error(error);
-    toast.error(error?.message || "Failed to upload avatar");
+    toast.error("Upload failed");
   } finally {
     setIsUploading(false);
   }
 };
+
 
 
   const handleCropCancel = () => {
