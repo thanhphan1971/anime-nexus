@@ -1,3 +1,4 @@
+import { authFetch } from "@/lib/authFetch";
 import { useState, useCallback, lazy, Suspense } from "react";
 import { useParams, Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -71,6 +72,7 @@ function getBadgeRule(code: string): string {
 }
 
 export default function ProfilePage() {
+  
   const params = useParams();
   const id = params.id;
   const username = params.username;
@@ -196,41 +198,88 @@ export default function ProfilePage() {
   };
 
   const handleCropConfirm = async () => {
-  if (!imageToCrop || !croppedAreaPixels || !currentUser) return;
+  if (!imageToCrop || !croppedAreaPixels) return;
 
   setIsUploading(true);
 
   try {
-    // Convert cropped area to Blob
-    const blob = await getCroppedAvatarBlob(imageToCrop, croppedAreaPixels);
+    // 1) Crop to DataURL
+    const croppedDataUrl = await getCroppedImg(imageToCrop, croppedAreaPixels);
 
-    // Upload to server
-    const { avatarUrl } = await uploadAvatarBlob(blob);
+    // 2) Convert DataURL -> Blob
+    const blob = await (await fetch(croppedDataUrl)).blob();
+    const mimeType = blob.type || "image/jpeg";
+    const sizeBytes = blob.size;
 
-    // Save returned URL (not base64)
-    setEditForm(prev => ({ ...prev, avatar: avatarUrl }));
+    // 3) Get signed upload URL
+    const uploadUrlRes = await authFetch("/api/media/upload-url", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contentType: mimeType,
+        sizeBytes,
+        kind: "avatar",
+      }),
+    });
+
+    if (!uploadUrlRes.ok) throw new Error(await uploadUrlRes.text());
+
+    const { signedUrl, objectKey } = (await uploadUrlRes.json()) as {
+      signedUrl: string;
+      objectKey: string;
+    };
+
+    // 4) Upload directly to storage
+    const putRes = await fetch(signedUrl, {
+      method: "PUT",
+      headers: { "Content-Type": mimeType },
+      body: blob,
+    });
+
+    if (!putRes.ok) throw new Error("Upload failed");
+
+    // 5) Finalize upload
+    const completeRes = await authFetch("/api/media/complete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        objectKey,
+        kind: "avatar",
+        mimeType,
+        sizeBytes,
+      }),
+    });
+
+    if (!completeRes.ok) throw new Error(await completeRes.text());
+
+    const { publicUrl } = (await completeRes.json()) as { publicUrl: string };
+
+    // 6) Save URL into form (this is what Save Changes persists)
+    setEditForm((prev) => ({ ...prev, avatar: publicUrl }));
     setSelectedPresetId(null);
 
+    // Reset cropper UI
     setCropperOpen(false);
     setImageToCrop(null);
 
     toast.success("Avatar uploaded!");
-  } catch (error) {
+  } catch (error: any) {
     console.error(error);
-    toast.error("Upload failed");
+    toast.error(error?.message || "Failed to upload avatar");
   } finally {
     setIsUploading(false);
   }
 };
 
+const handleCropCancel = () => {
+  setCropperOpen(false);
+  setImageToCrop(null);
+  setCrop({ x: 0, y: 0 });
+  setZoom(1);
+  setCroppedAreaPixels(null);
+};
 
 
-  const handleCropCancel = () => {
-    setCropperOpen(false);
-    setImageToCrop(null);
-    setCrop({ x: 0, y: 0 });
-    setZoom(1);
-  };
 
   const handleSaveProfile = async () => {
     if (!currentUser) return;
