@@ -158,6 +158,7 @@ export default function ProfilePage() {
 
   const [isUploading, setIsUploading] = useState(false);
 
+  
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) {
@@ -195,22 +196,39 @@ export default function ProfilePage() {
   };
 
   const handleCropConfirm = async () => {
-    if (!imageToCrop || !croppedAreaPixels) return;
-    
-    setIsUploading(true);
-    try {
-      const croppedImage = await getCroppedImg(imageToCrop, croppedAreaPixels);
-      setEditForm(prev => ({ ...prev, avatar: croppedImage }));
-      setSelectedPresetId(null);
-      setCropperOpen(false);
-      setImageToCrop(null);
-      toast.success("Image cropped successfully!");
-    } catch (error) {
-      toast.error("Failed to crop image");
-    } finally {
-      setIsUploading(false);
-    }
-  };
+  if (!imageToCrop || !croppedAreaPixels) return;
+
+  setIsUploading(true);
+  try {
+    // Crop to a DataURL (you already have getCroppedImg)
+    const croppedImage = await getCroppedImg(imageToCrop, croppedAreaPixels);
+
+    // Upload cropped image to server -> server returns a real URL
+    const res = await fetch("/api/profile/avatar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image: croppedImage }),
+    });
+
+    if (!res.ok) throw new Error(await res.text());
+
+    const { avatarUrl } = (await res.json()) as { avatarUrl: string };
+
+    // Save the real URL into the edit form (this is what Save Changes should persist)
+    setEditForm((prev) => ({ ...prev, avatar: avatarUrl }));
+    setSelectedPresetId(null);
+
+    setCropperOpen(false);
+    setImageToCrop(null);
+    toast.success("Avatar uploaded!");
+  } catch (error: any) {
+    console.error(error);
+    toast.error(error?.message || "Failed to upload avatar");
+  } finally {
+    setIsUploading(false);
+  }
+};
+
 
   const handleCropCancel = () => {
     setCropperOpen(false);
