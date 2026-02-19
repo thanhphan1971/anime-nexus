@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, lazy, Suspense } from "react";
 import { useParams, Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -17,8 +17,10 @@ import { usePosts, useUpdateUser, useUserByHandle, useUser, usePresetAvatars, us
 import { Progress } from "@/components/ui/progress";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
-import Cropper from "react-easy-crop";
 import type { Area } from "react-easy-crop";
+
+const Cropper = lazy(() => import("react-easy-crop"));
+
 
 const createImage = (url: string): Promise<HTMLImageElement> =>
   new Promise((resolve, reject) => {
@@ -432,17 +434,20 @@ export default function ProfilePage() {
           <div className="p-4 space-y-4">
             <div className="relative h-72 w-full bg-black rounded-lg overflow-hidden">
               {imageToCrop && (
-                <Cropper
-                  image={imageToCrop}
-                  crop={crop}
-                  zoom={zoom}
-                  aspect={1}
-                  cropShape="round"
-                  showGrid={false}
-                  onCropChange={setCrop}
-                  onCropComplete={onCropComplete}
-                  onZoomChange={setZoom}
-                />
+               <Suspense fallback={null}>
+  <Cropper
+    image={imageToCrop}
+    crop={crop}
+    zoom={zoom}
+    aspect={1}
+    cropShape="round"
+    showGrid={false}
+    onCropChange={setCrop}
+    onCropComplete={onCropComplete}
+    onZoomChange={setZoom}
+  />
+</Suspense>
+
               )}
             </div>
             

@@ -104,6 +104,27 @@ function Router() {
       setOnboardingChecked(true);
     }
   }, [user, isLoading]);
+  
+  // ✅ Prefetch high-frequency pages after login (idle time)
+useEffect(() => {
+  // Do not prefetch if:
+  // - user not loaded
+  // - auth still loading
+  // - onboarding is showing
+  if (!user || isLoading || showOnboarding) return;
+
+  const prefetch = () => {
+    import("@/pages/ProfilePage");
+    import("@/pages/TokenShopPage");
+  };
+
+  if ("requestIdleCallback" in window) {
+    (window as any).requestIdleCallback(prefetch);
+  } else {
+    setTimeout(prefetch, 1500);
+  }
+}, [user, isLoading, showOnboarding]);
+
 
   const handleOnboardingComplete = () => {
     if (user) {
