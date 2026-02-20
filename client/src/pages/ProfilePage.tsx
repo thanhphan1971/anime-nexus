@@ -1,5 +1,5 @@
 import { authFetch } from "@/lib/authFetch";
-import { useState, useCallback, lazy, Suspense } from "react";
+import { useState, useCallback, lazy, Suspense, useRef } from "react";
 import { useParams, Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -158,7 +158,24 @@ export default function ProfilePage() {
     toast.success("New avatar generated!");
   };
 
-  const [isUploading, setIsUploading] = useState(false);
+const [isUploading, setIsUploading] = useState(false);
+
+// File picker ref (reliable trigger inside Dialog)
+const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+const openFilePicker = () => {
+  console.log("[upload] openFilePicker()");
+  const el = fileInputRef.current;
+  console.log("[upload] fileInputRef.current =", el);
+
+  if (!el) {
+    toast.error("Upload control not ready. Refresh and try again.");
+    return;
+  }
+
+  el.value = ""; // allow selecting the same file again
+  el.click();
+};
 
   
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -376,19 +393,28 @@ const handleCropCancel = () => {
               </div>
               
               <div className="flex flex-col gap-3 w-full">
-                <label className="w-full">
-                  <div className="flex items-center justify-center gap-2 px-4 py-2 rounded-md border border-white/20 bg-white/5 hover:bg-white/10 cursor-pointer transition-colors">
-                    <Upload className="h-4 w-4" />
-                    <span className="text-sm font-medium">Upload Image</span>
-                  </div>
-                  <input
-                    type="file"
-                    accept="image/png,image/jpeg,image/gif,image/webp"
-                    onChange={handleImageUpload}
-                    className="hidden"
-                    data-testid="input-avatar-upload"
-                  />
-                </label>
+                <div className="w-full">
+                  <Button
+  type="button"
+  variant="outline"
+  className="w-full border-white/20 bg-white/5 hover:bg-white/10"
+  onClick={openFilePicker}
+  disabled={isUploading}
+  data-testid="button-avatar-upload"
+>
+  <Upload className="h-4 w-4 mr-2" />
+  Upload Image
+</Button>
+
+<input
+  ref={fileInputRef}
+  type="file"
+  accept="image/png,image/jpeg,image/gif,image/webp"
+  onChange={handleImageUpload}
+  className="sr-only"
+  data-testid="input-avatar-upload"
+/>
+                </div>
                 
                 <Button 
                   type="button" 
