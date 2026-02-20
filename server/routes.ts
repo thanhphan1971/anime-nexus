@@ -3761,7 +3761,7 @@ app.post("/api/market/listings/:id/purchase", verifySupabaseToken, async (req, r
   });
 
   // Media upload routes
-  app.post("/api/media/upload-url", async (req, res) => {
+  app.post("/api/media/upload-url", verifySupabaseToken, async (req, res) => {
     try {
       if (!(req as any).userId) {
         return res.status(401).json({ error: "Not authenticated" });
