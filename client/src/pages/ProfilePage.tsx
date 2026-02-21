@@ -588,9 +588,14 @@ const handleCropCancel = () => {
 
         {/* Profile Info Overlay */}
         <div className="px-4 md:px-8 relative -mt-16 md:-mt-20 flex flex-col md:flex-row items-end md:items-end gap-6">
-          <div className="h-32 w-32 md:h-40 md:w-40 rounded-2xl border-4 border-background overflow-hidden shadow-2xl bg-background">
-            <img src={profileUser.avatar} alt={profileUser.name} className="h-full w-full object-cover" data-testid="img-profile-avatar" />
-          </div>
+          <div className="h-32 w-32 md:h-40 md:w-40 shrink-0 rounded-full border-4 border-background overflow-hidden shadow-2xl bg-background flex items-center justify-center">
+  <img
+    src={profileUser.avatar || "/default-avatar.png"}
+    alt={profileUser.name}
+    className="h-full w-full object-cover"
+    data-testid="img-profile-avatar"
+  />
+</div>
           
           <div className="flex-1 pb-2 text-center md:text-left">
             <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 mb-1">
