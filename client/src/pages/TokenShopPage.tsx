@@ -53,7 +53,9 @@ interface ParentInfo {
 
 export default function TokenShopPage() {
   const { user } = useAuth();
-  const [selectedPackage, setSelectedPackage] = useState<typeof TOKEN_PACKAGES[0] | null>(null);
+  const hasMadePurchase = Boolean((user as any)?.hasMadePurchase);
+  const showFirstPurchaseBonus = !hasMadePurchase;
+  const [selectedPackage, setSelectedPackage] = useState<typeof   TOKEN_PACKAGES[0] | null>(null);
   const [showPurchaseDialog, setShowPurchaseDialog] = useState(false);
   const [showRequestDialog, setShowRequestDialog] = useState(false);
   const [agreesToTerms, setAgreesToTerms] = useState(false);
@@ -284,9 +286,15 @@ export default function TokenShopPage() {
                 {pkg.popular && (
                   <div className="absolute top-0 right-0 bg-yellow-500 text-black text-xs font-bold px-3 py-1 rounded-bl-lg">
                     BEST VALUE
+                   </div>
+                )}
+
+                {showFirstPurchaseBonus && !isMinor && (
+                  <div className="absolute top-0 left-0 bg-green-500 text-black text-xs font-bold px-3 py-1 rounded-br-lg">
+                    FIRST PURCHASE +20%
                   </div>
                 )}
-                <CardHeader className="pb-2">
+                <CardHeader className="pb-2 pt-6">
                   <CardTitle className="flex items-center gap-2">
                     {pkg.popular ? <Star className="h-5 w-5 text-yellow-400 fill-yellow-400" /> : <Sparkles className="h-5 w-5 text-purple-400" />}
                     {pkg.name}
@@ -310,8 +318,8 @@ export default function TokenShopPage() {
                     <span className="text-muted-foreground text-sm ml-1">USD</span>
                   </div>
                   <p className="text-xs text-center text-muted-foreground">
-                    {((pkg.tokens + pkg.bonus) / pkg.price).toFixed(0)} tokens per dollar
-                  </p>
+  ≈{Math.round((pkg.tokens + pkg.bonus) / pkg.price)} tokens / $1
+</p>
                 </CardContent>
                 <CardFooter>
                   <Button 
