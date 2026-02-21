@@ -179,16 +179,20 @@ const openFilePicker = () => {
 
   
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-  console.log("[upload] handleImageUpload fired", e.target.files?.[0]);
+  console.log("[upload] change fired", {
+    hasFiles: !!e.target.files,
+    count: e.target.files?.length,
+  });
 
   const file = e.target.files?.[0];
+
+  console.log("[upload] selected file", file);
 
   // ✅ Required for TypeScript safety
   if (!file) {
     toast.error("No file selected");
     return;
   }
-
   // ✅ Allow up to 10MB
   if (file.size > 10 * 1024 * 1024) {
     console.warn("[upload] rejected: file too large", file.size);
@@ -227,7 +231,7 @@ const openFilePicker = () => {
     
 
   const handleCropConfirm = async () => {
-  if (!imageToCrop || !croppedAreaPixels) return;
+      if (!imageToCrop || !croppedAreaPixels) return;
 
   setIsUploading(true);
 
