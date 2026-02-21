@@ -179,45 +179,52 @@ const openFilePicker = () => {
 
   
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    console.log("[upload] handleImageUpload fired", e.target.files?.[0]);
+  console.log("[upload] handleImageUpload fired", e.target.files?.[0]);
 
-    const file = e.target.files?.[0];
-    if (!file) {
-      toast.error("No file selected");
-      return;
-    }
-    
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error("Image must be less than 2MB");
-      return;
-    }
+  const file = e.target.files?.[0];
 
-    if (!file.type.startsWith('image/')) {
-      toast.error("Please select an image file");
-      return;
-    }
-    
-    const reader = new FileReader();
-    
-   reader.onload = () => {
-  const result = reader.result as string;
-  console.log("[upload] FileReader loaded");
-  console.log("[upload] opening cropper", { len: result?.length });
+  // ✅ Required for TypeScript safety
+  if (!file) {
+    toast.error("No file selected");
+    return;
+  }
 
-  setImageToCrop(result);
-  setCrop({ x: 0, y: 0 });
-  setZoom(1);
-  setCropperOpen(true);
+  // ✅ Allow up to 10MB
+  if (file.size > 10 * 1024 * 1024) {
+    console.warn("[upload] rejected: file too large", file.size);
+    toast.error("Image must be less than 10MB");
+    return;
+  }
+
+  if (!file.type.startsWith("image/")) {
+    toast.error("Please select an image file");
+    return;
+  }
+
+  const reader = new FileReader();
+
+  reader.onload = () => {
+    const result = reader.result as string;
+    console.log("[upload] FileReader loaded");
+    console.log("[upload] opening cropper", { len: result?.length });
+
+    setImageToCrop(result);
+    setCrop({ x: 0, y: 0 });
+    setZoom(1);
+    setCropperOpen(true);
+  };
+
+  reader.onerror = () => {
+    toast.error("Failed to read image file");
+  };
+
+  reader.readAsDataURL(file);
+
+  // Allow selecting the same file again
+  e.target.value = "";
 };
     
-    reader.onerror = () => {
-      toast.error("Failed to read image file");
-    };
     
-    reader.readAsDataURL(file);
-    
-    e.target.value = '';
-  };
 
   const handleCropConfirm = async () => {
   if (!imageToCrop || !croppedAreaPixels) return;
