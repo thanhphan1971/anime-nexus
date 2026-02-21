@@ -3795,7 +3795,7 @@ app.post("/api/market/listings/:id/purchase", verifySupabaseToken, async (req, r
     }
   });
 
-  app.post("/api/media/complete", async (req, res) => {
+  app.post("/api/media/complete", verifySupabaseToken, async (req, res) => {
     try {
       if (!(req as any).userId) {
         return res.status(401).json({ error: "Not authenticated" });
