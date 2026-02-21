@@ -3761,39 +3761,46 @@ app.post("/api/market/listings/:id/purchase", verifySupabaseToken, async (req, r
   });
 
   // Media upload routes
-  app.post("/api/media/upload-url", verifySupabaseToken, async (req, res) => {
-    try {
-      if (!(req as any).userId) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
-
-      const { contentType, sizeBytes, kind } = req.body;
-
-      if (!contentType || !sizeBytes || !kind) {
-        return res.status(400).json({ error: "Missing required fields: contentType, sizeBytes, kind" });
-      }
-
-      const validKinds = ['post', 'story', 'avatar', 'card'];
-      if (!validKinds.includes(kind)) {
-        return res.status(400).json({ error: "Invalid kind. Must be: post, story, avatar, or card" });
-      }
-
-      const { getMediaAdapter } = await import('./media/adapter');
-      const adapter = getMediaAdapter();
-
-      const result = await adapter.getSignedUploadUrl({
-        userId: (req as any).userId,
-        contentType,
-        sizeBytes,
-        kind,
-      });
-
-      res.json(result);
-    } catch (error: any) {
-      console.error("Upload URL error:", error);
-      res.status(500).json({ error: error.message });
+app.post("/api/media/upload-url", verifySupabaseToken, async (req, res) => {
+  try {
+    if (!(req as any).userId) {
+      return res.status(401).json({ error: "Not authenticated" });
     }
-  });
+
+    const { sizeBytes, kind } = req.body;
+    const contentType = req.body.contentType ?? req.body.mimeType; // accept both names
+
+    const sizeBytesNum = Number(sizeBytes);
+
+    if (!contentType || !kind || !Number.isFinite(sizeBytesNum) || sizeBytesNum <= 0) {
+      return res.status(400).json({
+        error: "Missing or invalid fields: contentType/mimeType, sizeBytes, kind",
+      });
+    }
+
+    const validKinds = ["post", "story", "avatar", "card"];
+    if (!validKinds.includes(kind)) {
+      return res.status(400).json({
+        error: "Invalid kind. Must be: post, story, avatar, or card",
+      });
+    }
+
+    const { getMediaAdapter } = await import("./media/adapter");
+    const adapter = getMediaAdapter();
+
+    const result = await adapter.getSignedUploadUrl({
+      userId: (req as any).userId,
+      contentType,
+      sizeBytes: sizeBytesNum,   // ✅ use the validated number
+      kind,
+    });
+
+    res.json(result);
+  } catch (error: any) {
+    console.error("Upload URL error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
   app.post("/api/media/complete", verifySupabaseToken, async (req, res) => {
     try {
@@ -3801,10 +3808,21 @@ app.post("/api/market/listings/:id/purchase", verifySupabaseToken, async (req, r
         return res.status(401).json({ error: "Not authenticated" });
       }
 
-      const { objectKey, kind, mimeType, sizeBytes, metadata } = req.body;
+      const { objectKey, kind, sizeBytes, metadata } = req.body;
+      const mimeType = req.body.mimeType ?? req.body.contentType; // accept both
+      const sizeBytesNum = Number(sizeBytes);
 
-      if (!objectKey || !kind || !mimeType || !sizeBytes) {
-        return res.status(400).json({ error: "Missing required fields: objectKey, kind, mimeType, sizeBytes" });
+      if (
+        !objectKey ||
+        !kind ||
+        !mimeType ||
+        !Number.isFinite(sizeBytesNum) ||
+        sizeBytesNum <= 0
+      ) {
+        return res.status(400).json({
+          error:
+            "Missing or invalid fields: objectKey, kind, mimeType/contentType, sizeBytes",
+        });
       }
 
       const { getMediaAdapter } = await import('./media/adapter');
@@ -3817,26 +3835,41 @@ app.post("/api/market/listings/:id/purchase", verifySupabaseToken, async (req, r
         metadata,
       });
 
-      const expiresAt = kind === 'story' ? new Date(Date.now() + 24 * 60 * 60 * 1000) : undefined;
+      // ✅ Fail fast if storage didn’t finalize correctly
+      if (!finalizeResult?.publicUrl) {
+        return res.status(400).json({
+          error: "Finalize failed: missing publicUrl",
+        });
+      }
 
+      // Story expiration (24h)
+      const expiresAt =
+        kind === "story"
+          ? new Date(Date.now() + 24 * 60 * 60 * 1000)
+          : undefined;
+
+      // Save media record
       const mediaRecord = await storage.createMedia({
         userId: (req as any).userId,
-        storageProvider: process.env.MEDIA_PROVIDER || 'supabase',
-        bucket: 'media',
+        storageProvider: process.env.MEDIA_PROVIDER || "supabase",
+        bucket: "media",
         objectKey,
         mimeType,
-        sizeBytes,
+        sizeBytes: sizeBytesNum,
         kind,
         publicUrl: finalizeResult.publicUrl,
         metadata: metadata || null,
         expiresAt,
       });
 
-      res.json({
+      // Response to client
+      return res.json({
         id: mediaRecord.id,
         publicUrl: mediaRecord.publicUrl,
         objectKey: mediaRecord.objectKey,
       });
+
+     
     } catch (error: any) {
       console.error("Media complete error:", error);
       res.status(500).json({ error: error.message });
