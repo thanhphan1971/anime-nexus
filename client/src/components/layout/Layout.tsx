@@ -36,7 +36,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { icon: Users, label: "Find Nakama", path: "/friends" },
     { icon: MessageSquare, label: "Communities", path: "/communities" },
     { icon: Layers, label: "Cards", path: "/cards" },
-    ...(tokenShopEnabled ? [{ icon: Coins, label: "Token Shop", path: "/tokens" }] : []),
+    { icon: Coins, label: "Token Shop", path: "/tokens" },
     { icon: PlayCircle, label: "Watch List", path: "/watchlist" },
     { icon: PlusSquare, label: "Create", path: "/create" },
     { icon: User, label: "Profile", path: "/profile" },
