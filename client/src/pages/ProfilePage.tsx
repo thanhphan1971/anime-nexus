@@ -179,6 +179,8 @@ const openFilePicker = () => {
 
   
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    console.log("[upload] handleImageUpload fired", e.target.files?.[0]);
+
     const file = e.target.files?.[0];
     if (!file) {
       toast.error("No file selected");
@@ -197,13 +199,16 @@ const openFilePicker = () => {
     
     const reader = new FileReader();
     
-    reader.onload = () => {
-      const result = reader.result as string;
-      setImageToCrop(result);
-      setCrop({ x: 0, y: 0 });
-      setZoom(1);
-      setCropperOpen(true);
-    };
+   reader.onload = () => {
+  const result = reader.result as string;
+  console.log("[upload] FileReader loaded");
+  console.log("[upload] opening cropper", { len: result?.length });
+
+  setImageToCrop(result);
+  setCrop({ x: 0, y: 0 });
+  setZoom(1);
+  setCropperOpen(true);
+};
     
     reader.onerror = () => {
       toast.error("Failed to read image file");
