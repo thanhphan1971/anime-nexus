@@ -187,6 +187,23 @@ export default function TokenShopPage() {
           </div>
         </div>
       </div>
+      
+      {/* First Purchase Welcome Banner */}
+     {showFirstPurchaseBonus && !isMinor && (
+      <div className="mt-4 bg-green-500/10 border border-green-500/30 rounded-xl p-4">
+        <div className="flex items-start gap-3">
+          <Gift className="h-5 w-5 text-green-400 mt-0.5" />
+          <div>
+            <p className="font-bold text-green-300">
+          Welcome Bonus Available
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Get <span className="text-green-400 font-semibold">+20% extra tokens</span> on your first purchase. This one-time welcome bonus will be applied automatically when purchases are enabled.
+            </p>
+          </div>
+        </div>
+      </div>
+    )}
 
       {/* Minor Purchase Info Banner */}
       {isMinor && parentInfo?.hasParent && (
@@ -284,16 +301,18 @@ export default function TokenShopPage() {
                 data-testid={`package-${pkg.id}`}
               >
                 {pkg.popular && (
-                  <div className="absolute top-0 right-0 bg-yellow-500 text-black text-xs font-bold px-3 py-1 rounded-bl-lg">
-                    BEST VALUE
-                   </div>
-                )}
+  <div className="absolute top-0 right-0 bg-yellow-500 text-black text-xs font-bold px-3 py-1 rounded-bl-lg">
+    BEST VALUE
+  </div>
+)}
 
-                {showFirstPurchaseBonus && !isMinor && (
-                  <div className="absolute top-0 left-0 bg-green-500 text-black text-xs font-bold px-3 py-1 rounded-br-lg">
-                    FIRST PURCHASE +20%
-                  </div>
-                )}
+{showFirstPurchaseBonus && !isMinor && pkg.popular && (
+  <div className="absolute top-0 left-0 bg-green-500 text-black text-xs font-bold px-3 py-1 rounded-br-lg">
+    FIRST PURCHASE +20%
+  </div>
+)}
+
+                
                 <CardHeader className="pb-2 pt-6">
                   <CardTitle className="flex items-center gap-2">
                     {pkg.popular ? <Star className="h-5 w-5 text-yellow-400 fill-yellow-400" /> : <Sparkles className="h-5 w-5 text-purple-400" />}
@@ -302,23 +321,31 @@ export default function TokenShopPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="text-center py-4">
-                    <div className="flex items-center justify-center gap-2">
-                      <Coins className="h-8 w-8 text-yellow-400" />
-                      <span className="text-4xl font-bold font-mono text-white">{pkg.tokens.toLocaleString()}</span>
-                    </div>
-                    {pkg.bonus > 0 && (
-                      <Badge className="mt-2 bg-green-500/20 text-green-400 border-green-500/50">
-                        <Gift className="h-3 w-3 mr-1" />
-                        +{pkg.bonus} Bonus Tokens
-                      </Badge>
-                    )}
-                  </div>
+  <div className="flex items-center justify-center gap-2">
+    <Coins className="h-8 w-8 text-yellow-400" />
+    <span className="text-4xl font-bold font-mono text-white">
+      {(pkg.tokens + pkg.bonus).toLocaleString()}
+    </span>
+  </div>
+
+  {pkg.bonus > 0 && (
+    <div className="mt-1">
+      <div className="text-sm text-green-400 font-medium">
+        {pkg.tokens.toLocaleString()} + {pkg.bonus.toLocaleString()} bonus
+      </div>
+      <div className="text-xs text-white/60">
+        Includes bonus tokens
+      </div>
+    </div>
+  )}
+</div>
+                 
                   <div className="text-center">
                     <span className="text-3xl font-bold text-white">${pkg.price}</span>
                     <span className="text-muted-foreground text-sm ml-1">USD</span>
                   </div>
                   <p className="text-xs text-center text-muted-foreground">
-  ≈{Math.round((pkg.tokens + pkg.bonus) / pkg.price)} tokens / $1
+  ≈${(pkg.price / ((pkg.tokens + pkg.bonus) / 1000)).toFixed(2)} per 1K tokens
 </p>
                 </CardContent>
                 <CardFooter>
