@@ -31,6 +31,8 @@ import {
   type InsertParentalControls,
   type PurchaseRequest,
   type InsertPurchaseRequest,
+  type TokenPurchase,          // ✅ ADD
+  type InsertTokenPurchase,    // ✅ ADD
   type TokenLedger,
   type InsertTokenLedger,
   type ParentNotification,
@@ -77,6 +79,7 @@ import {
   parentChildLinks,
   parentalControls,
   purchaseRequests,
+  tokenPurchases,   // ✅ ADD THIS
   tokenLedger,
   parentNotifications,
   siteSettings,
@@ -1633,61 +1636,108 @@ export class DbStorage implements IStorage {
   }
   
   async grantTokensForExpiredPayment(id: string, adminId: string): Promise<PurchaseRequest | undefined> {
-    const request = await this.getPurchaseRequestById(id);
-    if (!request || request.status !== 'EXPIRED_AFTER_PAYMENT') {
-      return undefined;
-    }
-    
-    // Check if tokens already granted (idempotent)
-    const existingLedger = await this.getTokenLedgerByPurchaseRequest(id);
-    if (existingLedger) {
-      return request; // Already granted
-    }
-    
-    // Credit tokens to child
-    const child = await this.getUser(request.childUserId);
-    if (!child) return undefined;
-    
-    await this.updateUser(request.childUserId, {
-      tokens: child.tokens + request.totalTokens
-    });
-    
-    // Record in token ledger with admin grant reason
-    await this.createTokenLedgerEntry({
-      userId: request.childUserId,
-      source: 'ADMIN_GRANT_EXPIRED_AFTER_PAYMENT',
-      purchaseRequestId: id,
-      deltaTokens: request.totalTokens,
-    });
-    
-    // Update status
-    const result = await db
-      .update(purchaseRequests)
-      .set({ 
-        status: 'PAID_ADMIN_GRANTED',
-        fulfilledAt: new Date(),
-        updatedAt: new Date()
-      })
-      .where(eq(purchaseRequests.id, id))
-      .returning();
-    
-    // Audit log
-    await this.createAdminAuditLog({
-      adminId,
-      action: 'GRANT_TOKENS',
-      targetType: 'purchase_request',
-      targetId: id,
-      details: {
-        previousStatus: request.status,
-        newStatus: 'PAID_ADMIN_GRANTED',
-        tokensGranted: request.totalTokens,
-        childId: request.childUserId,
-        parentId: request.parentUserId,
-      },
-    });
-    
-    return result[0];
+  const request = await this.getPurchaseRequestById(id);
+  if (!request || request.status !== "EXPIRED_AFTER_PAYMENT") {
+    return undefined;
   }
+
+  // Idempotent: if already granted via ledger, do nothing
+  const existingLedger = await this.getTokenLedgerByPurchaseRequest(id);
+  if (existingLedger) {
+    return request;
+  }
+
+  const child = await this.getUser(request.childUserId);
+  if (!child) return undefined;
+
+  const tokensToGrant = request.totalTokens;
+
+  // Stripe / payment info (may be null for admin/manual cases)
+  const stripeSessionId = request.stripeCheckoutSessionId ?? null;
+  const stripePaymentId = request.stripePaymentIntentId ?? null;
+  const currency = request.currency ?? "usd";
+  const amountPaid = request.unitAmountCents ?? 0;
+
+  // 1) Insert into token_purchases (for revenue + attribution)
+  if (stripeSessionId) {
+    await db
+      .insert(tokenPurchases)
+      .values({
+        userId: request.childUserId,
+        packageId: null,
+        tokenAmount: tokensToGrant,
+        amountPaid,
+        currency,
+        stripePaymentId,
+        stripeSessionId,
+        status: "succeeded",
+        isMinorPurchase: !!child.isMinor,
+        parentNotified: false,
+        createdAt: new Date(),
+        completedAt: new Date(),
+      })
+      .onConflictDoNothing({ target: tokenPurchases.stripeSessionId });
+  } else {
+    // No Stripe session — still create a synthetic purchase row
+    await db.insert(tokenPurchases).values({
+      userId: request.childUserId,
+      packageId: null,
+      tokenAmount: tokensToGrant,
+      amountPaid: 0,
+      currency,
+      stripePaymentId: null,
+      stripeSessionId: null,
+      status: "succeeded",
+      isMinorPurchase: !!child.isMinor,
+      parentNotified: false,
+      createdAt: new Date(),
+      completedAt: new Date(),
+    });
+  }
+
+  // 2) Credit tokens
+  await this.updateUser(request.childUserId, {
+    tokens: child.tokens + tokensToGrant,
+  });
+
+  // 3) Token ledger (your existing audit trail)
+  await this.createTokenLedgerEntry({
+    userId: request.childUserId,
+    source: "ADMIN_GRANT_EXPIRED_AFTER_PAYMENT",
+    purchaseRequestId: id,
+    deltaTokens: tokensToGrant,
+  });
+
+  // 4) Update purchase request status
+  const result = await db
+    .update(purchaseRequests)
+    .set({
+      status: "PAID_ADMIN_GRANTED",
+      fulfilledAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(eq(purchaseRequests.id, id))
+    .returning();
+
+  // 5) Admin audit log
+  await this.createAdminAuditLog({
+    adminId,
+    action: "GRANT_TOKENS",
+    targetType: "purchase_request",
+    targetId: id,
+    details: {
+      previousStatus: request.status,
+      newStatus: "PAID_ADMIN_GRANTED",
+      tokensGranted: tokensToGrant,
+      childId: request.childUserId,
+      parentId: request.parentUserId,
+      stripeSessionId,
+      stripePaymentId,
+    },
+  });
+
+  return result[0];
+}
   
   async markPurchaseResolved(id: string, adminId: string): Promise<PurchaseRequest | undefined> {
     const request = await this.getPurchaseRequestById(id);

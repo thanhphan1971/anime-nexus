@@ -392,8 +392,8 @@ export const tokenPurchases = pgTable("token_purchases", {
   tokenAmount: integer("token_amount").notNull(),
   amountPaid: integer("amount_paid").notNull(), // in cents
   currency: text("currency").notNull().default('usd'),
-  stripePaymentId: text("stripe_payment_id"),
-  stripeSessionId: text("stripe_session_id"),
+  stripePaymentId: text("stripe_payment_id").unique(),   // ✅ add unique
+  stripeSessionId: text("stripe_session_id").unique(),   // ✅ add unique
   status: text("status").notNull().default('pending'), // pending, completed, failed, refunded
   isMinorPurchase: boolean("is_minor_purchase").notNull().default(false),
   parentNotified: boolean("parent_notified").notNull().default(false),

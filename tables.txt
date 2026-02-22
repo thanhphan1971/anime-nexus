@@ -1,0 +1,47 @@
+                  List of relations
+ Schema |          Name           | Type  |  Owner   
+--------+-------------------------+-------+----------
+ public | admin_audit_log         | table | postgres
+ public | anime_cache             | table | postgres
+ public | badges                  | table | postgres
+ public | card_categories         | table | postgres
+ public | cards                   | table | postgres
+ public | challenge_submissions   | table | postgres
+ public | communities             | table | postgres
+ public | community_challenges    | table | postgres
+ public | community_channels      | table | postgres
+ public | community_events        | table | postgres
+ public | community_members       | table | postgres
+ public | community_messages      | table | postgres
+ public | community_polls         | table | postgres
+ public | draw_entries            | table | postgres
+ public | draw_winners            | table | postgres
+ public | draws                   | table | postgres
+ public | event_attendees         | table | postgres
+ public | game_activity_log       | table | postgres
+ public | game_events             | table | postgres
+ public | game_sessions           | table | postgres
+ public | market_listings         | table | postgres
+ public | media                   | table | postgres
+ public | parent_child_links      | table | postgres
+ public | parent_notifications    | table | postgres
+ public | parental_controls       | table | postgres
+ public | poll_votes              | table | postgres
+ public | post_likes              | table | postgres
+ public | posts                   | table | postgres
+ public | prizes                  | table | postgres
+ public | purchase_requests       | table | postgres
+ public | security_metrics_events | table | postgres
+ public | site_settings           | table | postgres
+ public | stories                 | table | postgres
+ public | swipe_actions           | table | postgres
+ public | token_ledger            | table | postgres
+ public | token_packages          | table | postgres
+ public | token_purchases         | table | postgres
+ public | user_badges             | table | postgres
+ public | user_cards              | table | postgres
+ public | user_daily_game_stats   | table | postgres
+ public | users                   | table | postgres
+ public | watchlist_items         | table | postgres
+(42 rows)
+
