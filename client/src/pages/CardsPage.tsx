@@ -94,35 +94,45 @@ export default function CardsPage() {
     }
   };
 
-  const handleSummon = async () => {
-    if (!user || user.tokens < 100) {
-      toast.error("Insufficient tokens! Need 100 tokens to summon.");
-      return;
-    }
+  const handleSummon = async (count: 1 | 10 = 1) => {
+  const cost = 100 * count;
 
-    try {
-      const result = await summonCards.mutateAsync();
-      setReward(result.cards);
-      setHasShared(false);
-      setShareDismissed(false);
-      await refreshUser();
-      toast.success(`Summoned ${result.cards?.length || 1} card(s)!`);
-      
-      if (result.showPaidSummonReminder) {
-        setTimeout(() => {
-          toast.info(
-            "You've summoned a lot today.\nFree daily summons reset at 7:00 PM.",
-            {
-              description: "Weekly and monthly draws are capped for fairness.",
-              duration: 6000,
-            }
-          );
-        }, 1500);
-      }
-    } catch (error: any) {
-      toast.error(error.message || "Summon failed");
+  if (!user) {
+    toast.error("Please sign in to summon");
+    return;
+  }
+
+  if ((user.tokens || 0) < cost) {
+    toast.error(`Insufficient tokens! Need ${cost} tokens to pull x${count}.`);
+    return;
+  }
+
+  try {
+    const result = await summonCards.mutateAsync({ count });
+
+    setReward(result.cards);
+    setHasShared(false);
+    setShareDismissed(false);
+
+    await refreshUser();
+
+    toast.success(`Pulled x${count}: received ${result.cards?.length || 0} card(s)!`);
+
+    if (result.showPaidSummonReminder) {
+      setTimeout(() => {
+        toast.info(
+          "You've summoned a lot today.\nFree daily summons reset at 7:00 PM.",
+          {
+            description: "Weekly and monthly draws are capped for fairness.",
+            duration: 6000,
+          }
+        );
+      }, 1500);
     }
-  };
+  } catch (error: any) {
+    toast.error(error.message || "Summon failed");
+  }
+};
 
   const handleShareToFeed = async () => {
     if (!reward) return;
@@ -308,16 +318,38 @@ export default function CardsPage() {
                       <span className="text-xs text-muted-foreground">Current Balance</span>
                     </div>
                     
-                    <Button 
-                      size="lg" 
-                      onClick={handleSummon} 
-                      disabled={(user?.tokens || 0) < 100}
-                      className="mt-4 bg-gradient-to-r from-yellow-600 to-amber-600 hover:from-yellow-500 hover:to-amber-500 disabled:opacity-50 text-white font-bold px-6 w-full"
-                      data-testid="button-paid-summon"
-                    >
-                      <Sparkles className="h-5 w-5 mr-2" />
-                      Summon (100 Tokens)
-                    </Button>
+                    <div className="mt-4 space-y-2 w-full">
+
+  {/* Pull x10 — Primary */}
+  <Button
+    size="lg"
+    onClick={() => handleSummon(10)} // Pass 10 for x10 pulls
+    disabled={(user?.tokens || 0) < 1000} // Requires 1000 tokens for 10 pulls
+    className="w-full bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-400 hover:to-amber-400 text-black font-bold py-6 text-lg shadow-lg"
+    data-testid="button-paid-summon-10"
+  >
+    <Sparkles className="h-5 w-5 mr-2" />
+    Pull x10 (1000 Tokens)
+  </Button>
+
+  <p className="text-[11px] text-center text-muted-foreground">
+    Best value • Faster opening
+  </p>
+
+  {/* Pull x1 — Secondary */}
+  <Button
+    variant="outline"
+    size="sm"
+    onClick={() => handleSummon(1)} // Pass 1 for single pull
+    disabled={(user?.tokens || 0) < 100} // Requires 100 tokens for single pull
+    className="w-full border-yellow-500/40 text-yellow-400 hover:bg-yellow-500/10"
+    data-testid="button-paid-summon-1"
+  >
+    <Sparkles className="h-5 w-5 mr-2" />
+    Pull x1 (100 Tokens)
+  </Button>
+
+</div>
                     
                     {(user?.tokens || 0) < 100 && (
                       <p className="text-xs text-red-400 mt-2">Not enough tokens</p>
