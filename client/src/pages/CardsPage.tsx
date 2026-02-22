@@ -324,7 +324,7 @@ export default function CardsPage() {
   <Button
     size="lg"
     onClick={() => handleSummon(10)} // Pass 10 for x10 pulls
-    disabled={(user?.tokens || 0) < 1000} // Requires 1000 tokens for 10 pulls
+    disabled={false} // Requires 1000 tokens for 10 pulls
     className="w-full bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-400 hover:to-amber-400 text-black font-bold py-6 text-lg shadow-lg"
     data-testid="button-paid-summon-10"
   >
