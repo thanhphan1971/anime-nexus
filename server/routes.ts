@@ -5343,6 +5343,110 @@ app.post("/api/stripe/checkout", verifySupabaseToken, async (req, res) => {
   }
 });
 
+  // ===================== TOKEN PACK CHECKOUT (ADULT) =====================
+app.post("/api/stripe/token-checkout", verifySupabaseToken, async (req: any, res) => {
+  try {
+    // 🔒 BILLING DISABLED GUARD
+    if (!stripeIsConfigured()) {
+      return res.status(503).json({
+        error: "Billing is temporarily disabled during launch testing.",
+        billingEnabled: false,
+      });
+    }
+
+    // ✅ Resolve internal user from Supabase identity
+    const user = await storage.getUserBySupabaseId(req.supabaseUser!.id);
+    if (!user) {
+      return res.status(401).json({ error: "User not found" });
+    }
+
+    // 🚫 Optional: hard-block minors (your UI already routes minors to parent approval)
+    if (user.isMinor) {
+      return res.status(403).json({ error: "Minor accounts require parent approval." });
+    }
+
+    // ------------------------------------
+    // 📦 INPUT
+    // ------------------------------------
+    const { packageId } = req.body ?? {};
+    if (!packageId) {
+      return res.status(400).json({ error: "packageId required" });
+    }
+
+    // Server-authoritative pricing (USD cents) + token amounts
+    const TOKEN_PACKS: Record<
+      string,
+      { name: string; amountInCents: number; tokenAmount: number }
+    > = {
+      first:    { name: "First Pull Pack", amountInCents: 99,   tokenAmount: 120 },
+      mini:     { name: "Mini Pack",       amountInCents: 299,  tokenAmount: 300 },
+      starter:  { name: "Starter Pack",    amountInCents: 499,  tokenAmount: 550 },
+      popular:  { name: "Popular Pack",    amountInCents: 999,  tokenAmount: 1200 },
+      value:    { name: "Value Pack",      amountInCents: 1999, tokenAmount: 2800 },
+      mega:     { name: "Mega Pack",       amountInCents: 3999, tokenAmount: 6800 },
+      ultimate: { name: "Ultimate Pack",   amountInCents: 7999, tokenAmount: 15000 },
+    };
+
+    const pack = TOKEN_PACKS[packageId];
+    if (!pack) {
+      return res.status(400).json({ error: "Invalid packageId" });
+    }
+
+    const { stripe } = await import("./stripeClient");
+
+    // ------------------------------------
+    // 🌍 BASE URL
+    // ------------------------------------
+    const baseUrl =
+      process.env.APP_BASE_URL ||
+      (process.env.REPLIT_DOMAINS
+        ? `https://${process.env.REPLIT_DOMAINS.split(",")[0]}`
+        : `${req.protocol}://${req.get("host")}`);
+
+    // ------------------------------------
+    // 💳 STRIPE CHECKOUT SESSION (ONE-TIME PAYMENT)
+    // ------------------------------------
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ["card"],
+      mode: "payment",
+
+      // Dynamic price data (no Stripe Price IDs needed)
+      line_items: [
+        {
+          price_data: {
+            currency: "usd",
+            unit_amount: pack.amountInCents,
+            product_data: {
+              name: pack.name,
+              description: `${pack.tokenAmount.toLocaleString()} tokens`,
+            },
+          },
+          quantity: 1,
+        },
+      ],
+
+      success_url: `${baseUrl}/tokens?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${baseUrl}/tokens?checkout=cancel`,
+
+      // Webhook will use these to credit tokens
+      metadata: {
+        type: "token_purchase",
+        userId: String(user.id),
+        packageId,
+        tokenAmount: String(pack.tokenAmount),
+        amountInCents: String(pack.amountInCents),
+      },
+    });
+
+    return res.json({ url: session.url, sessionId: session.id });
+  } catch (error: any) {
+    console.error("Token checkout error:", error);
+    return res.status(500).json({
+      error: error?.message || "Failed to create token checkout session",
+    });
+  }
+});
+
 // ===================== BILLING PORTAL (SAFE) =====================
 app.post("/api/stripe/portal", verifySupabaseToken, async (req: any, res: any) => {
   try {
