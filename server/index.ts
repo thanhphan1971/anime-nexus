@@ -267,129 +267,191 @@ app.post(
       return res.status(400).send(`Webhook Error: ${err.message}`);
     }
 
-    // ✅ Proof logs (we’ll wire DB update next)
-    try {
-      // Handle checkout.session.completed - new subscription
-      if (event.type === "checkout.session.completed") {
-        const session = event.data.object as Stripe.Checkout.Session;
-        console.log("checkout.session.completed", {
-          sessionId: session.id,
-          subscriptionId: session.subscription,
-          customerId: session.customer,
-          metadata: session.metadata,
+   // ✅ Proof logs (we’ll wire DB update next)
+try {
+  // -------------------------------------------------------
+  // checkout.session.completed
+  // -------------------------------------------------------
+  if (event.type === "checkout.session.completed") {
+    const session = event.data.object as Stripe.Checkout.Session;
+
+    console.log("checkout.session.completed", {
+      eventId: event.id,
+      sessionId: session.id,
+      mode: session.mode,
+      subscriptionId: session.subscription,
+      customerId: session.customer,
+      paymentStatus: session.payment_status,
+      metadata: session.metadata,
+    });
+
+    // A) SUBSCRIPTIONS
+    if (session.mode === "subscription") {
+      const userId = session.metadata?.userId;
+      const customerId = session.customer as string;
+      const subscriptionId = (session.subscription as string | null) || null;
+
+      if (!userId || !subscriptionId || !customerId) {
+        return res.json({ received: true });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) return res.json({ received: true });
+
+      if (user.stripeCustomerId !== customerId) {
+        console.error(
+          `Webhook security: Customer mismatch for user ${userId}. Expected ${user.stripeCustomerId}, got ${customerId}`
+        );
+        return res.json({ received: true });
+      }
+
+      const subscription: any = await stripe.subscriptions.retrieve(subscriptionId, {
+        expand: ["items.data.price"],
+      });
+
+      const interval = subscription?.items?.data?.[0]?.price?.recurring?.interval; // "month" | "year"
+      const subscriptionType =
+        interval === "year" ? "yearly" : interval === "month" ? "monthly" : null;
+
+      const periodEndSec = Number(subscription?.current_period_end || 0);
+      const premiumEndDate = periodEndSec ? new Date(periodEndSec * 1000) : null;
+
+      const willCancelAtPeriodEnd = !!subscription?.cancel_at_period_end;
+      const subscriptionStatus = willCancelAtPeriodEnd
+        ? "canceling"
+        : String(subscription?.status || "active");
+
+      await storage.updateUser(userId, {
+        stripeSubscriptionId: subscriptionId,
+        subscriptionStatus,
+        subscriptionType,
+        isPremium: true,
+        premiumStartDate: new Date(),
+        premiumEndDate,
+        sclassJoinedAt: new Date(),
+        willCancelAtPeriodEnd,
+      });
+
+      console.log(`User ${userId} subscription updated: ${subscriptionId}`);
+      return res.json({ received: true });
+    }
+
+    // B) ONE-TIME PAYMENTS (TOKEN PACKS / MINOR PURCHASES)
+    if (session.mode === "payment") {
+      if (session.payment_status !== "paid") {
+        return res.json({ received: true });
+      }
+
+      const type = session.metadata?.type;
+
+      if (type === "token_purchase") {
+        const userId = session.metadata?.userId;
+        const tokenAmount = parseInt(session.metadata?.tokenAmount || "0", 10);
+
+        if (!userId || tokenAmount <= 0) {
+          return res.json({ received: true });
+        }
+
+        const user = await storage.getUser(userId);
+        if (!user) return res.json({ received: true });
+
+        await storage.updateUser(userId, {
+          tokens: (user.tokens || 0) + tokenAmount,
         });
 
-       const userId = session.metadata?.userId;
-const customerId = session.customer as string;
-const subscriptionId = (session.subscription as string | null) || null;
-
-if (userId && subscriptionId && customerId) {
-  // Security: Verify user exists and their stripeCustomerId matches the session customer
-  const user = await storage.getUser(userId);
-  if (!user) {
-    console.error(`Webhook security: User ${userId} not found`);
-    return res.json({ received: true });
-  }
-  if (user.stripeCustomerId !== customerId) {
-    console.error(
-      `Webhook security: Customer mismatch for user ${userId}. Expected ${user.stripeCustomerId}, got ${customerId}`
-    );
-    return res.json({ received: true });
-  }
-
-  // Retrieve subscription with expanded price so interval is reliable (no hardcoded price IDs)
-  const subscription: any = await stripe.subscriptions.retrieve(subscriptionId, {
-    expand: ["items.data.price"],
-  });
-
-  const interval = subscription?.items?.data?.[0]?.price?.recurring?.interval; // "month" | "year"
-  const subscriptionType =
-    interval === "year" ? "yearly" : interval === "month" ? "monthly" : null;
-
-  const periodEndSec = Number(subscription?.current_period_end || 0);
-  const premiumEndDate = periodEndSec ? new Date(periodEndSec * 1000) : null;
-
-  const willCancelAtPeriodEnd = !!subscription?.cancel_at_period_end;
-  const subscriptionStatus = willCancelAtPeriodEnd
-    ? "canceling"
-    : String(subscription?.status || "active");
-
-  await storage.updateUser(userId, {
-    stripeSubscriptionId: subscriptionId,
-    subscriptionStatus,
-    subscriptionType,
-    isPremium: true,
-    premiumStartDate: new Date(),
-    premiumEndDate,
-    sclassJoinedAt: new Date(),
-  });
-
-  console.log(`User ${userId} subscription updated: ${subscriptionId}`);
-}
+        console.log(`[Webhook token_purchase] Credited ${tokenAmount} tokens to user ${userId}`);
+        return res.json({ received: true });
       }
 
-      // Handle subscription updates (renewals, plan changes, cancellations)
-      if (event.type === "customer.subscription.updated") {
-        const subscription = event.data.object as Stripe.Subscription;
-        console.log("customer.subscription.updated", {
-          subscriptionId: subscription.id,
-          status: subscription.status,
-          cancelAtPeriodEnd: subscription.cancel_at_period_end,
-        });
-
-        const user = await storage.getUserByStripeSubscriptionId(subscription.id);
-        if (user) {
-          const priceId = subscription.items.data[0]?.price?.id;
-const isYearly = priceId === "price_1SlFUbRdxAAD392445O8ScqK";
-const periodEnd = (subscription as any).current_period_end;
-
-if (subscription.cancel_at_period_end) {
-  await storage.updateUser(user.id, {
-    // ✅ keep Stripe status (typically "active")
-    subscriptionStatus: String(subscription.status || "active"),
-    isPremium: true, // ✅ still premium until period end
-    willCancelAtPeriodEnd: true, // ✅ critical flag
-    subscriptionType: isYearly ? "yearly" : "monthly",
-    subscriptionCanceledAt: new Date(),
-    premiumEndDate: periodEnd ? new Date(periodEnd * 1000) : null,
-  });
-  console.log(`User ${user.id} set to cancel at period end (access until period end)`);
-} else if (subscription.status === "active") {
-  await storage.updateUser(user.id, {
-    subscriptionStatus: "active",
-    subscriptionType: isYearly ? "yearly" : "monthly",
-    isPremium: true,
-    willCancelAtPeriodEnd: false, // ✅ explicitly false
-    premiumEndDate: periodEnd ? new Date(periodEnd * 1000) : null,
-    subscriptionCanceledAt: null,
-  });
-  console.log(`User ${user.id} subscription renewed/updated`);
-}
-        }
+      if (type === "minor_token_purchase") {
+        const { WebhookHandlers } = await import("./webhookHandlers");
+        await WebhookHandlers.processWebhook(req.body, sig);
+        return res.json({ received: true });
       }
 
-      // Handle subscription deletion
-      if (event.type === "customer.subscription.deleted") {
-        const subscription = event.data.object as Stripe.Subscription;
-        console.log("customer.subscription.deleted", { subscriptionId: subscription.id });
-
-        const user = await storage.getUserByStripeSubscriptionId(subscription.id);
-        if (user) {
-          await storage.updateUser(user.id, {
-            subscriptionStatus: "expired",
-            isPremium: false,
-            stripeSubscriptionId: null,
-          });
-          console.log(`User ${user.id} subscription expired`);
-        }
-      }
-    } catch (dbError: any) {
-      console.error("Webhook DB update error:", dbError.message);
+      return res.json({ received: true });
     }
 
     return res.json({ received: true });
   }
-);
+
+  // -------------------------------------------------------
+  // customer.subscription.updated
+  // -------------------------------------------------------
+  if (event.type === "customer.subscription.updated") {
+    const subscription = event.data.object as Stripe.Subscription;
+
+    console.log("customer.subscription.updated", {
+      subscriptionId: subscription.id,
+      status: subscription.status,
+      cancelAtPeriodEnd: subscription.cancel_at_period_end,
+    });
+
+    const user = await storage.getUserByStripeSubscriptionId(subscription.id);
+    if (!user) return res.json({ received: true });
+
+    const interval = subscription.items.data[0]?.price?.recurring?.interval; // "month" | "year"
+    const subscriptionType =
+      interval === "year" ? "yearly" : interval === "month" ? "monthly" : "monthly";
+
+    const periodEnd = (subscription as any).current_period_end;
+
+    if (subscription.cancel_at_period_end) {
+      await storage.updateUser(user.id, {
+        subscriptionStatus: String(subscription.status || "active"),
+        isPremium: true,
+        willCancelAtPeriodEnd: true,
+        subscriptionType,
+        subscriptionCanceledAt: new Date(),
+        premiumEndDate: periodEnd ? new Date(periodEnd * 1000) : null,
+      });
+      return res.json({ received: true });
+    }
+
+    if (subscription.status === "active") {
+      await storage.updateUser(user.id, {
+        subscriptionStatus: "active",
+        subscriptionType,
+        isPremium: true,
+        willCancelAtPeriodEnd: false,
+        premiumEndDate: periodEnd ? new Date(periodEnd * 1000) : null,
+        subscriptionCanceledAt: null,
+      });
+      return res.json({ received: true });
+    }
+
+    return res.json({ received: true });
+  }
+
+  // -------------------------------------------------------
+  // customer.subscription.deleted
+  // -------------------------------------------------------
+  if (event.type === "customer.subscription.deleted") {
+    const subscription = event.data.object as Stripe.Subscription;
+
+    console.log("customer.subscription.deleted", { subscriptionId: subscription.id });
+
+    const user = await storage.getUserByStripeSubscriptionId(subscription.id);
+    if (user) {
+      await storage.updateUser(user.id, {
+        subscriptionStatus: "expired",
+        isPremium: false,
+        stripeSubscriptionId: null,
+        willCancelAtPeriodEnd: false,
+      });
+    }
+
+    return res.json({ received: true });
+  }
+
+  // Unhandled events
+  return res.json({ received: true });
+} catch (dbError: any) {
+  console.error("Webhook DB update error:", dbError.message);
+  return res.json({ received: true });
+}
+  } // <-- closes async (req, res) => {
+);  // <-- closes app.post(
 
 // 2) Normal body parsers for the rest of your API
 app.use(
