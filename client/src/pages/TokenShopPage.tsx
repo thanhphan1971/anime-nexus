@@ -1,35 +1,116 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiCall } from "@/lib/api";
+
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardFooter,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/context/AuthContext";
-import { 
-  Coins, Sparkles, Crown, Shield, AlertTriangle, Clock, 
-  CreditCard, CheckCircle, XCircle, Gift, Zap, Star,
-  FileText, Lock, UserCheck, Scale, Globe, Baby, Send
+import {
+  Coins,
+  Sparkles,
+  Crown,
+  Shield,
+  AlertTriangle,
+  Clock,
+  CreditCard,
+  CheckCircle,
+  XCircle,
+  Gift,
+  Zap,
+  Star,
+  FileText,
+  Lock,
+  UserCheck,
+  Scale,
+  Globe,
+  Baby,
+  Send,
 } from "lucide-react";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 
 // Token packages configuration
 const TOKEN_PACKAGES = [
   // First purchase (high conversion)
-  { id: "first", name: "First Pull Pack", tokens: 100, bonus: 20, price: 0.99, popular: false },
+  {
+    id: "first",
+    name: "First Pull Pack",
+    tokens: 100,
+    bonus: 20,
+    price: 0.99,
+    popular: false,
+  },
 
-  { id: "mini", name: "Mini Pack", tokens: 300, bonus: 0, price: 2.99, popular: false },
-  { id: "starter", name: "Starter Pack", tokens: 500, bonus: 50, price: 4.99, popular: false },
+  {
+    id: "mini",
+    name: "Mini Pack",
+    tokens: 300,
+    bonus: 0,
+    price: 2.99,
+    popular: false,
+  },
+  {
+    id: "starter",
+    name: "Starter Pack",
+    tokens: 500,
+    bonus: 50,
+    price: 4.99,
+    popular: false,
+  },
 
   // Anchor pack
-  { id: "popular", name: "Popular Pack", tokens: 1100, bonus: 100, price: 9.99, popular: true },
+  {
+    id: "popular",
+    name: "Popular Pack",
+    tokens: 1100,
+    bonus: 100,
+    price: 9.99,
+    popular: true,
+  },
 
-  { id: "value", name: "Value Pack", tokens: 2500, bonus: 300, price: 19.99, popular: false },
-  { id: "mega", name: "Mega Pack", tokens: 6000, bonus: 800, price: 39.99, popular: false },
-  { id: "ultimate", name: "Ultimate Pack", tokens: 13000, bonus: 2000, price: 79.99, popular: false },
+  {
+    id: "value",
+    name: "Value Pack",
+    tokens: 2500,
+    bonus: 300,
+    price: 19.99,
+    popular: false,
+  },
+  {
+    id: "mega",
+    name: "Mega Pack",
+    tokens: 6000,
+    bonus: 800,
+    price: 39.99,
+    popular: false,
+  },
+  {
+    id: "ultimate",
+    name: "Ultimate Pack",
+    tokens: 13000,
+    bonus: 2000,
+    price: 79.99,
+    popular: false,
+  },
 ];
 
 interface PendingRequest {
@@ -45,8 +126,8 @@ interface ParentInfo {
   parentName?: string;
   controls?: {
     purchasesEnabled: boolean;
-    dailySpendLimit: number;  // in cents
-    monthlySpendLimit: number;  // in cents
+    dailySpendLimit: number; // in cents
+    monthlySpendLimit: number; // in cents
   };
   linkStatus?: string;
 }
@@ -55,13 +136,17 @@ export default function TokenShopPage() {
   const { user } = useAuth();
   const hasMadePurchase = Boolean((user as any)?.hasMadePurchase);
   const showFirstPurchaseBonus = !hasMadePurchase;
-  const [selectedPackage, setSelectedPackage] = useState<typeof   TOKEN_PACKAGES[0] | null>(null);
+  const [selectedPackage, setSelectedPackage] = useState<
+    (typeof TOKEN_PACKAGES)[0] | null
+  >(null);
   const [showPurchaseDialog, setShowPurchaseDialog] = useState(false);
   const [showRequestDialog, setShowRequestDialog] = useState(false);
   const [agreesToTerms, setAgreesToTerms] = useState(false);
   const [confirmsAge, setConfirmsAge] = useState(false);
   const [requestMessage, setRequestMessage] = useState("");
-  const [limitExceeded, setLimitExceeded] = useState<'daily' | 'monthly' | null>(null);
+  const [limitExceeded, setLimitExceeded] = useState<
+    "daily" | "monthly" | null
+  >(null);
 
   const isMinor = (user as any)?.isMinor || false;
 
@@ -93,7 +178,12 @@ export default function TokenShopPage() {
 
   // Request parent approval mutation
   const requestApprovalMutation = useMutation({
-    mutationFn: async (data: { packageId: string; tokenAmount: number; amountInCents: number; reason: string }) => {
+    mutationFn: async (data: {
+      packageId: string;
+      tokenAmount: number;
+      amountInCents: number;
+      reason: string;
+    }) => {
       const res = await fetch("/api/parent/auth-request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -116,23 +206,23 @@ export default function TokenShopPage() {
     },
   });
 
-  const handlePurchase = (pkg: typeof TOKEN_PACKAGES[0]) => {
+  const handlePurchase = (pkg: (typeof TOKEN_PACKAGES)[0]) => {
     setSelectedPackage(pkg);
     const priceInCents = Math.round(pkg.price * 100);
-    
+
     // Minor without linked parent - block purchase and prompt to link
     if (isMinor && !parentInfo?.hasParent) {
       toast.error("Please link a parent account first to make purchases");
       return;
     }
-    
+
     // Minor with linked parent - ALL purchases require parent authorization
     if (isMinor && parentInfo?.hasParent) {
       // Check if exceeds limits for informational purposes
       if (priceInCents > dailyLimit) {
-        setLimitExceeded('daily');
+        setLimitExceeded("daily");
       } else if (priceInCents > monthlyLimit) {
-        setLimitExceeded('monthly');
+        setLimitExceeded("monthly");
       } else {
         setLimitExceeded(null);
       }
@@ -140,20 +230,42 @@ export default function TokenShopPage() {
       setShowRequestDialog(true);
       return;
     }
-    
+
     // Adult user - proceed to normal purchase
     setShowPurchaseDialog(true);
     setAgreesToTerms(false);
     setConfirmsAge(false);
   };
 
-  const handleConfirmPurchase = () => {
+  const handleConfirmPurchase = async () => {
     if (!agreesToTerms || !confirmsAge) {
       toast.error("Please accept all terms before purchasing");
       return;
     }
-    toast.info("Payment integration coming soon! For now, use free tokens.");
-    setShowPurchaseDialog(false);
+
+    if (!selectedPackage) {
+      toast.error("No package selected");
+      return;
+    }
+
+    try {
+      const response = await apiCall("/api/stripe/token-checkout", {
+        method: "POST",
+        body: JSON.stringify({ packageId: selectedPackage.id }),
+      });
+
+      if (response?.url) {
+        window.location.href = response.url;
+        return;
+      }
+
+      throw new Error("No checkout URL returned");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to start checkout");
+    } finally {
+      // Optional: close dialog (you can remove this if you prefer to keep it open on error)
+      setShowPurchaseDialog(false);
+    }
   };
 
   const handleRequestApproval = () => {
@@ -175,35 +287,48 @@ export default function TokenShopPage() {
             <Coins className="h-6 w-6 text-white" />
           </div>
           <div>
-            <h1 className="text-2xl font-display font-bold text-yellow-400 neon-text">TOKEN SHOP</h1>
-            <p className="text-foreground/80 text-sm">Power up your AniRealm experience</p>
+            <h1 className="text-2xl font-display font-bold text-yellow-400 neon-text">
+              TOKEN SHOP
+            </h1>
+            <p className="text-foreground/80 text-sm">
+              Power up your AniRealm experience
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-4 mt-4">
           <div className="flex items-center gap-2 px-4 py-2 bg-black/40 rounded-lg">
             <Coins className="h-5 w-5 text-yellow-400" />
-            <span className="font-mono font-bold text-yellow-400">{user?.tokens?.toLocaleString() || 0}</span>
-            <span className="text-xs text-muted-foreground">Current Balance</span>
+            <span className="font-mono font-bold text-yellow-400">
+              {user?.tokens?.toLocaleString() || 0}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              Current Balance
+            </span>
           </div>
         </div>
       </div>
-      
+
       {/* First Purchase Welcome Banner */}
-     {showFirstPurchaseBonus && !isMinor && (
-      <div className="mt-4 bg-green-500/10 border border-green-500/30 rounded-xl p-4">
-        <div className="flex items-start gap-3">
-          <Gift className="h-5 w-5 text-green-400 mt-0.5" />
-          <div>
-            <p className="font-bold text-green-300">
-          Welcome Bonus Available
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Get <span className="text-green-400 font-semibold">+20% extra tokens</span> on your first purchase. This one-time welcome bonus will be applied automatically when purchases are enabled.
-            </p>
+      {showFirstPurchaseBonus && !isMinor && (
+        <div className="mt-4 bg-green-500/10 border border-green-500/30 rounded-xl p-4">
+          <div className="flex items-start gap-3">
+            <Gift className="h-5 w-5 text-green-400 mt-0.5" />
+            <div>
+              <p className="font-bold text-green-300">
+                Welcome Bonus Available
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Get{" "}
+                <span className="text-green-400 font-semibold">
+                  +20% extra tokens
+                </span>{" "}
+                on your first purchase. This one-time welcome bonus will be
+                applied automatically when purchases are enabled.
+              </p>
+            </div>
           </div>
         </div>
-      </div>
-    )}
+      )}
 
       {/* Minor Purchase Info Banner */}
       {isMinor && parentInfo?.hasParent && (
@@ -213,25 +338,34 @@ export default function TokenShopPage() {
             <div>
               <p className="font-bold text-blue-300">Parent Account Linked</p>
               <p className="text-sm text-muted-foreground">
-                All purchases require parent approval. When you select a package, a request will be sent to your parent's dashboard.
-                Spending limits: ${(dailyLimit / 100).toFixed(0)}/day, ${(monthlyLimit / 100).toFixed(0)}/month.
+                All purchases require parent approval. When you select a
+                package, a request will be sent to your parent's dashboard.
+                Spending limits: ${(dailyLimit / 100).toFixed(0)}/day, $
+                {(monthlyLimit / 100).toFixed(0)}/month.
               </p>
             </div>
           </div>
         </div>
       )}
-      
+
       {/* Minor without linked parent - prompt to link */}
       {isMinor && !parentInfo?.hasParent && (
         <div className="bg-orange-500/20 border border-orange-500/30 rounded-xl p-4">
           <div className="flex items-start gap-3">
             <Lock className="h-5 w-5 text-orange-400 mt-0.5" />
             <div>
-              <p className="font-bold text-orange-300">Link a Parent Account to Purchase</p>
-              <p className="text-sm text-muted-foreground mb-3">
-                To make purchases, you need to link a parent or guardian account first. This helps keep your spending safe!
+              <p className="font-bold text-orange-300">
+                Link a Parent Account to Purchase
               </p>
-              <Button variant="outline" size="sm" className="border-orange-500/50 text-orange-300 hover:bg-orange-500/20">
+              <p className="text-sm text-muted-foreground mb-3">
+                To make purchases, you need to link a parent or guardian account
+                first. This helps keep your spending safe!
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-orange-500/50 text-orange-300 hover:bg-orange-500/20"
+              >
                 <Shield className="h-4 w-4 mr-2" />
                 Link Parent Account
               </Button>
@@ -252,12 +386,19 @@ export default function TokenShopPage() {
           <CardContent>
             <div className="space-y-2">
               {pendingRequests.map((req) => (
-                <div key={req.id} className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                <div
+                  key={req.id}
+                  className="flex items-center justify-between p-3 bg-white/5 rounded-lg"
+                >
                   <div className="flex items-center gap-3">
                     <Coins className="h-5 w-5 text-yellow-400" />
                     <div>
-                      <p className="font-medium">{req.tokenAmount.toLocaleString()} tokens</p>
-                      <p className="text-sm text-muted-foreground">${(req.amountInCents / 100).toFixed(2)}</p>
+                      <p className="font-medium">
+                        {req.tokenAmount.toLocaleString()} tokens
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        ${(req.amountInCents / 100).toFixed(2)}
+                      </p>
                     </div>
                   </div>
                   <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/50">
@@ -273,16 +414,28 @@ export default function TokenShopPage() {
 
       <Tabs defaultValue="packages" className="space-y-6">
         <TabsList className="bg-card/40 border border-white/10 p-1">
-          <TabsTrigger value="packages" className="data-[state=active]:bg-primary/20">
+          <TabsTrigger
+            value="packages"
+            className="data-[state=active]:bg-primary/20"
+          >
             <Coins className="h-4 w-4 mr-2" /> Packages
           </TabsTrigger>
-          <TabsTrigger value="rules" className="data-[state=active]:bg-primary/20">
+          <TabsTrigger
+            value="rules"
+            className="data-[state=active]:bg-primary/20"
+          >
             <FileText className="h-4 w-4 mr-2" /> Purchase Rules
           </TabsTrigger>
-          <TabsTrigger value="minors" className="data-[state=active]:bg-primary/20">
+          <TabsTrigger
+            value="minors"
+            className="data-[state=active]:bg-primary/20"
+          >
             <Baby className="h-4 w-4 mr-2" /> Minor Limits
           </TabsTrigger>
-          <TabsTrigger value="legal" className="data-[state=active]:bg-primary/20">
+          <TabsTrigger
+            value="legal"
+            className="data-[state=active]:bg-primary/20"
+          >
             <Scale className="h-4 w-4 mr-2" /> Legal
           </TabsTrigger>
         </TabsList>
@@ -291,66 +444,78 @@ export default function TokenShopPage() {
         <TabsContent value="packages" className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {TOKEN_PACKAGES.map((pkg) => (
-              <Card 
-                key={pkg.id} 
+              <Card
+                key={pkg.id}
                 className={`relative overflow-hidden transition-all hover:scale-[1.02] ${
-                  pkg.popular 
-                    ? 'bg-gradient-to-br from-yellow-500/20 to-orange-500/20 border-yellow-500/50' 
-                    : 'bg-card/40 border-white/10'
+                  pkg.popular
+                    ? "bg-gradient-to-br from-yellow-500/20 to-orange-500/20 border-yellow-500/50"
+                    : "bg-card/40 border-white/10"
                 }`}
                 data-testid={`package-${pkg.id}`}
               >
                 {pkg.popular && (
-  <div className="absolute top-0 right-0 bg-yellow-500 text-black text-xs font-bold px-3 py-1 rounded-bl-lg">
-    BEST VALUE
-  </div>
-)}
+                  <div className="absolute top-0 right-0 bg-yellow-500 text-black text-xs font-bold px-3 py-1 rounded-bl-lg">
+                    BEST VALUE
+                  </div>
+                )}
 
-{showFirstPurchaseBonus && !isMinor && pkg.popular && (
-  <div className="absolute top-0 left-0 bg-green-500 text-black text-xs font-bold px-3 py-1 rounded-br-lg">
-    FIRST PURCHASE +20%
-  </div>
-)}
+                {showFirstPurchaseBonus && !isMinor && pkg.popular && (
+                  <div className="absolute top-0 left-0 bg-green-500 text-black text-xs font-bold px-3 py-1 rounded-br-lg">
+                    FIRST PURCHASE +20%
+                  </div>
+                )}
 
-                
                 <CardHeader className="pb-2 pt-6">
                   <CardTitle className="flex items-center gap-2">
-                    {pkg.popular ? <Star className="h-5 w-5 text-yellow-400 fill-yellow-400" /> : <Sparkles className="h-5 w-5 text-purple-400" />}
+                    {pkg.popular ? (
+                      <Star className="h-5 w-5 text-yellow-400 fill-yellow-400" />
+                    ) : (
+                      <Sparkles className="h-5 w-5 text-purple-400" />
+                    )}
                     {pkg.name}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="text-center py-4">
-  <div className="flex items-center justify-center gap-2">
-    <Coins className="h-8 w-8 text-yellow-400" />
-    <span className="text-4xl font-bold font-mono text-white">
-      {(pkg.tokens + pkg.bonus).toLocaleString()}
-    </span>
-  </div>
+                    <div className="flex items-center justify-center gap-2">
+                      <Coins className="h-8 w-8 text-yellow-400" />
+                      <span className="text-4xl font-bold font-mono text-white">
+                        {(pkg.tokens + pkg.bonus).toLocaleString()}
+                      </span>
+                    </div>
 
-  {pkg.bonus > 0 && (
-    <div className="mt-1">
-      <div className="text-sm text-green-400 font-medium">
-        {pkg.tokens.toLocaleString()} + {pkg.bonus.toLocaleString()} bonus
-      </div>
-      <div className="text-xs text-white/60">
-        Includes bonus tokens
-      </div>
-    </div>
-  )}
-</div>
-                 
+                    {pkg.bonus > 0 && (
+                      <div className="mt-1">
+                        <div className="text-sm text-green-400 font-medium">
+                          {pkg.tokens.toLocaleString()} +{" "}
+                          {pkg.bonus.toLocaleString()} bonus
+                        </div>
+                        <div className="text-xs text-white/60">
+                          Includes bonus tokens
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   <div className="text-center">
-                    <span className="text-3xl font-bold text-white">${pkg.price}</span>
-                    <span className="text-muted-foreground text-sm ml-1">USD</span>
+                    <span className="text-3xl font-bold text-white">
+                      ${pkg.price}
+                    </span>
+                    <span className="text-muted-foreground text-sm ml-1">
+                      USD
+                    </span>
                   </div>
                   <p className="text-xs text-center text-muted-foreground">
-  ≈${(pkg.price / ((pkg.tokens + pkg.bonus) / 1000)).toFixed(2)} per 1K tokens
-</p>
+                    ≈$
+                    {(pkg.price / ((pkg.tokens + pkg.bonus) / 1000)).toFixed(
+                      2,
+                    )}{" "}
+                    per 1K tokens
+                  </p>
                 </CardContent>
                 <CardFooter>
-                  <Button 
-                    className={`w-full ${pkg.popular ? 'bg-yellow-500 hover:bg-yellow-600 text-black' : ''}`}
+                  <Button
+                    className={`w-full ${pkg.popular ? "bg-yellow-500 hover:bg-yellow-600 text-black" : ""}`}
                     onClick={() => handlePurchase(pkg)}
                     data-testid={`button-buy-${pkg.id}`}
                   >
@@ -373,12 +538,31 @@ export default function TokenShopPage() {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
-                  { icon: Sparkles, title: "Gacha Pulls", desc: "100 tokens per card pull" },
-                  { icon: Crown, title: "S-Class Membership", desc: "Premium features & perks" },
-                  { icon: Gift, title: "Draw Entries", desc: "Win real prizes" },
-                  { icon: Star, title: "Marketplace", desc: "Buy rare cards from others" },
+                  {
+                    icon: Sparkles,
+                    title: "Gacha Pulls",
+                    desc: "100 tokens per card pull",
+                  },
+                  {
+                    icon: Crown,
+                    title: "S-Class Membership",
+                    desc: "Premium features & perks",
+                  },
+                  {
+                    icon: Gift,
+                    title: "Draw Entries",
+                    desc: "Win real prizes",
+                  },
+                  {
+                    icon: Star,
+                    title: "Marketplace",
+                    desc: "Buy rare cards from others",
+                  },
                 ].map((item, i) => (
-                  <div key={i} className="p-4 bg-white/5 rounded-lg text-center">
+                  <div
+                    key={i}
+                    className="p-4 bg-white/5 rounded-lg text-center"
+                  >
                     <item.icon className="h-8 w-8 mx-auto mb-2 text-primary" />
                     <p className="font-bold text-sm">{item.title}</p>
                     <p className="text-xs text-muted-foreground">{item.desc}</p>
@@ -407,9 +591,24 @@ export default function TokenShopPage() {
                       1. Age Eligibility
                     </h3>
                     <ul className="space-y-2 text-muted-foreground">
-                      <li>• <strong className="text-white">Adults (18+):</strong> Can purchase tokens directly using their own payment method.</li>
-                      <li>• <strong className="text-white">Minors (under 18):</strong> Cannot purchase tokens directly. All purchases must be made by a linked parent or guardian.</li>
-                      <li>• By purchasing tokens, you confirm that you are legally allowed to make online purchases in your country and region.</li>
+                      <li>
+                        • <strong className="text-white">Adults (18+):</strong>{" "}
+                        Can purchase tokens directly using their own payment
+                        method.
+                      </li>
+                      <li>
+                        •{" "}
+                        <strong className="text-white">
+                          Minors (under 18):
+                        </strong>{" "}
+                        Cannot purchase tokens directly. All purchases must be
+                        made by a linked parent or guardian.
+                      </li>
+                      <li>
+                        • By purchasing tokens, you confirm that you are legally
+                        allowed to make online purchases in your country and
+                        region.
+                      </li>
                     </ul>
                   </section>
 
@@ -420,60 +619,151 @@ export default function TokenShopPage() {
                       2. How Minors Can Get Tokens (Parent-Managed Purchases)
                     </h3>
                     <p className="text-muted-foreground mb-4">
-                      Minors can receive tokens through their parent or guardian's account. Here's how it works:
+                      Minors can receive tokens through their parent or
+                      guardian's account. Here's how it works:
                     </p>
-                    
+
                     <div className="space-y-4">
                       <div className="bg-black/20 rounded-lg p-3">
-                        <h4 className="font-bold text-orange-300 mb-2">Step 1: Link Parent Account</h4>
+                        <h4 className="font-bold text-orange-300 mb-2">
+                          Step 1: Link Parent Account
+                        </h4>
                         <ul className="space-y-1 text-muted-foreground text-sm">
-                          <li>• When a minor registers, they provide their parent's email address</li>
-                          <li>• A verification code is generated for the minor to share with their parent</li>
-                          <li>• The parent creates their own AniRealm account (as an adult, 18+)</li>
-                          <li>• The parent goes to their <strong className="text-white">Parent Dashboard</strong> and enters the verification code</li>
-                          <li>• Once verified, the accounts are linked and the parent has full control</li>
+                          <li>
+                            • When a minor registers, they provide their
+                            parent's email address
+                          </li>
+                          <li>
+                            • A verification code is generated for the minor to
+                            share with their parent
+                          </li>
+                          <li>
+                            • The parent creates their own AniRealm account (as
+                            an adult, 18+)
+                          </li>
+                          <li>
+                            • The parent goes to their{" "}
+                            <strong className="text-white">
+                              Parent Dashboard
+                            </strong>{" "}
+                            and enters the verification code
+                          </li>
+                          <li>
+                            • Once verified, the accounts are linked and the
+                            parent has full control
+                          </li>
                         </ul>
                       </div>
 
                       <div className="bg-black/20 rounded-lg p-3">
-                        <h4 className="font-bold text-orange-300 mb-2">Step 2: Payment Methods (Parent Account Only)</h4>
+                        <h4 className="font-bold text-orange-300 mb-2">
+                          Step 2: Payment Methods (Parent Account Only)
+                        </h4>
                         <ul className="space-y-1 text-muted-foreground text-sm">
-                          <li>• <strong className="text-white">All payment methods are stored on the parent's account only</strong></li>
-                          <li>• Minors cannot save credit cards, debit cards, or PayPal on their account</li>
-                          <li>• The parent's credit card or PayPal is used for all purchases</li>
-                          <li>• This ensures parents have complete visibility and control over all spending</li>
+                          <li>
+                            •{" "}
+                            <strong className="text-white">
+                              All payment methods are stored on the parent's
+                              account only
+                            </strong>
+                          </li>
+                          <li>
+                            • Minors cannot save credit cards, debit cards, or
+                            PayPal on their account
+                          </li>
+                          <li>
+                            • The parent's credit card or PayPal is used for all
+                            purchases
+                          </li>
+                          <li>
+                            • This ensures parents have complete visibility and
+                            control over all spending
+                          </li>
                         </ul>
                       </div>
 
                       <div className="bg-black/20 rounded-lg p-3">
-                        <h4 className="font-bold text-orange-300 mb-2">Step 3: Minor Requests a Purchase</h4>
+                        <h4 className="font-bold text-orange-300 mb-2">
+                          Step 3: Minor Requests a Purchase
+                        </h4>
                         <ul className="space-y-1 text-muted-foreground text-sm">
-                          <li>• The minor browses the Token Shop and selects a package they want</li>
-                          <li>• <strong className="text-white">ALL purchases require parent approval</strong> - a "Request Parent Approval" dialog appears</li>
-                          <li>• The minor can add an optional message explaining why they want the purchase</li>
-                          <li>• The request is sent to the parent's dashboard for review</li>
-                          <li>• Spending limits ($10/day, $50/month) help parents track spending patterns</li>
+                          <li>
+                            • The minor browses the Token Shop and selects a
+                            package they want
+                          </li>
+                          <li>
+                            •{" "}
+                            <strong className="text-white">
+                              ALL purchases require parent approval
+                            </strong>{" "}
+                            - a "Request Parent Approval" dialog appears
+                          </li>
+                          <li>
+                            • The minor can add an optional message explaining
+                            why they want the purchase
+                          </li>
+                          <li>
+                            • The request is sent to the parent's dashboard for
+                            review
+                          </li>
+                          <li>
+                            • Spending limits ($10/day, $50/month) help parents
+                            track spending patterns
+                          </li>
                         </ul>
                       </div>
 
                       <div className="bg-black/20 rounded-lg p-3">
-                        <h4 className="font-bold text-orange-300 mb-2">Step 4: Parent Approves or Denies</h4>
+                        <h4 className="font-bold text-orange-300 mb-2">
+                          Step 4: Parent Approves or Denies
+                        </h4>
                         <ul className="space-y-1 text-muted-foreground text-sm">
-                          <li>• The parent sees the pending request in their <strong className="text-white">Parent Dashboard</strong></li>
-                          <li>• The request shows: token amount, price, and the child's message</li>
-                          <li>• The parent can <strong className="text-green-400">Approve</strong> or <strong className="text-red-400">Deny</strong> the purchase</li>
-                          <li>• If approved, the parent's payment method is charged and tokens are added to the child's account</li>
-                          <li>• Requests expire after 7 days if not responded to</li>
+                          <li>
+                            • The parent sees the pending request in their{" "}
+                            <strong className="text-white">
+                              Parent Dashboard
+                            </strong>
+                          </li>
+                          <li>
+                            • The request shows: token amount, price, and the
+                            child's message
+                          </li>
+                          <li>
+                            • The parent can{" "}
+                            <strong className="text-green-400">Approve</strong>{" "}
+                            or <strong className="text-red-400">Deny</strong>{" "}
+                            the purchase
+                          </li>
+                          <li>
+                            • If approved, the parent's payment method is
+                            charged and tokens are added to the child's account
+                          </li>
+                          <li>
+                            • Requests expire after 7 days if not responded to
+                          </li>
                         </ul>
                       </div>
 
                       <div className="bg-black/20 rounded-lg p-3">
-                        <h4 className="font-bold text-orange-300 mb-2">Parent Controls</h4>
+                        <h4 className="font-bold text-orange-300 mb-2">
+                          Parent Controls
+                        </h4>
                         <ul className="space-y-1 text-muted-foreground text-sm">
-                          <li>• Parents can adjust daily and monthly spending limits from their dashboard</li>
-                          <li>• Parents can enable or disable purchases entirely</li>
-                          <li>• Parents receive notifications for all purchase activity</li>
-                          <li>• Parents can view complete purchase history for their child</li>
+                          <li>
+                            • Parents can adjust daily and monthly spending
+                            limits from their dashboard
+                          </li>
+                          <li>
+                            • Parents can enable or disable purchases entirely
+                          </li>
+                          <li>
+                            • Parents receive notifications for all purchase
+                            activity
+                          </li>
+                          <li>
+                            • Parents can view complete purchase history for
+                            their child
+                          </li>
                         </ul>
                       </div>
                     </div>
@@ -485,13 +775,29 @@ export default function TokenShopPage() {
                       3. Payment Methods
                     </h3>
                     <ul className="space-y-2 text-muted-foreground">
-                      <li>• Tokens can be purchased only through secure payment methods, including:</li>
+                      <li>
+                        • Tokens can be purchased only through secure payment
+                        methods, including:
+                      </li>
                       <li className="ml-4">- Credit card</li>
                       <li className="ml-4">- Debit card</li>
                       <li className="ml-4">- PayPal</li>
-                      <li className="ml-4">- Other approved services added in the future</li>
-                      <li>• <strong className="text-white">No cash payments, gift cards, or cryptocurrency are accepted.</strong></li>
-                      <li>• <strong className="text-orange-300">For minors:</strong> Payment methods are stored only on the linked parent's account.</li>
+                      <li className="ml-4">
+                        - Other approved services added in the future
+                      </li>
+                      <li>
+                        •{" "}
+                        <strong className="text-white">
+                          No cash payments, gift cards, or cryptocurrency are
+                          accepted.
+                        </strong>
+                      </li>
+                      <li>
+                        •{" "}
+                        <strong className="text-orange-300">For minors:</strong>{" "}
+                        Payment methods are stored only on the linked parent's
+                        account.
+                      </li>
                     </ul>
                   </section>
 
@@ -501,13 +807,26 @@ export default function TokenShopPage() {
                       4. Parental/Guardian Responsibility
                     </h3>
                     <ul className="space-y-2 text-muted-foreground">
-                      <li>• Users under 18 must have the approval of a parent or legal guardian to use the app.</li>
+                      <li>
+                        • Users under 18 must have the approval of a parent or
+                        legal guardian to use the app.
+                      </li>
                       <li>• Parents/guardians are responsible for:</li>
-                      <li className="ml-4">- Linking their account to their child's account</li>
-                      <li className="ml-4">- Setting appropriate spending limits</li>
-                      <li className="ml-4">- Reviewing and approving purchase requests</li>
-                      <li className="ml-4">- Monitoring their child's account activity</li>
-                      <li className="ml-4">- Securing their own payment methods</li>
+                      <li className="ml-4">
+                        - Linking their account to their child's account
+                      </li>
+                      <li className="ml-4">
+                        - Setting appropriate spending limits
+                      </li>
+                      <li className="ml-4">
+                        - Reviewing and approving purchase requests
+                      </li>
+                      <li className="ml-4">
+                        - Monitoring their child's account activity
+                      </li>
+                      <li className="ml-4">
+                        - Securing their own payment methods
+                      </li>
                     </ul>
                   </section>
 
@@ -517,11 +836,21 @@ export default function TokenShopPage() {
                       5. Refunds
                     </h3>
                     <ul className="space-y-2 text-muted-foreground">
-                      <li>• <strong className="text-white">Token purchases are non-refundable.</strong></li>
-                      <li>• Used tokens cannot be restored, refunded, transferred, or exchanged for money.</li>
+                      <li>
+                        •{" "}
+                        <strong className="text-white">
+                          Token purchases are non-refundable.
+                        </strong>
+                      </li>
+                      <li>
+                        • Used tokens cannot be restored, refunded, transferred,
+                        or exchanged for money.
+                      </li>
                       <li>• Refunds are only processed in rare cases of:</li>
                       <li className="ml-4">- Unauthorized payment</li>
-                      <li className="ml-4">- Confirmed technical purchase errors</li>
+                      <li className="ml-4">
+                        - Confirmed technical purchase errors
+                      </li>
                     </ul>
                   </section>
 
@@ -532,10 +861,20 @@ export default function TokenShopPage() {
                     </h3>
                     <ul className="space-y-2 text-muted-foreground">
                       <li>• We reserve the right to:</li>
-                      <li className="ml-4">- Limit token purchases within a 24-hour or monthly period</li>
-                      <li className="ml-4">- Disable token purchases for minors</li>
-                      <li className="ml-4">- Block excessive transactions to protect users</li>
-                      <li>• These limits may change without notice to ensure safe gameplay.</li>
+                      <li className="ml-4">
+                        - Limit token purchases within a 24-hour or monthly
+                        period
+                      </li>
+                      <li className="ml-4">
+                        - Disable token purchases for minors
+                      </li>
+                      <li className="ml-4">
+                        - Block excessive transactions to protect users
+                      </li>
+                      <li>
+                        • These limits may change without notice to ensure safe
+                        gameplay.
+                      </li>
                     </ul>
                   </section>
 
@@ -545,7 +884,12 @@ export default function TokenShopPage() {
                       7. Tokens Have No Real-World Value
                     </h3>
                     <ul className="space-y-2 text-muted-foreground">
-                      <li>• Tokens are <strong className="text-white">virtual items only</strong></li>
+                      <li>
+                        • Tokens are{" "}
+                        <strong className="text-white">
+                          virtual items only
+                        </strong>
+                      </li>
                       <li>• Tokens cannot be:</li>
                       <li className="ml-4">- Converted into real money</li>
                       <li className="ml-4">- Sold</li>
@@ -562,8 +906,12 @@ export default function TokenShopPage() {
                     <ul className="space-y-2 text-muted-foreground">
                       <li>• Chargebacks will result in:</li>
                       <li className="ml-4">- Automatic account suspension</li>
-                      <li className="ml-4">- Removal of items obtained with tokens</li>
-                      <li className="ml-4">- Possible permanent account restrictions</li>
+                      <li className="ml-4">
+                        - Removal of items obtained with tokens
+                      </li>
+                      <li className="ml-4">
+                        - Possible permanent account restrictions
+                      </li>
                     </ul>
                   </section>
 
@@ -576,8 +924,12 @@ export default function TokenShopPage() {
                       <li>• We reserve the right to:</li>
                       <li className="ml-4">- Modify token prices</li>
                       <li className="ml-4">- Adjust rewards</li>
-                      <li className="ml-4">- Add or remove features related to tokens</li>
-                      <li className="ml-4">- Discontinue token purchases at any time</li>
+                      <li className="ml-4">
+                        - Add or remove features related to tokens
+                      </li>
+                      <li className="ml-4">
+                        - Discontinue token purchases at any time
+                      </li>
                     </ul>
                   </section>
                 </div>
@@ -603,24 +955,32 @@ export default function TokenShopPage() {
                 <div className="space-y-6 text-sm">
                   {/* Parent Authorization Banner */}
                   <div className="bg-orange-500/20 border border-orange-500/30 rounded-xl p-6 text-center">
-                    <h3 className="text-xl font-bold text-orange-300 mb-4">Parent Authorization Required</h3>
+                    <h3 className="text-xl font-bold text-orange-300 mb-4">
+                      Parent Authorization Required
+                    </h3>
                     <p className="text-white font-medium mb-4">
-                      ALL purchases by minors require parent or guardian approval
+                      ALL purchases by minors require parent or guardian
+                      approval
                     </p>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="bg-black/30 rounded-lg p-4">
                         <Clock className="h-8 w-8 mx-auto mb-2 text-orange-400" />
                         <p className="text-2xl font-bold text-white">$10.00</p>
-                        <p className="text-xs text-muted-foreground">Daily Limit</p>
+                        <p className="text-xs text-muted-foreground">
+                          Daily Limit
+                        </p>
                       </div>
                       <div className="bg-black/30 rounded-lg p-4">
                         <Coins className="h-8 w-8 mx-auto mb-2 text-orange-400" />
                         <p className="text-2xl font-bold text-white">$50.00</p>
-                        <p className="text-xs text-muted-foreground">Monthly Limit</p>
+                        <p className="text-xs text-muted-foreground">
+                          Monthly Limit
+                        </p>
                       </div>
                     </div>
                     <p className="text-sm text-muted-foreground mt-4">
-                      Spending limits help parents track and manage their child's spending patterns.
+                      Spending limits help parents track and manage their
+                      child's spending patterns.
                     </p>
                   </div>
 
@@ -630,7 +990,8 @@ export default function TokenShopPage() {
                       1. No Direct Token Purchases
                     </h3>
                     <p className="text-muted-foreground">
-                      Users under 18 cannot directly purchase tokens inside the app.
+                      Users under 18 cannot directly purchase tokens inside the
+                      app.
                     </p>
                   </section>
 
@@ -640,7 +1001,8 @@ export default function TokenShopPage() {
                       2. Parental/Guardian Approval Required
                     </h3>
                     <p className="text-muted-foreground">
-                      If a user is under 18, any purchase must be done by a parent or legal guardian, using their own payment method.
+                      If a user is under 18, any purchase must be done by a
+                      parent or legal guardian, using their own payment method.
                     </p>
                   </section>
 
@@ -650,7 +1012,10 @@ export default function TokenShopPage() {
                       3. Verified Payment Method Only
                     </h3>
                     <ul className="space-y-2 text-muted-foreground">
-                      <li>Token purchases for minor accounts are allowed only through verified adult payment methods, such as:</li>
+                      <li>
+                        Token purchases for minor accounts are allowed only
+                        through verified adult payment methods, such as:
+                      </li>
                       <li className="ml-4">• Parent credit card</li>
                       <li className="ml-4">• Parent PayPal</li>
                       <li className="ml-4">• Other adult-owned methods</li>
@@ -663,7 +1028,8 @@ export default function TokenShopPage() {
                       4. No Saved Payment Authorization
                     </h3>
                     <p className="text-muted-foreground">
-                      We do not allow minors to store payment methods or enable automatic future purchases.
+                      We do not allow minors to store payment methods or enable
+                      automatic future purchases.
                     </p>
                   </section>
 
@@ -673,11 +1039,30 @@ export default function TokenShopPage() {
                       5. All Purchases Require Authorization
                     </h3>
                     <ul className="space-y-2 text-muted-foreground">
-                      <li><strong className="text-white">Every purchase by a minor requires parent approval.</strong></li>
-                      <li className="mt-2">Additionally, spending is tracked with limits:</li>
-                      <li className="ml-4">• <strong className="text-white">Daily tracking: $10.00 USD</strong></li>
-                      <li className="ml-4">• <strong className="text-white">Monthly tracking: $50.00 USD</strong></li>
-                      <li className="mt-2">Parents can view spending history and adjust these limits from their Parent Dashboard.</li>
+                      <li>
+                        <strong className="text-white">
+                          Every purchase by a minor requires parent approval.
+                        </strong>
+                      </li>
+                      <li className="mt-2">
+                        Additionally, spending is tracked with limits:
+                      </li>
+                      <li className="ml-4">
+                        •{" "}
+                        <strong className="text-white">
+                          Daily tracking: $10.00 USD
+                        </strong>
+                      </li>
+                      <li className="ml-4">
+                        •{" "}
+                        <strong className="text-white">
+                          Monthly tracking: $50.00 USD
+                        </strong>
+                      </li>
+                      <li className="mt-2">
+                        Parents can view spending history and adjust these
+                        limits from their Parent Dashboard.
+                      </li>
                     </ul>
                   </section>
 
@@ -687,10 +1072,17 @@ export default function TokenShopPage() {
                       6. Suspicious Activity is Blocked
                     </h3>
                     <ul className="space-y-2 text-muted-foreground">
-                      <li>If we detect unusual or excessive token usage on a minor's account, we may:</li>
-                      <li className="ml-4">• Block the account from purchasing more tokens</li>
+                      <li>
+                        If we detect unusual or excessive token usage on a
+                        minor's account, we may:
+                      </li>
+                      <li className="ml-4">
+                        • Block the account from purchasing more tokens
+                      </li>
                       <li className="ml-4">• Require parental confirmation</li>
-                      <li className="ml-4">• Temporarily suspend token transactions</li>
+                      <li className="ml-4">
+                        • Temporarily suspend token transactions
+                      </li>
                     </ul>
                   </section>
 
@@ -703,18 +1095,25 @@ export default function TokenShopPage() {
                       <li>Parents or guardians are responsible for:</li>
                       <li className="ml-4">• Approving purchases</li>
                       <li className="ml-4">• Securing their payment method</li>
-                      <li className="ml-4">• Monitoring app activity on the minor's account</li>
+                      <li className="ml-4">
+                        • Monitoring app activity on the minor's account
+                      </li>
                     </ul>
                   </section>
 
                   {/* Receipt Notification */}
                   <div className="bg-blue-500/20 border border-blue-500/30 rounded-xl p-4 mt-6">
-                    <h3 className="font-bold text-blue-300 mb-2">🔔 Purchase Notifications to Parents</h3>
+                    <h3 className="font-bold text-blue-300 mb-2">
+                      🔔 Purchase Notifications to Parents
+                    </h3>
                     <p className="text-sm text-muted-foreground mb-2">
-                      Whenever a minor makes a token purchase, a transaction receipt will be emailed automatically to the parent/guardian on file.
+                      Whenever a minor makes a token purchase, a transaction
+                      receipt will be emailed automatically to the
+                      parent/guardian on file.
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Receipt includes: amount paid, date/time, payment method, items purchased, and remaining limits.
+                      Receipt includes: amount paid, date/time, payment method,
+                      items purchased, and remaining limits.
                     </p>
                   </div>
                 </div>
@@ -739,14 +1138,21 @@ export default function TokenShopPage() {
               <ScrollArea className="h-[500px] pr-4">
                 <div className="space-y-6 text-sm">
                   <div className="bg-red-500/20 border border-red-500/30 rounded-xl p-4">
-                    <h3 className="font-bold text-red-300 mb-2">⭐ Kid-Safety / Legal Notice</h3>
+                    <h3 className="font-bold text-red-300 mb-2">
+                      ⭐ Kid-Safety / Legal Notice
+                    </h3>
                     <p className="text-muted-foreground">
-                      Purchasing tokens is a paid feature intended for adults only. We strongly encourage parents to monitor their children's account activity, enable payment protections, and disable auto-purchases on connected services.
+                      Purchasing tokens is a paid feature intended for adults
+                      only. We strongly encourage parents to monitor their
+                      children's account activity, enable payment protections,
+                      and disable auto-purchases on connected services.
                     </p>
                   </div>
 
                   <section>
-                    <h3 className="font-bold text-lg mb-3">Regulatory Compliance</h3>
+                    <h3 className="font-bold text-lg mb-3">
+                      Regulatory Compliance
+                    </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="bg-white/5 rounded-lg p-4">
                         <div className="flex items-center gap-2 mb-2">
@@ -754,7 +1160,8 @@ export default function TokenShopPage() {
                           <span className="font-bold">COPPA (USA)</span>
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          Children's Online Privacy Protection Act - Protects children under 13 in the United States
+                          Children's Online Privacy Protection Act - Protects
+                          children under 13 in the United States
                         </p>
                       </div>
                       <div className="bg-white/5 rounded-lg p-4">
@@ -763,7 +1170,8 @@ export default function TokenShopPage() {
                           <span className="font-bold">GDPR-Kids (EU)</span>
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          General Data Protection Regulation - Protects minors in the European Union
+                          General Data Protection Regulation - Protects minors
+                          in the European Union
                         </p>
                       </div>
                       <div className="bg-white/5 rounded-lg p-4">
@@ -772,7 +1180,8 @@ export default function TokenShopPage() {
                           <span className="font-bold">PIPEDA (Canada)</span>
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          Personal Information Protection and Electronic Documents Act - Canadian privacy law
+                          Personal Information Protection and Electronic
+                          Documents Act - Canadian privacy law
                         </p>
                       </div>
                       <div className="bg-white/5 rounded-lg p-4">
@@ -781,24 +1190,37 @@ export default function TokenShopPage() {
                           <span className="font-bold">Loi 25 (Québec)</span>
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          Québec's modernized privacy act with strict protections for minors and personal data
+                          Québec's modernized privacy act with strict
+                          protections for minors and personal data
                         </p>
                       </div>
                     </div>
                   </section>
 
                   <section>
-                    <h3 className="font-bold text-lg mb-2">Data Collection & Privacy</h3>
+                    <h3 className="font-bold text-lg mb-2">
+                      Data Collection & Privacy
+                    </h3>
                     <ul className="space-y-2 text-muted-foreground">
-                      <li>• We collect only necessary information for purchases</li>
-                      <li>• Payment information is processed securely by third-party providers</li>
+                      <li>
+                        • We collect only necessary information for purchases
+                      </li>
+                      <li>
+                        • Payment information is processed securely by
+                        third-party providers
+                      </li>
                       <li>• Users have the right to request data deletion</li>
-                      <li>• All data handling complies with applicable privacy laws</li>
+                      <li>
+                        • All data handling complies with applicable privacy
+                        laws
+                      </li>
                     </ul>
                   </section>
 
                   <section>
-                    <h3 className="font-bold text-lg mb-2">App Store Compliance</h3>
+                    <h3 className="font-bold text-lg mb-2">
+                      App Store Compliance
+                    </h3>
                     <ul className="space-y-2 text-muted-foreground">
                       <li>• Age gating implemented</li>
                       <li>• Parental controls available</li>
@@ -809,7 +1231,9 @@ export default function TokenShopPage() {
 
                   <div className="bg-white/5 rounded-lg p-4 mt-6">
                     <p className="text-xs text-muted-foreground text-center">
-                      For questions about our policies, please contact our support team. By using AniRealm and purchasing tokens, you agree to these terms and conditions.
+                      For questions about our policies, please contact our
+                      support team. By using AniRealm and purchasing tokens, you
+                      agree to these terms and conditions.
                     </p>
                   </div>
                 </div>
@@ -837,35 +1261,55 @@ export default function TokenShopPage() {
               <div className="bg-white/5 rounded-lg p-4 text-center">
                 <div className="flex items-center justify-center gap-2 mb-2">
                   <Coins className="h-6 w-6 text-yellow-400" />
-                  <span className="text-2xl font-bold">{selectedPackage.tokens.toLocaleString()}</span>
+                  <span className="text-2xl font-bold">
+                    {selectedPackage.tokens.toLocaleString()}
+                  </span>
                   {selectedPackage.bonus > 0 && (
-                    <span className="text-green-400">+{selectedPackage.bonus}</span>
+                    <span className="text-green-400">
+                      +{selectedPackage.bonus}
+                    </span>
                   )}
                   <span className="text-muted-foreground">tokens</span>
                 </div>
-                <p className="text-xl font-bold">${selectedPackage.price} USD</p>
+                <p className="text-xl font-bold">
+                  ${selectedPackage.price} USD
+                </p>
               </div>
 
               <div className="space-y-3">
                 <div className="flex items-start gap-3">
-                  <Checkbox 
-                    id="age" 
+                  <Checkbox
+                    id="age"
                     checked={confirmsAge}
-                    onCheckedChange={(checked) => setConfirmsAge(checked as boolean)}
+                    onCheckedChange={(checked) =>
+                      setConfirmsAge(checked as boolean)
+                    }
                   />
-                  <label htmlFor="age" className="text-sm text-muted-foreground cursor-pointer">
-                    I confirm that I am <strong>18 years or older</strong>, or this purchase is being made by my parent/guardian.
+                  <label
+                    htmlFor="age"
+                    className="text-sm text-muted-foreground cursor-pointer"
+                  >
+                    I confirm that I am <strong>18 years or older</strong>, or
+                    this purchase is being made by my parent/guardian.
                   </label>
                 </div>
 
                 <div className="flex items-start gap-3">
-                  <Checkbox 
-                    id="terms" 
+                  <Checkbox
+                    id="terms"
                     checked={agreesToTerms}
-                    onCheckedChange={(checked) => setAgreesToTerms(checked as boolean)}
+                    onCheckedChange={(checked) =>
+                      setAgreesToTerms(checked as boolean)
+                    }
                   />
-                  <label htmlFor="terms" className="text-sm text-muted-foreground cursor-pointer">
-                    I have read and agree to the <strong>Purchase Rules</strong>. I understand that token purchases are <strong>non-refundable</strong> and tokens have no real-world value.
+                  <label
+                    htmlFor="terms"
+                    className="text-sm text-muted-foreground cursor-pointer"
+                  >
+                    I have read and agree to the <strong>Purchase Rules</strong>
+                    . I understand that token purchases are{" "}
+                    <strong>non-refundable</strong> and tokens have no
+                    real-world value.
                   </label>
                 </div>
               </div>
@@ -874,7 +1318,8 @@ export default function TokenShopPage() {
                 <div className="bg-orange-500/20 border border-orange-500/30 rounded-lg p-3 text-sm">
                   <p className="text-orange-300">
                     <AlertTriangle className="h-4 w-4 inline mr-1" />
-                    Minor Account: A receipt will be sent to your parent/guardian.
+                    Minor Account: A receipt will be sent to your
+                    parent/guardian.
                   </p>
                 </div>
               )}
@@ -882,10 +1327,13 @@ export default function TokenShopPage() {
           )}
 
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setShowPurchaseDialog(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setShowPurchaseDialog(false)}
+            >
               Cancel
             </Button>
-            <Button 
+            <Button
               onClick={handleConfirmPurchase}
               disabled={!agreesToTerms || !confirmsAge}
               className="bg-gradient-to-r from-yellow-500 to-orange-500"
@@ -898,7 +1346,13 @@ export default function TokenShopPage() {
       </Dialog>
 
       {/* Request Parent Approval Dialog */}
-      <Dialog open={showRequestDialog} onOpenChange={(open) => { setShowRequestDialog(open); if (!open) setLimitExceeded(null); }}>
+      <Dialog
+        open={showRequestDialog}
+        onOpenChange={(open) => {
+          setShowRequestDialog(open);
+          if (!open) setLimitExceeded(null);
+        }}
+      >
         <DialogContent className="bg-card">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -906,28 +1360,33 @@ export default function TokenShopPage() {
               Request Parent Approval
             </DialogTitle>
             <DialogDescription>
-              {limitExceeded === 'daily' 
+              {limitExceeded === "daily"
                 ? `This purchase exceeds your daily limit of $${(dailyLimit / 100).toFixed(0)}. Send a request to your parent for approval.`
-                : limitExceeded === 'monthly'
+                : limitExceeded === "monthly"
                   ? `This purchase exceeds your monthly limit of $${(monthlyLimit / 100).toFixed(0)}. Send a request to your parent for approval.`
-                  : `All purchases require parent or guardian approval. Send a request to your parent for authorization.`
-              }
+                  : `All purchases require parent or guardian approval. Send a request to your parent for authorization.`}
             </DialogDescription>
           </DialogHeader>
 
           {selectedPackage && (
             <div className="space-y-4">
-              <div className={`${limitExceeded ? 'bg-orange-500/20 border-orange-500/30' : 'bg-blue-500/20 border-blue-500/30'} border rounded-lg p-3 text-sm`}>
-                <p className={`${limitExceeded ? 'text-orange-300' : 'text-blue-300'} font-medium`}>
-                  {limitExceeded === 'daily' ? (
+              <div
+                className={`${limitExceeded ? "bg-orange-500/20 border-orange-500/30" : "bg-blue-500/20 border-blue-500/30"} border rounded-lg p-3 text-sm`}
+              >
+                <p
+                  className={`${limitExceeded ? "text-orange-300" : "text-blue-300"} font-medium`}
+                >
+                  {limitExceeded === "daily" ? (
                     <>
                       <AlertTriangle className="h-4 w-4 inline mr-1" />
-                      Exceeds daily limit: ${selectedPackage.price} &gt; ${(dailyLimit / 100).toFixed(0)}/day
+                      Exceeds daily limit: ${selectedPackage.price} &gt; $
+                      {(dailyLimit / 100).toFixed(0)}/day
                     </>
-                  ) : limitExceeded === 'monthly' ? (
+                  ) : limitExceeded === "monthly" ? (
                     <>
                       <AlertTriangle className="h-4 w-4 inline mr-1" />
-                      Exceeds monthly limit: ${selectedPackage.price} &gt; ${(monthlyLimit / 100).toFixed(0)}/month
+                      Exceeds monthly limit: ${selectedPackage.price} &gt; $
+                      {(monthlyLimit / 100).toFixed(0)}/month
                     </>
                   ) : (
                     <>
@@ -941,17 +1400,25 @@ export default function TokenShopPage() {
               <div className="bg-white/5 rounded-lg p-4 text-center">
                 <div className="flex items-center justify-center gap-2 mb-2">
                   <Coins className="h-6 w-6 text-yellow-400" />
-                  <span className="text-2xl font-bold">{selectedPackage.tokens.toLocaleString()}</span>
+                  <span className="text-2xl font-bold">
+                    {selectedPackage.tokens.toLocaleString()}
+                  </span>
                   {selectedPackage.bonus > 0 && (
-                    <span className="text-green-400">+{selectedPackage.bonus}</span>
+                    <span className="text-green-400">
+                      +{selectedPackage.bonus}
+                    </span>
                   )}
                   <span className="text-muted-foreground">tokens</span>
                 </div>
-                <p className="text-xl font-bold">${selectedPackage.price} USD</p>
+                <p className="text-xl font-bold">
+                  ${selectedPackage.price} USD
+                </p>
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium">Message to Parent (optional)</label>
+                <label className="text-sm font-medium">
+                  Message to Parent (optional)
+                </label>
                 <Textarea
                   placeholder="Tell your parent why you'd like to make this purchase..."
                   value={requestMessage}
@@ -964,24 +1431,30 @@ export default function TokenShopPage() {
               <div className="bg-blue-500/20 border border-blue-500/30 rounded-lg p-3 text-sm">
                 <p className="text-blue-300">
                   <Clock className="h-4 w-4 inline mr-1" />
-                  Your parent will receive this request and can approve or deny it. The request expires in 7 days.
+                  Your parent will receive this request and can approve or deny
+                  it. The request expires in 7 days.
                 </p>
               </div>
             </div>
           )}
 
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setShowRequestDialog(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setShowRequestDialog(false)}
+            >
               Cancel
             </Button>
-            <Button 
+            <Button
               onClick={handleRequestApproval}
               disabled={requestApprovalMutation.isPending}
               className="bg-gradient-to-r from-blue-500 to-purple-500"
               data-testid="button-send-request"
             >
               <Send className="h-4 w-4 mr-2" />
-              {requestApprovalMutation.isPending ? "Sending..." : "Send Request"}
+              {requestApprovalMutation.isPending
+                ? "Sending..."
+                : "Send Request"}
             </Button>
           </DialogFooter>
         </DialogContent>
