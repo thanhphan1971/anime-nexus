@@ -483,7 +483,7 @@ const handleManageBilling = async () => {
         ) : isLoadingCheckout === "monthly" ? (
           "Redirecting..."
         ) : (
-          <>Monthly $9.99</>
+          <>Monthly $9.99 USD</>
         )}
       </Button>
 
@@ -501,7 +501,7 @@ const handleManageBilling = async () => {
         ) : isLoadingCheckout === "yearly" ? (
           "Redirecting..."
         ) : (
-          <>Yearly $79.99</>
+          <>Yearly $79.99 USD</>
         )}
       </Button>
     </div>

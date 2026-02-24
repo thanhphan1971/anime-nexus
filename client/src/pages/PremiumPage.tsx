@@ -232,14 +232,14 @@ export default function PremiumPage() {
                   disabled
                   data-testid="button-subscribe-monthly-granted"
                 >
-                  Subscribe Monthly — $9.99/mo
+                  Subscribe Monthly — $9.99 USD/mo
                 </Button>
                 <Button 
                   className="w-full bg-yellow-400/40 text-yellow-300 border-2 border-yellow-400/60 h-14 text-xl font-bold cursor-not-allowed"
                   disabled
                   data-testid="button-subscribe-yearly-granted"
                 >
-                  Subscribe Yearly — $79.99/yr
+                  Subscribe Yearly — $79.99 USD/yr
                 </Button>
                 <p className="text-base text-yellow-400 text-center font-bold">★ Best value — Save 33%</p>
               </>
@@ -279,14 +279,14 @@ export default function PremiumPage() {
                           S-Class active until {sclassStatus?.premiumEndDate ? formatInTimeZone(new Date(sclassStatus.premiumEndDate), 'UTC', 'MMMM d, yyyy') : 'renewal date'}
                         </p>
                         <Button className="w-full bg-yellow-500/40 text-yellow-300 border-2 border-yellow-500/60 h-12 text-lg font-bold" disabled data-testid="button-current-monthly">
-                          Current Plan — $9.99/month
+                          Current Plan — $9.99 USD/month
                         </Button>
                         <Button 
                           className="w-full bg-yellow-400/40 text-yellow-300 border-2 border-yellow-400/60 h-14 text-xl font-bold cursor-not-allowed"
                           disabled
                           data-testid="button-switch-yearly"
                         >
-                          Yearly — $79.99/year
+                          Yearly — $79.99 USD/year
                         </Button>
                         <p className="text-sm text-white/70 text-center">Switch available at renewal</p>
                       </>
@@ -296,7 +296,7 @@ export default function PremiumPage() {
                           S-Class active until {sclassStatus?.premiumEndDate ? formatInTimeZone(new Date(sclassStatus.premiumEndDate), 'UTC', 'MMMM d, yyyy') : 'renewal date'}
                         </p>
                         <Button className="w-full bg-yellow-500/40 text-yellow-300 border-2 border-yellow-500/60 h-12 text-lg font-bold cursor-not-allowed" disabled data-testid="button-current-monthly-disabled">
-                          Monthly — $9.99/month
+                          Monthly — $9.99 USD/month
                         </Button>
                         <p className="text-sm text-white/70 text-center -mt-1 mb-1">Switch available at renewal</p>
                         <Button 
@@ -304,7 +304,7 @@ export default function PremiumPage() {
                           disabled 
                           data-testid="button-current-yearly"
                         >
-                          Current Plan — $79.99/year
+                          Current Plan — $79.99 USD/year
                         </Button>
                         <p className="text-base text-yellow-400 text-center font-bold">★ Best value — Save 33%</p>
                       </>
@@ -330,14 +330,14 @@ export default function PremiumPage() {
                   onClick={() => setLocation('/checkout?plan=monthly')}
                   data-testid="button-convert-trial"
                 >
-                  Subscribe Monthly — $9.99/mo
+                  Subscribe Monthly — $9.99 USD/mo
                 </Button>
                 <Button 
                   className="w-full bg-yellow-400 hover:bg-yellow-300 text-black font-black h-14 text-xl shadow-[0_0_25px_hsl(45,100%,50%,0.4)] border-2 border-yellow-200"
                   onClick={() => setLocation('/checkout?plan=yearly')}
                   data-testid="button-convert-trial-yearly"
                 >
-                  Subscribe Yearly — $79.99/yr
+                  Subscribe Yearly — $79.99 USD/yr
                 </Button>
                 <p className="text-base text-yellow-400 text-center font-bold">★ Best value — Save 33%</p>
                 <Button 
@@ -357,14 +357,14 @@ export default function PremiumPage() {
                   onClick={() => setLocation('/checkout?plan=monthly')}
                   data-testid="button-subscribe-monthly"
                 >
-                  Subscribe Monthly — $9.99/mo
+                  Subscribe Monthly — $9.99 USD/mo
                 </Button>
                 <Button 
                   className="w-full bg-yellow-400 hover:bg-yellow-300 text-black font-black h-14 text-xl shadow-[0_0_25px_hsl(45,100%,50%,0.4)] border-2 border-yellow-200"
                   onClick={() => setLocation('/checkout?plan=yearly')}
                   data-testid="button-subscribe-yearly"
                 >
-                  Subscribe Yearly — $79.99/yr
+                  Subscribe Yearly — $79.99 USD/yr
                 </Button>
                 <p className="text-base text-yellow-400 text-center font-bold">★ Best value — Save 33%</p>
                 {isEligibleForTrial && (
@@ -431,7 +431,7 @@ export default function PremiumPage() {
             <div className="space-y-4 p-1">
               <div className="text-center py-4">
                 <div className="text-3xl font-bold text-yellow-400">3 Days Free</div>
-                <p className="text-sm text-muted-foreground mt-1">Then $9.99/month</p>
+                <p className="text-sm text-muted-foreground mt-1">Then $9.99 USD/month</p>
               </div>
 
               <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 text-sm">
@@ -461,7 +461,7 @@ export default function PremiumPage() {
                   <AlertCircle className="h-3 w-3" /> Auto-Renewal Notice
                 </p>
                 <p>
-                  Your trial automatically converts to a paid subscription ($9.99/month) 
+                  Your trial automatically converts to a paid subscription ($9.99 USD/month) 
                   at the end of the 3-day trial period unless you cancel before the trial ends.
                 </p>
                 <p>

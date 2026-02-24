@@ -133,10 +133,10 @@ export function CancellationSaveModal({
                       Save more by switching to annual billing.
                     </p>
                     <div className="flex items-center gap-2 text-sm">
-                      <span className="text-cyan-400 font-semibold">$79.99/year</span>
-                      <span className="text-muted-foreground">vs $119.88/year monthly</span>
+                      <span className="text-cyan-400 font-semibold">$79.99 USD/year</span>
+                      <span className="text-muted-foreground">vs $119.88 USD/year monthly</span>
                     </div>
-                    <p className="text-xs text-green-400 mt-1">Save ~33% ($39.89/year)</p>
+                    <p className="text-xs text-green-400 mt-1">Save ~33% ($39.89 USD/year)</p>
                   </div>
                   <Button 
                     size="sm" 
@@ -177,8 +177,8 @@ export function CancellationSaveModal({
         </div>
 
         <p className="text-xs text-center text-muted-foreground mt-4">
-          Cancellation proceeds immediately with no further prompts.
-        </p>
+  Cancellation proceeds immediately with no further prompts. Prices shown are in USD.
+</p>
       </DialogContent>
     </Dialog>
   );

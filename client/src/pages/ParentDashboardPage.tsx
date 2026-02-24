@@ -703,7 +703,7 @@ export default function ParentDashboardPage() {
                 <p className="text-xs text-muted-foreground">Level</p>
               </div>
               <div className="bg-white/5 rounded-lg p-4 text-center">
-                <p className="text-2xl font-bold text-green-400">$0.00</p>
+                <p className="text-2xl font-bold text-green-400">$0.00 USD</p>
                 <p className="text-xs text-muted-foreground">Spent This Month</p>
               </div>
               <div className="bg-white/5 rounded-lg p-4 text-center">

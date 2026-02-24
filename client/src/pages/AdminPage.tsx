@@ -516,7 +516,7 @@ export default function AdminPage() {
               { label: "Total Users", value: "12,450", icon: Users, color: "text-blue-400" },
               { label: "Daily Active", value: "3,200", icon: Activity, color: "text-green-400" },
               { label: "Cards Summoned", value: "84,302", icon: Sparkles, color: "text-purple-400" },
-              { label: "Revenue (Today)", value: "$4,200", icon: BarChart, color: "text-yellow-400" },
+              { label: "Revenue (Today)", value: "$4,200 USD", icon: BarChart, color: "text-yellow-400" },
             ].map((stat, i) => (
               <Card key={i} className="bg-card/40 border-white/10 hover:border-white/20 transition-colors">
                 <CardContent className="p-4 flex items-center justify-between">

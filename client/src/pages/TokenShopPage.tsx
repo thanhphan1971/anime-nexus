@@ -172,9 +172,9 @@ export default function TokenShopPage() {
     enabled: isMinor,
   });
 
-  // Get spending limits (default: $10/day, $50/month)
-  const dailyLimit = parentInfo?.controls?.dailySpendLimit || 1000; // 1000 cents = $10
-  const monthlyLimit = parentInfo?.controls?.monthlySpendLimit || 5000; // 5000 cents = $50
+  // Get spending limits (default: $10 USD/day, $50 USD/month)
+  const dailyLimit = parentInfo?.controls?.dailySpendLimit || 1000; // 1000 cents = $10 USD
+  const monthlyLimit = parentInfo?.controls?.monthlySpendLimit || 5000; // 5000 cents = $50 USD
 
   // Request parent approval mutation
   const requestApprovalMutation = useMutation({
@@ -707,7 +707,7 @@ export default function TokenShopPage() {
                             review
                           </li>
                           <li>
-                            • Spending limits ($10/day, $50/month) help parents
+                            •• Spending limits ($10 USD/day, $50 USD/month) help parents
                             track spending patterns
                           </li>
                         </ul>
@@ -965,14 +965,14 @@ export default function TokenShopPage() {
                     <div className="grid grid-cols-2 gap-4">
                       <div className="bg-black/30 rounded-lg p-4">
                         <Clock className="h-8 w-8 mx-auto mb-2 text-orange-400" />
-                        <p className="text-2xl font-bold text-white">$10.00</p>
+                        <p className="text-2xl font-bold text-white">$10.00 USD</p>
                         <p className="text-xs text-muted-foreground">
                           Daily Limit
                         </p>
                       </div>
                       <div className="bg-black/30 rounded-lg p-4">
                         <Coins className="h-8 w-8 mx-auto mb-2 text-orange-400" />
-                        <p className="text-2xl font-bold text-white">$50.00</p>
+                        <p className="text-2xl font-bold text-white">$50.00 USD</p>
                         <p className="text-xs text-muted-foreground">
                           Monthly Limit
                         </p>

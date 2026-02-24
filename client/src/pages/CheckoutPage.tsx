@@ -209,7 +209,7 @@ export default function CheckoutPage() {
               <span className="text-lg text-muted-foreground font-normal">/year</span>
             </div>
             <p className="text-sm text-green-400 mt-2">
-              $6.67/mo · Save $39.89 vs monthly
+              $6.67 USD/mo · Save $39.89 USD vs monthly
             </p>
           </CardContent>
         </Card>
