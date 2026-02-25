@@ -5329,11 +5329,12 @@ app.post("/api/stripe/checkout", verifySupabaseToken, async (req, res) => {
     plan: plan || "",
   },
 
-  // ✅ keep customer data (especially email) synced
-  customer_update: {
-    address: "auto",
-    email: "auto",
-  },
+  // ✅ keep customer data synced (email cannot be auto-updated here)
+customer_update: {
+  address: "auto",
+  // name: "auto",
+  // shipping: "auto",
+},
 
   billing_address_collection: "required",
 });
@@ -5441,10 +5442,7 @@ if (!customerId) {
   // ✅ Attach customer so Stripe won't treat this as "Guest"
   customer: customerId,
 
-  // ✅ Keep email synced (helps receipts)
-  customer_update: {
-    email: "auto",
-  },
+  
 
   // ✅ Strong linkage for your webhook / admin tooling
   client_reference_id: String(user.id),

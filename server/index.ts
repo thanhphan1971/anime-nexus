@@ -267,7 +267,7 @@ app.post(
       return res.status(400).send(`Webhook Error: ${err.message}`);
     }
 
-   // ✅ Proof logs (we’ll wire DB update next)
+   // ✅ Process events (DB updates guarded)
 try {
   // -------------------------------------------------------
   // checkout.session.completed
@@ -285,7 +285,7 @@ try {
       metadata: session.metadata,
     });
 
-    // A) SUBSCRIPTIONS
+    // A) SUBSCRIPTIONS (created via Checkout)
     if (session.mode === "subscription") {
       const userId = session.metadata?.userId;
       const customerId = session.customer as string;
@@ -344,11 +344,52 @@ try {
 
       const type = session.metadata?.type;
 
-      if (type === "token_purchase") {
-        const userId = session.metadata?.userId;
-        const tokenAmount = parseInt(session.metadata?.tokenAmount || "0", 10);
+      // 1) Minor purchase: delegate to webhookHandlers.ts (your secure flow)
+      if (type === "minor_token_purchase") {
+        const { WebhookHandlers } = await import("./webhookHandlers");
+        await WebhookHandlers.processWebhook(req.body, sig);
+        return res.json({ received: true });
+      }
 
-        if (!userId || tokenAmount <= 0) {
+      // 2) Adult token purchase: hard idempotency + server-authoritative token amount
+      if (type === "token_purchase") {
+        const userId = session.metadata?.userId || session.metadata?.user_id;
+        if (!userId) return res.json({ received: true });
+
+        const full = await stripe.checkout.sessions.retrieve(session.id, {
+          expand: ["line_items.data.price"],
+        });
+
+        const line = full.line_items?.data?.[0];
+        const price = line?.price as Stripe.Price | undefined;
+
+        const tokenAmount =
+          Number(price?.metadata?.tokenAmount ?? price?.metadata?.token_amount ?? 0) || 0;
+
+        const amountCents = Number(full.amount_total ?? line?.amount_total ?? 0) || null;
+
+        if (!price?.id || tokenAmount <= 0) {
+          console.error("Webhook token_purchase missing/invalid price metadata", {
+            sessionId: session.id,
+            priceId: price?.id,
+            tokenAmount,
+          });
+          return res.json({ received: true });
+        }
+
+        const inserted = await storage.tryCreateStripeFulfillment({
+          stripeSessionId: session.id,
+          stripePaymentIntentId: (session.payment_intent as string | null) ?? null,
+          userId,
+          type: "token_purchase",
+          tokenAmount,
+          amountCents: amountCents ?? undefined,
+        });
+
+        if (!inserted) {
+          console.log("Webhook token_purchase duplicate session, skipping", {
+            sessionId: session.id,
+          });
           return res.json({ received: true });
         }
 
@@ -359,13 +400,10 @@ try {
           tokens: (user.tokens || 0) + tokenAmount,
         });
 
-        console.log(`[Webhook token_purchase] Credited ${tokenAmount} tokens to user ${userId}`);
-        return res.json({ received: true });
-      }
+        console.log(
+          `[Webhook token_purchase] Credited ${tokenAmount} tokens to user ${userId} (session ${session.id})`
+        );
 
-      if (type === "minor_token_purchase") {
-        const { WebhookHandlers } = await import("./webhookHandlers");
-        await WebhookHandlers.processWebhook(req.body, sig);
         return res.json({ received: true });
       }
 
@@ -611,12 +649,16 @@ app.get("/api/__routes", (_req, res) => {
       });
 
       // Optional: seed after start (won’t block routes)
-      try {
-        const { seedDatabase } = await import("./seed");
-        await seedDatabase();
-      } catch (e) {
-        console.error("[seed] failed:", e);
-      }
+if (process.env.RUN_SEED === "true") {
+  try {
+    const { seedDatabase } = await import("./seed");
+    await seedDatabase();
+  } catch (e) {
+    console.error("[seed] failed:", e);
+  }
+} else {
+  console.log("[seed] skipped (set RUN_SEED=true to run)");
+}
     } catch (err) {
       console.error("Post-listen initialization error:", err);
       // ⚠️ Do NOT process.exit(1) here — keep the port open so you can still hit /api/health and see logs

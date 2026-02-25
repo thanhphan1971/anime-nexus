@@ -234,8 +234,15 @@ export function useUserCards(userId: string | undefined) {
 
 export function useSummonCards() {
   const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: () => apiCall("/api/cards/summon", { method: "POST" }),
+
+  return useMutation<any, any, { count: 1 | 10 }>({
+    mutationFn: ({ count }) =>
+      apiCall("/api/cards/summon", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ count }),
+      }),
+
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["userCards"] });
       queryClient.invalidateQueries({ queryKey: ["users"] });

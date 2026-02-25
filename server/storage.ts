@@ -238,6 +238,16 @@ export interface IStorage {
   // Token ledger operations
   createTokenLedgerEntry(entry: InsertTokenLedger): Promise<TokenLedger>;
   getTokenLedgerByPurchaseRequest(purchaseRequestId: string): Promise<TokenLedger | undefined>;
+
+  // Stripe fulfillment idempotency
+  tryCreateStripeFulfillment(input: {
+    stripeSessionId: string;
+    stripePaymentIntentId: string | null;
+    userId: string;
+    type: string;
+    tokenAmount: number;
+    amountCents?: number;
+  }): Promise<boolean>;
   
   // Admin audit log operations
   createAdminAuditLog(entry: InsertAdminAuditLog): Promise<AdminAuditLog>;
@@ -1502,7 +1512,34 @@ export class DbStorage implements IStorage {
       .limit(1);
     return result[0];
   }
-  
+
+     // Stripe fulfillment idempotency (raw SQL table)
+  async tryCreateStripeFulfillment(input: {
+    stripeSessionId: string;
+    stripePaymentIntentId: string | null;
+    userId: string;
+    type: string;
+    tokenAmount: number;
+    amountCents?: number;
+  }): Promise<boolean> {
+    const result = await db.execute(sql`
+      INSERT INTO public.stripe_fulfillments
+        (stripe_session_id, stripe_payment_intent_id, user_id, type, token_amount, amount_cents)
+      VALUES
+        (${input.stripeSessionId},
+         ${input.stripePaymentIntentId},
+         ${input.userId},
+         ${input.type},
+         ${input.tokenAmount},
+         ${input.amountCents ?? null})
+      ON CONFLICT (stripe_session_id) DO NOTHING
+      RETURNING id;
+    `);
+
+    const rows = (result as any)?.rows ?? [];
+    return rows.length === 1;
+  }
+
   // Admin audit log operations
   async createAdminAuditLog(entry: InsertAdminAuditLog): Promise<AdminAuditLog> {
     const result = await db.insert(adminAuditLog).values(entry).returning();

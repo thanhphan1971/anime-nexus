@@ -45,7 +45,7 @@ export class WebhookHandlers {
   
   static async handleMinorTokenPurchase(payload: Buffer, signature: string): Promise<void> {
     try {
-      const { stripe } = await import('./stripeClient');
+      
       
       // CRITICAL #1: Verify webhook signature (required in production)
       const event = this.verifyWebhookSignature(payload, signature, stripe);
@@ -60,6 +60,39 @@ export class WebhookHandlers {
           const totalTokens = parseInt(session.metadata.totalTokens, 10);
           
           if (purchaseRequestId && childId && totalTokens && session.payment_status === 'paid') {
+
+              // ===== Stripe idempotency gate (NEW) =====
+            const stripeSessionId = session.id as string;
+            const stripePaymentIntentId =
+              typeof session.payment_intent === "string"
+                ? (session.payment_intent as string)
+                : null;
+
+            const created = await storage.tryCreateStripeFulfillment({
+              stripeSessionId,
+              stripePaymentIntentId,
+              userId: childId,
+              type: "minor_token_purchase",
+              tokenAmount: totalTokens,
+              amountCents:
+                typeof session.amount_total === "number"
+                  ? session.amount_total
+                  : undefined,
+            });
+
+            if (!created) {
+              await storage.logSecurityEvent({
+                eventType: "WEBHOOK_BLOCKED",
+                reason: "DUPLICATE_SESSION",
+                childId,
+                purchaseRequestId,
+                metadata: { stripeSessionId, stripeEventType: event.type },
+              });
+
+              console.log(`[Webhook] Duplicate session ignored: ${stripeSessionId}`);
+              return;
+            }
+            // ===== End idempotency gate =====
             const purchaseRequest = await storage.getPurchaseRequestById(purchaseRequestId);
             
             if (!purchaseRequest) {
@@ -70,7 +103,7 @@ export class WebhookHandlers {
                 eventType: 'WEBHOOK_BLOCKED',
                 reason: 'REQUEST_NOT_FOUND',
                 purchaseRequestId: purchaseRequestId,
-                metadata: { stripeEventType: event.type },
+                metadata: { stripeEventType: event.type, stripeSessionId },
               });
               
               return;
@@ -185,7 +218,7 @@ export class WebhookHandlers {
                   parentId: purchaseRequest.parentUserId,
                   childId: childId,
                   purchaseRequestId: purchaseRequestId,
-                  metadata: { stripeEventType: event.type },
+                  metadata: { stripeEventType: event.type, stripeSessionId },
                 });
                 
                 console.log(`Webhook: Skipped duplicate credit for request ${purchaseRequestId}`);
