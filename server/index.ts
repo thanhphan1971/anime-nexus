@@ -356,27 +356,25 @@ try {
         const userId = session.metadata?.userId || session.metadata?.user_id;
         if (!userId) return res.json({ received: true });
 
-        const full = await stripe.checkout.sessions.retrieve(session.id, {
-          expand: ["line_items.data.price"],
-        });
-
-        const line = full.line_items?.data?.[0];
-        const price = line?.price as Stripe.Price | undefined;
-
+        // Source of truth: session metadata (set during checkout creation)
         const tokenAmount =
-          Number(price?.metadata?.tokenAmount ?? price?.metadata?.token_amount ?? 0) || 0;
+          Number(
+            session.metadata?.tokenAmount ??
+              session.metadata?.token_amount ??
+              0
+          ) || 0;
 
-        const amountCents = Number(full.amount_total ?? line?.amount_total ?? 0) || null;
-
-        if (!price?.id || tokenAmount <= 0) {
-          console.error("Webhook token_purchase missing/invalid price metadata", {
+        if (tokenAmount <= 0) {
+          console.error("Webhook token_purchase missing tokenAmount", {
             sessionId: session.id,
-            priceId: price?.id,
-            tokenAmount,
+            metadata: session.metadata,
           });
           return res.json({ received: true });
         }
 
+        const amountCents = Number(session.amount_total ?? 0) || null;
+        
+        
         const inserted = await storage.tryCreateStripeFulfillment({
           stripeSessionId: session.id,
           stripePaymentIntentId: (session.payment_intent as string | null) ?? null,
@@ -393,12 +391,17 @@ try {
           return res.json({ received: true });
         }
 
-        const user = await storage.getUser(userId);
-        if (!user) return res.json({ received: true });
-
-        await storage.updateUser(userId, {
-          tokens: (user.tokens || 0) + tokenAmount,
-        });
+        try {
+          await storage.incrementUserTokens(userId, tokenAmount);
+        } catch (err) {
+          console.error("❌ incrementUserTokens failed", {
+            userId,
+            tokenAmount,
+            sessionId: session.id,
+            err,
+          });
+          return res.json({ received: true });
+        }
 
         console.log(
           `[Webhook token_purchase] Credited ${tokenAmount} tokens to user ${userId} (session ${session.id})`
@@ -406,12 +409,12 @@ try {
 
         return res.json({ received: true });
       }
+      
+      return res.json({ received: true });
+    } // closes: if (session.mode === "payment")
 
       return res.json({ received: true });
-    }
-
-    return res.json({ received: true });
-  }
+    } // closes: if (event.type === "checkout.session.completed")
 
   // -------------------------------------------------------
   // customer.subscription.updated

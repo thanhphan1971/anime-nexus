@@ -110,6 +110,7 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
   createUserWithId(id: string, user: InsertUser): Promise<User>;
   updateUser(id: string, updates: Partial<User>): Promise<User | undefined>;
+  incrementUserTokens(userId: string, amount: number): Promise<void>;
   updateUserSupabaseId(id: string, supabaseUserId: string): Promise<User | undefined>;
   getAllUsers(): Promise<User[]>;
   
@@ -1499,6 +1500,12 @@ export class DbStorage implements IStorage {
   }
 
   // Token ledger operations
+  async incrementUserTokens(userId: string, amount: number): Promise<void> {
+    await db.execute(sql`
+      SELECT public.increment_user_tokens(${userId}::uuid, ${Math.trunc(amount)});
+    `);
+  }
+  
   async createTokenLedgerEntry(entry: InsertTokenLedger): Promise<TokenLedger> {
     const result = await db.insert(tokenLedger).values(entry).returning();
     return result[0];
