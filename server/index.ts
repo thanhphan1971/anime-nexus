@@ -16,6 +16,13 @@ console.log(
   Object.keys(process.env).filter(k => k.startsWith("SUPABASE")).sort()
 );
 
+console.log("[DB ENV HOST]", {
+  PGHOST: process.env.PGHOST,
+  PGDATABASE: process.env.PGDATABASE,
+  PGPORT: process.env.PGPORT,
+  PGUSER_SET: !!process.env.PGUSER,
+});
+
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
