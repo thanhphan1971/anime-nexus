@@ -1,7 +1,6 @@
 process.on("unhandledRejection", (reason) => {
   console.error("[FATAL] unhandledRejection:", reason);
 });
-
 process.on("uncaughtException", (err) => {
   console.error("[FATAL] uncaughtException:", err);
 });
@@ -262,19 +261,11 @@ app.post(
 
     let event: Stripe.Event;
     try {
-  event = stripe.webhooks.constructEvent(req.body, sig, secret);
-
-  console.log("[WEBHOOK PROD TARGET]", {
-    APP_RUNTIME: process.env.APP_RUNTIME,
-    NODE_ENV: process.env.NODE_ENV,
-    SUPABASE_URL: process.env.SUPABASE_URL,
-    SB_URL: process.env.SB_URL,
-    DATABASE_URL_SET: !!process.env.DATABASE_URL,
-  });
-} catch (err: any) {
-  console.error("Webhook signature verify failed:", err.message);
-  return res.status(400).send(`Webhook Error: ${err.message}`);
-}
+      event = stripe.webhooks.constructEvent(req.body, sig, secret);
+    } catch (err: any) {
+      console.error("Webhook signature verify failed:", err.message);
+      return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
 
    // ✅ Process events (DB updates guarded)
 try {
@@ -284,14 +275,6 @@ try {
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
 
-    // ✅ ADD THIS LOG HERE (ONLY THIS)
-    console.log("[WEBHOOK SESSION]", {
-      sessionId: session.id,
-      mode: session.mode,
-      paymentStatus: session.payment_status,
-      metadata: session.metadata,
-    });
-    
     console.log("checkout.session.completed", {
       eventId: event.id,
       sessionId: session.id,
@@ -390,11 +373,9 @@ try {
         }
 
         const amountCents = Number(session.amount_total ?? 0) || null;
-
-        console.log("[FULFILLMENT] about to create", { sessionId: session.id });        
+        
         
         const inserted = await storage.tryCreateStripeFulfillment({
-          
           stripeSessionId: session.id,
           stripePaymentIntentId: (session.payment_intent as string | null) ?? null,
           userId,
@@ -402,7 +383,6 @@ try {
           tokenAmount,
           amountCents: amountCents ?? undefined,
         });
-        console.log("[FULFILLMENT] result", { sessionId: session.id, inserted });
 
         if (!inserted) {
           console.log("Webhook token_purchase duplicate session, skipping", {
