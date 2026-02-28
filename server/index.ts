@@ -80,6 +80,21 @@ try {
 // ------------------------------------
 const app = express();
 
+// ✅ Replit healthcheck (does NOT override homepage)
+// Must be BEFORE other middleware
+// ----------------------------------------------------
+// Always return 200 for health checks
+app.head("/", (_req, res) => res.status(200).end());
+app.get("/", (_req, res, next) => {
+  // Replit healthcheck hits GET /
+  if (process.env.APP_RUNTIME === "prod") {
+    return res.status(200).send("ok");
+  }
+  return next(); // dev still goes to Vite
+});
+
+app.get("/healthcheck", (_req, res) => res.status(200).send("ok"));
+app.get("/api/health", (_req, res) => res.status(200).json({ ok: true }));
 // 🔍 Environment check endpoint (safe for prod)
 app.get("/api/env-check", (_req, res) => {
   const runtime = process.env.APP_RUNTIME || "(unset)";
