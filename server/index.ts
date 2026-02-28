@@ -260,7 +260,6 @@ app.use((req, res, next) => {
 });
 
 
-// =====================================================
 // STRIPE (CLEAN, OWNED BY YOU)
 // =====================================================
 
@@ -276,36 +275,50 @@ app.post(
     if (!secret) return res.status(500).send("Missing STRIPE_WEBHOOK_SECRET");
 
     let event: Stripe.Event;
+
+    // ----------------------------------------------------
+    // Verify Stripe signature
+    // ----------------------------------------------------
     try {
-  event = stripe.webhooks.constructEvent(req.body, sig, secret);
+      event = stripe.webhooks.constructEvent(req.body, sig, secret);
 
-  console.log("[WEBHOOK PROD TARGET]", {
-    APP_RUNTIME: process.env.APP_RUNTIME,
-    NODE_ENV: process.env.NODE_ENV,
-    SUPABASE_URL: process.env.SUPABASE_URL,
-    SB_URL: process.env.SB_URL,
-    DATABASE_URL_SET: !!process.env.DATABASE_URL,
-  });
-} catch (err: any) {
-  console.error("Webhook signature verify failed:", err.message);
-  return res.status(400).send(`Webhook Error: ${err.message}`);
-}
+      console.log("[WEBHOOK PROD TARGET]", {
+        APP_RUNTIME: process.env.APP_RUNTIME,
+        NODE_ENV: process.env.NODE_ENV,
+        SUPABASE_URL: process.env.SUPABASE_URL,
+        SB_URL: process.env.SB_URL,
+        DATABASE_URL_SET: !!process.env.DATABASE_URL,
+      });
 
-   // ✅ Process events (DB updates guarded)
-try {
-  // -------------------------------------------------------
-  // checkout.session.completed
-  // -------------------------------------------------------
-  if (event.type === "checkout.session.completed") {
-    const session = event.data.object as Stripe.Checkout.Session;
+      try {
+        const dbHost = process.env.DATABASE_URL
+          ? new URL(process.env.DATABASE_URL).hostname
+          : "(unset)";
+        console.log("[WEBHOOK DB HOST]", { dbHost });
+      } catch {
+        console.log("[WEBHOOK DB HOST]", { dbHost: "(invalid_url)" });
+      }
 
-    // ✅ ADD THIS LOG HERE (ONLY THIS)
-    console.log("[WEBHOOK SESSION]", {
-      sessionId: session.id,
-      mode: session.mode,
-      paymentStatus: session.payment_status,
-      metadata: session.metadata,
-    });
+    } catch (err: any) {
+      console.error("Webhook signature verify failed:", err.message);
+      return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    // ----------------------------------------------------
+    // Process events
+    // ----------------------------------------------------
+    try {
+      if (event.type === "checkout.session.completed") {
+        const session = event.data.object as Stripe.Checkout.Session;
+
+        console.log("[WEBHOOK SESSION]", {
+          sessionId: session.id,
+          mode: session.mode,
+          paymentStatus: session.payment_status,
+          metadata: session.metadata,
+        });
+
+        // ... your existing logic continues here
     
     console.log("checkout.session.completed", {
       eventId: event.id,
