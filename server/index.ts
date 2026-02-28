@@ -1,28 +1,3 @@
-process.on("unhandledRejection", (reason) => {
-  console.error("[FATAL] unhandledRejection:", reason);
-});
-
-process.on("uncaughtException", (err) => {
-  console.error("[FATAL] uncaughtException:", err);
-});
-
-let startupError: unknown = null;
-
-console.log("[BOOT] starting server");
-console.log("[ENV] SUPABASE_URL present:", !!process.env.SUPABASE_URL);
-console.log("[ENV] SUPABASE_SERVICE_ROLE_KEY present:", !!process.env.SUPABASE_SERVICE_ROLE_KEY);
-console.log(
-  "[ENV] keys starting with SUPABASE:",
-  Object.keys(process.env).filter(k => k.startsWith("SUPABASE")).sort()
-);
-
-console.log("[DB ENV HOST]", {
-  PGHOST: process.env.PGHOST,
-  PGDATABASE: process.env.PGDATABASE,
-  PGPORT: process.env.PGPORT,
-  PGUSER_SET: !!process.env.PGUSER,
-});
-
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
@@ -37,19 +12,40 @@ import { storage } from "./storage";
 
 import { createClient } from "@supabase/supabase-js";
 import { isSupabaseConfigured } from "./lib/supabaseAdmin";
+process.on("unhandledRejection", (reason) => {
+  console.error("[FATAL] unhandledRejection:", reason);
+});
 
-// ------------------------------------
-// Validate config early (production safety)
-// ------------------------------------
-const strictProdEnv = process.env.STRICT_PROD_ENV === "true";
+process.on("uncaughtException", (err) => {
+  console.error("[FATAL] uncaughtException:", err);
+});
+
+let startupError: unknown = null;
+
+console.log("[BOOT] starting server");
 
 try {
   enforceProductionConfig();
 } catch (err) {
-  console.error("WARN: Production config validation failed:", err);
-  if (strictProdEnv) throw err;
+  console.error("[FATAL] Production config validation failed:", err);
+  process.exit(1);
 }
 
+// --- DB target (safe: no passwords) ---
+console.log("[DB ENV HOST]", {
+  PGHOST: process.env.PGHOST,
+  PGDATABASE: process.env.PGDATABASE,
+  PGPORT: process.env.PGPORT,
+  PGUSER_SET: !!process.env.PGUSER,
+});
+
+// --- Supabase env check ---
+console.log("[ENV] SUPABASE_URL present:", !!process.env.SUPABASE_URL);
+console.log("[ENV] SUPABASE_SERVICE_ROLE_KEY present:", !!process.env.SUPABASE_SERVICE_ROLE_KEY);
+console.log(
+  "[ENV] keys starting with SUPABASE:",
+  Object.keys(process.env).filter((k) => k.startsWith("SUPABASE")).sort()
+);
 
 // ------------------------------------
 // Environment-aware Supabase config (Replit-safe)
