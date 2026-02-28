@@ -12,6 +12,7 @@ import { storage } from "./storage";
 
 import { createClient } from "@supabase/supabase-js";
 import { isSupabaseConfigured } from "./lib/supabaseAdmin";
+
 process.on("unhandledRejection", (reason) => {
   console.error("[FATAL] unhandledRejection:", reason);
 });
