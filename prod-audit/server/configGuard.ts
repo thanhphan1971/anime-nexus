@@ -19,50 +19,23 @@ export function validateProductionConfig(): ValidationResult {
     return { valid: true, missing: [], warnings: ['Running in development mode - config validation skipped'] };
   }
   // ------------------------------------
-  // Production DB must be Supabase via PG* (Replit injects Neon DATABASE_URL)
+  // Production DB must be Supabase (not Neon)
   // ------------------------------------
-  const pgHost = (process.env.PGHOST || "").trim();
-  const pgUser = (process.env.PGUSER || "").trim();
-  const pgPass = (process.env.PGPASSWORD || "").trim();
+  const dbUrl = process.env.DATABASE_URL || "";
 
-  // Determine the effective DB host.
-  // Priority: DATABASE_URL (Replit/Neon) → fallback to PGHOST.
-  const effectiveDbHost = (() => {
-    try {
-      const raw = (process.env.DATABASE_URL || "").trim();
-      if (raw) return new URL(raw).host;
-    } catch {}
-    return pgHost || "";
-  })();
-
-  const hasDatabaseUrl = !!(process.env.DATABASE_URL || "").trim();
-
-// Allow either Supabase or Neon
-if (!effectiveDbHost) {
-  missing.push("DATABASE_URL (or PGHOST/PGUSER/PGPASSWORD)");
-} else {
-  const isSupabase = effectiveDbHost.includes("supabase.co");
-  const isNeon = effectiveDbHost.includes("neon.tech");
-
-  if (!isSupabase && !isNeon) {
-    warnings.push(`Unknown database host: ${effectiveDbHost}`);
-  } else if (isNeon) {
-    warnings.push(`Using Neon in production: ${effectiveDbHost}`);
-  }
-}
-
-// Only require PG* credentials if DATABASE_URL is NOT being used
-if (!hasDatabaseUrl) {
-  if (pgHost) {
-    if (!pgUser) missing.push("PGUSER");
-    if (!pgPass) missing.push("PGPASSWORD");
+  if (!dbUrl) {
+    missing.push("DATABASE_URL (must be set in production)");
   } else {
-    missing.push("PGHOST (or DATABASE_URL)");
+    const isNeon =
+      dbUrl.includes("neon.tech") ||
+      dbUrl.includes("neondb") ||
+      dbUrl.includes("neondb_owner");
+
+    if (isNeon) {
+      missing.push("DATABASE_URL is pointing to Neon (must use Supabase Postgres)");
+    }
   }
-} else {
-  warnings.push("Using DATABASE_URL for DB connection (PG* vars not required)");
-}
- 
+
   // Required for Stripe webhook security
   if (!process.env.STRIPE_WEBHOOK_SECRET) {
     missing.push('STRIPE_WEBHOOK_SECRET');
@@ -100,13 +73,15 @@ if (!hasDatabaseUrl) {
 
 export function enforceProductionConfig(): void {
   const result = validateProductionConfig();
-  // Safe diagnostic: show configured PGHOST (Supabase) and ignore injected DATABASE_URL
-  const pgHost = (process.env.PGHOST || "").trim() || "(unset)";
-  console.log("[Config] PGHOST =", pgHost);
+    // Safe diagnostic: show DB host only (no password)
   try {
-    const raw = (process.env.DATABASE_URL || "").trim();
-    if (raw) console.log("[Config] DATABASE_URL host =", new URL(raw).host);
-  } catch {}
+    const host = process.env.DATABASE_URL
+      ? new URL(process.env.DATABASE_URL).hostname
+      : "(unset)";
+    console.log("[Config] DATABASE_URL host =", host);
+  } catch {
+    console.log("[Config] DATABASE_URL host = (invalid_url)");
+  }
 
   if (result.warnings.length > 0) {
     result.warnings.forEach(w => console.log(`[Config] ${w}`));

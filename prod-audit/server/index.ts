@@ -1,6 +1,6 @@
 import "./envAlias";
 
-import express from "express";
+import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
@@ -12,7 +12,7 @@ import Stripe from "stripe";
 import { stripe } from "./stripeClient";
 import { storage } from "./storage";
 
-import { createClient } from "@supabase/supabase-js";
+import { isSupabaseConfigured } from "./lib/supabaseAdmin";
 
 console.log("[ENV AFTER ALIAS]", {
   APP_RUNTIME: process.env.APP_RUNTIME,
@@ -42,39 +42,9 @@ process.on("uncaughtException", (err) => {
   console.error("[FATAL] uncaughtException:", err);
 });
 
+let startupError: unknown = null;
 
 console.log("[BOOT] starting server");
-
-// ----------------------------------------------------
-// 🔎 PROD DB PROBE (safe: no secrets printed)
-// This runs BEFORE configGuard so we can see what prod env actually is.
-// ----------------------------------------------------
-const dbUrlHost = (() => {
-  try {
-    const raw = (process.env.DATABASE_URL || "").trim();
-    if (!raw) return null;
-    return new URL(raw).host; // host only (no user/pass)
-  } catch {
-    return "(invalid DATABASE_URL)";
-  }
-})();
-
-const sbDbHost = (() => {
-  try {
-    const raw = (process.env.SUPABASE_DATABASE_URL || "").trim();
-    if (!raw) return null;
-    return new URL(raw).host;
-  } catch {
-    return "(invalid SUPABASE_DATABASE_URL)";
-  }
-})();
-
-console.log("[DB PROBE] DATABASE_URL host:", dbUrlHost);
-console.log("[DB PROBE] SUPABASE_DATABASE_URL host:", sbDbHost);
-console.log("[DB PROBE] PGHOST:", process.env.PGHOST);
-console.log("[DB PROBE] PGDATABASE:", process.env.PGDATABASE);
-console.log("[DB PROBE] PGPORT:", process.env.PGPORT);
-console.log("[DB PROBE] PGUSER_SET:", !!process.env.PGUSER);
 
 try {
   enforceProductionConfig();
@@ -215,7 +185,34 @@ const supabaseAdminLocal = (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY)
   : null;
 
 // ------------------------------------
-//
+// Auth helper (used by Stripe + others)
+// ------------------------------------
+async function requireUser(req: Request) {
+  if (!supabaseAdminLocal) {
+    return { error: "Authentication service not configured" as const };
+  }
+
+  const authHeader = req.headers.authorization || "";
+  const token = authHeader.startsWith("Bearer ")
+    ? authHeader.slice(7)
+    : null;
+
+  if (!token) {
+    return { error: "Missing Authorization token" as const };
+  }
+
+  const { data, error } = await supabaseAdminLocal.auth.getUser(token);
+
+  if (error || !data?.user) {
+    return { error: "Invalid or expired token" as const };
+  }
+
+  return { user: data.user };
+}
+
+
+// ------------------------------------
+// DEBUG: verify runtime environment
 // ------------------------------------
 console.log("NODE_ENV =", process.env.NODE_ENV);
 console.log("SUPABASE_URL =", SUPABASE_URL);
@@ -239,6 +236,14 @@ declare module "http" {
     rawBody: unknown;
   }
 }
+
+// ------------------------------------
+// Basic health check
+// ------------------------------------
+app.get("/api/health", (_req, res) => {
+  res.status(200).json({ ok: true });
+});
+
 
 // -----------------------------
 // Replit port detection probe (fast HEAD)
