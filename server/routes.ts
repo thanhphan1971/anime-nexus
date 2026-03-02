@@ -55,6 +55,25 @@ function stripeIsConfigured(): boolean {
 
 
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
+  // -------------------------------------------------------
+  // ENV CHECK (temporary debug endpoint - remove after testing)
+  // -------------------------------------------------------
+  app.get("/api/envcheck", (_req, res) => {
+    res.json({
+      APP_RUNTIME: process.env.APP_RUNTIME || null,
+      NODE_ENV: process.env.NODE_ENV || null,
+
+      // Presence only (no secret values)
+      STRIPE_WEBHOOK_SECRET: !!process.env.STRIPE_WEBHOOK_SECRET,
+      STRIPE_SECRET_KEY: !!process.env.STRIPE_SECRET_KEY,
+      STRIPE_PUBLISHABLE_KEY: !!process.env.STRIPE_PUBLISHABLE_KEY,
+
+      keysStartingSTRIPE: Object.keys(process.env)
+        .filter((k) => k.startsWith("STRIPE"))
+        .sort(),
+    });
+  });
+
 
   // ================= AUTH ROUTES =================
 
@@ -3069,6 +3088,9 @@ app.post("/api/market/listings/:id/purchase", verifySupabaseToken, async (req, r
       
       // If approved, create a Stripe checkout session for the parent to pay
       const { stripe } = await import("./stripeClient");
+      if (!stripe) {
+        return res.status(503).json({ error: "Stripe not configured" });
+      }
       
       // Ensure parent has a Stripe customer ID
       let customerId = parent.stripeCustomerId;
@@ -5255,6 +5277,9 @@ app.post("/api/stripe/checkout", verifySupabaseToken, async (req, res) => {
     }
 
     const { stripe } = await import("./stripeClient");
+    if (!stripe) {
+      return res.status(503).json({ error: "Stripe not configured" });
+    }
 
     let customerId = (user.stripeCustomerId as string | null) ?? null;
 
@@ -5398,30 +5423,33 @@ app.post("/api/stripe/token-checkout", verifySupabaseToken, async (req: any, res
     }
 
     const { stripe } = await import("./stripeClient");
+    if (!stripe) {
+      return res.status(503).json({ error: "Stripe not configured" });
+    }
 
-// ✅ INSERT START: customer resolution
-let customerId = user.stripeCustomerId;
+    // ✅ INSERT START: customer resolution
+    let customerId = user.stripeCustomerId;
 
-if (!customerId) {
-  const customer = await stripe.customers.create({
-    email: user.email || undefined,
-    metadata: {
-      userId: String(user.id),
-      supabaseUserId: String(req.supabaseUser!.id),
-      username: user.username || "",
-    },
-  });
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: user.email || undefined,
+        metadata: {
+          userId: String(user.id),
+          supabaseUserId: String(req.supabaseUser!.id),
+          username: user.username || "",
+        },
+      });
 
-  customerId = customer.id;
+      customerId = customer.id;
 
-  await storage.updateUser(user.id, {
-    stripeCustomerId: customerId,
-    stripeSubscriptionId: null,
-  });
-} else if (user.email) {
-  await stripe.customers.update(customerId, { email: user.email });
-}
-// ✅ INSERT END
+      await storage.updateUser(user.id, {
+        stripeCustomerId: customerId,
+        stripeSubscriptionId: null,
+      });
+    } else if (user.email) {
+      await stripe.customers.update(customerId, { email: user.email });
+    }
+    // ✅ INSERT END
 
     // ------------------------------------
     // 🌍 BASE URL
@@ -5499,6 +5527,9 @@ app.post("/api/stripe/portal", verifySupabaseToken, async (req: any, res: any) =
     if (!user) return res.status(401).json({ error: "User not found" });
 
     const { stripe } = await import("./stripeClient");
+    if (!stripe) {
+      return res.status(503).json({ error: "Stripe not configured" });
+    }
 
     // Ensure Stripe Customer exists (create if missing)
     let customerId = user.stripeCustomerId;
@@ -5564,6 +5595,9 @@ const stripeSubscriptionSyncHandler = async (req: any, res: any) => {
     }
 
     const { stripe } = await import("./stripeClient");
+    if (!stripe) {
+      return res.status(503).json({ error: "Stripe not configured" });
+    }
 
     // ---- No customer = free
     if (!user.stripeCustomerId) {
@@ -5712,7 +5746,9 @@ app.post("/api/stripe/subscription/reactivate", verifySupabaseToken, async (req:
     }
 
     const { stripe } = await import("./stripeClient");
-    
+    if (!stripe) {
+      return res.status(503).json({ error: "Stripe not configured" });
+    }      
 
     const current = await stripe.subscriptions.retrieve(stripeSubscriptionId);
 

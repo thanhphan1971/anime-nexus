@@ -10,85 +10,114 @@ interface ValidationResult {
   warnings: string[];
 }
 
+function isProdRuntime(): boolean {
+  return process.env.APP_RUNTIME === "prod" || process.env.NODE_ENV === "production";
+}
+
+function getTrimmed(name: string): string {
+  return (process.env[name] || "").trim();
+}
+
+function safeHostFromUrl(urlStr: string): string {
+  try {
+    return new URL(urlStr).host;
+  } catch {
+    return "(invalid url)";
+  }
+}
+
+function isSupabaseHost(host: string): boolean {
+  return host.includes("supabase.co") || host.includes("pooler.supabase.com");
+}
+
+function getStripeWebhookSecret(): string {
+  return (
+    getTrimmed("STRIPE_WEBHOOK_SECRET") ||
+    getTrimmed("STRIPE_WEBHOOK_SIGNING_SECRET") ||
+    getTrimmed("STRIPE_WHSEC") ||
+    getTrimmed("STRIPE_WEBHOOK_SECRET__ALT")
+  );
+}
+
+function getEffectiveDbUrl(): string {
+  // ✅ In prod, prefer SB_DB_URL (Replit may overwrite DATABASE_URL with Neon)
+  return getTrimmed("SB_DB_URL") || getTrimmed("DATABASE_URL");
+}
+
 export function validateProductionConfig(): ValidationResult {
-  const isProd = process.env.NODE_ENV === 'production';
+  const prod = isProdRuntime();
   const missing: string[] = [];
   const warnings: string[] = [];
 
-  if (!isProd) {
-    return { valid: true, missing: [], warnings: ['Running in development mode - config validation skipped'] };
+  if (!prod) {
+    return {
+      valid: true,
+      missing: [],
+      warnings: ["Running in development mode - config validation skipped"],
+    };
   }
+
   // ------------------------------------
-  // Production DB must be Supabase via PG* (Replit injects Neon DATABASE_URL)
+  // DB (PROD): must be Supabase URL (direct or pooler)
   // ------------------------------------
-  const pgHost = (process.env.PGHOST || "").trim();
-  const pgUser = (process.env.PGUSER || "").trim();
-  const pgPass = (process.env.PGPASSWORD || "").trim();
-
-  // Determine the effective DB host.
-  // Priority: DATABASE_URL (Replit/Neon) → fallback to PGHOST.
-  const effectiveDbHost = (() => {
-    try {
-      const raw = (process.env.DATABASE_URL || "").trim();
-      if (raw) return new URL(raw).host;
-    } catch {}
-    return pgHost || "";
-  })();
-
-  const hasDatabaseUrl = !!(process.env.DATABASE_URL || "").trim();
-
-// Allow either Supabase or Neon
-if (!effectiveDbHost) {
-  missing.push("DATABASE_URL (or PGHOST/PGUSER/PGPASSWORD)");
-} else {
-  const isSupabase = effectiveDbHost.includes("supabase.co");
-  const isNeon = effectiveDbHost.includes("neon.tech");
-
-  if (!isSupabase && !isNeon) {
-    warnings.push(`Unknown database host: ${effectiveDbHost}`);
-  } else if (isNeon) {
-    warnings.push(`Using Neon in production: ${effectiveDbHost}`);
-  }
-}
-
-// Only require PG* credentials if DATABASE_URL is NOT being used
-if (!hasDatabaseUrl) {
-  if (pgHost) {
-    if (!pgUser) missing.push("PGUSER");
-    if (!pgPass) missing.push("PGPASSWORD");
+  const dbUrl = getEffectiveDbUrl();
+  if (!dbUrl) {
+    missing.push(
+      "SB_DB_URL (preferred) or DATABASE_URL (must point to Supabase db.<ref>.supabase.co or *.pooler.supabase.com)"
+    );
   } else {
-    missing.push("PGHOST (or DATABASE_URL)");
-  }
-} else {
-  warnings.push("Using DATABASE_URL for DB connection (PG* vars not required)");
-}
- 
-  // Required for Stripe webhook security
-  if (!process.env.STRIPE_WEBHOOK_SECRET) {
-    missing.push('STRIPE_WEBHOOK_SECRET');
+    const host = safeHostFromUrl(dbUrl);
+
+    if (host === "(invalid url)") {
+      missing.push("SB_DB_URL / DATABASE_URL (invalid URL)");
+    } else if (!isSupabaseHost(host)) {
+      missing.push(
+        `SB_DB_URL (preferred) or DATABASE_URL must point to Supabase (db.<ref>.supabase.co or *.pooler.supabase.com). Got host=${host}`
+      );
+    }
   }
 
-  // Required for Stripe payments
-  if (!process.env.STRIPE_SECRET_KEY) {
-    missing.push('STRIPE_SECRET_KEY');
+  // ------------------------------------
+  // Stripe webhook signing secret
+  // Only required if billing is enabled
+  // ------------------------------------
+  const billingEnabled = getTrimmed("BILLING_ENABLED").toLowerCase() !== "false";
+  if (billingEnabled) {
+    const whsec = getStripeWebhookSecret();
+    if (!whsec) {
+      missing.push(
+        "STRIPE_WEBHOOK_SECRET (or STRIPE_WEBHOOK_SIGNING_SECRET / STRIPE_WHSEC)"
+      );
+    }
+  } else {
+    warnings.push("BILLING_ENABLED=false: Stripe webhook secret not required for boot");
   }
 
-  // Required for generating proper URLs
-  if (!process.env.APP_BASE_URL && !process.env.REPLIT_DOMAINS) {
-    missing.push('APP_BASE_URL (or REPLIT_DOMAINS)');
+  // ------------------------------------
+  // Stripe payments secret key
+  // ------------------------------------
+  if (!getTrimmed("STRIPE_SECRET_KEY")) {
+    missing.push("STRIPE_SECRET_KEY");
   }
 
-  // Required for email notifications
-  if (!process.env.EMAIL_FROM) {
-    missing.push('EMAIL_FROM');
+  // ------------------------------------
+  // Base URL (links, redirects)
+  // ------------------------------------
+  if (!getTrimmed("APP_BASE_URL") && !getTrimmed("REPLIT_DOMAINS")) {
+    missing.push("APP_BASE_URL (or REPLIT_DOMAINS)");
   }
 
-  // Email provider - at least one must be configured
-  const hasResend = !!process.env.RESEND_API_KEY;
-  const hasSendGrid = !!process.env.SENDGRID_API_KEY;
-  
+  // ------------------------------------
+  // Email notifications
+  // ------------------------------------
+  if (!getTrimmed("EMAIL_FROM")) {
+    missing.push("EMAIL_FROM");
+  }
+
+  const hasResend = !!getTrimmed("RESEND_API_KEY");
+  const hasSendGrid = !!getTrimmed("SENDGRID_API_KEY");
   if (!hasResend && !hasSendGrid) {
-    missing.push('RESEND_API_KEY or SENDGRID_API_KEY (email provider required)');
+    missing.push("RESEND_API_KEY or SENDGRID_API_KEY (email provider required)");
   }
 
   return {
@@ -100,30 +129,49 @@ if (!hasDatabaseUrl) {
 
 export function enforceProductionConfig(): void {
   const result = validateProductionConfig();
-  // Safe diagnostic: show configured PGHOST (Supabase) and ignore injected DATABASE_URL
-  const pgHost = (process.env.PGHOST || "").trim() || "(unset)";
-  console.log("[Config] PGHOST =", pgHost);
-  try {
-    const raw = (process.env.DATABASE_URL || "").trim();
-    if (raw) console.log("[Config] DATABASE_URL host =", new URL(raw).host);
-  } catch {}
+  const prod = isProdRuntime();
+
+  // ---- Safe diagnostics (no secret values) ----
+  console.log(
+    "[Config] prod =",
+    prod,
+    "APP_RUNTIME =",
+    process.env.APP_RUNTIME || "(unset)",
+    "NODE_ENV =",
+    process.env.NODE_ENV || "(unset)"
+  );
+
+  const dbUrl = getEffectiveDbUrl();
+  const dbHost = dbUrl ? safeHostFromUrl(dbUrl) : "(unset)";
+  console.log("[Config] Effective DB host =", dbHost);
+
+  console.log("[Config] DB source =", getTrimmed("SB_DB_URL") ? "SB_DB_URL" : "DATABASE_URL");
+
+  console.log("[Config] STRIPE_WEBHOOK_SECRET present =", !!getStripeWebhookSecret());
+  console.log(
+    "[Config] STRIPE keys present =",
+    Object.keys(process.env)
+      .filter((k) => k.toUpperCase().startsWith("STRIPE"))
+      .sort()
+  );
+
+  console.log("[Config] PGHOST =", getTrimmed("PGHOST") || "(unset)");
 
   if (result.warnings.length > 0) {
-    result.warnings.forEach(w => console.log(`[Config] ${w}`));
+    result.warnings.forEach((w) => console.log(`[Config] ${w}`));
   }
 
   if (!result.valid) {
-    console.error('\n========================================');
-    console.error('FATAL: Missing required environment variables for production');
-    console.error('========================================\n');
-    console.error('The following variables must be set:\n');
-    result.missing.forEach(v => console.error(`  - ${v}`));
-    console.error('\nServer cannot start in production mode without these variables.');
-   throw new Error('Please set them in your environment or secrets.');
-
+    console.error("\n========================================");
+    console.error("FATAL: Missing required environment variables for production");
+    console.error("========================================\n");
+    console.error("The following variables must be set:\n");
+    result.missing.forEach((v) => console.error(`  - ${v}`));
+    console.error("\nServer cannot start in production mode without these variables.");
+    throw new Error("Please set them in your environment or secrets.");
   }
 
-  if (process.env.NODE_ENV === 'production') {
-    console.log('[Config] Production configuration validated successfully');
+  if (prod) {
+    console.log("[Config] Production configuration validated successfully");
   }
 }
