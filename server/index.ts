@@ -1,4 +1,5 @@
 import "./envAlias";
+import "./forceDbEnv"; // must run before any DB-related imports
 
 import express from "express";
 import { registerRoutes } from "./routes";
@@ -11,20 +12,27 @@ import { enforceProductionConfig } from "./configGuard";
 import Stripe from "stripe";
 import { stripe } from "./stripeClient";
 import { storage } from "./storage";
-
 import { createClient } from "@supabase/supabase-js";
 
+// --------------------------------------------------
+// Environment diagnostics
+// --------------------------------------------------
 console.log("[ENV AFTER ALIAS]", {
   APP_RUNTIME: process.env.APP_RUNTIME,
   SUPABASE_URL: (process.env.SUPABASE_URL || "").trim() ? "set" : "unset/empty",
   SUPABASE_SERVICE_ROLE_KEY: (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim()
     ? "set"
     : "unset/empty",
-  SUPABASE_DATABASE_URL: (process.env.SUPABASE_DATABASE_URL || "").trim() ? "set" : "unset/empty",
+  SUPABASE_DATABASE_URL: (process.env.SUPABASE_DATABASE_URL || "").trim()
+    ? "set"
+    : "unset/empty",
   DATABASE_URL: (process.env.DATABASE_URL || "").trim() ? "set" : "unset/empty",
+  SB_DB_URL: (process.env.SB_DB_URL || "").trim() ? "set" : "unset/empty",
 });
 
-// ---- Supabase host check (safe: no secrets) ----
+// --------------------------------------------------
+// Supabase host check (safe: no secrets)
+// --------------------------------------------------
 try {
   const host = process.env.SUPABASE_URL
     ? new URL(process.env.SUPABASE_URL).hostname
@@ -34,6 +42,9 @@ try {
   console.log("[SUPABASE HOST] invalid or missing SUPABASE_URL");
 }
 
+// --------------------------------------------------
+// Global error traps
+// --------------------------------------------------
 process.on("unhandledRejection", (reason) => {
   console.error("[FATAL] unhandledRejection:", reason);
 });
@@ -42,9 +53,7 @@ process.on("uncaughtException", (err) => {
   console.error("[FATAL] uncaughtException:", err);
 });
 
-
 console.log("[BOOT] starting server");
-
 // ----------------------------------------------------
 // 🔎 PROD DB PROBE (safe: no secrets printed)
 // This runs BEFORE configGuard so we can see what prod env actually is.
