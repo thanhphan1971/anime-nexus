@@ -623,18 +623,36 @@ app.use(express.urlencoded({ extended: false, limit: "10mb" }));
 // =====================================================
 // Sessions
 // =====================================================
+
+// ✅ Required for secure cookies behind Replit / reverse proxies
+app.set("trust proxy", 1);
+
 const SessionStore = MemoryStore(session);
+
 app.use(
   session({
-    secret: process.env.SESSION_SECRET || "anirealm-secret-key-change-in-production",
+    // ✅ Fail fast in production if missing (don’t silently ship a known secret)
+    secret:
+      process.env.SESSION_SECRET ??
+      (process.env.NODE_ENV === "production"
+        ? (() => {
+            throw new Error("SESSION_SECRET is required in production");
+          })()
+        : "dev-secret"),
+
     resave: false,
     saveUninitialized: false,
+
+    // ✅ Helps cookie behavior behind proxies
+    proxy: process.env.NODE_ENV === "production",
+
     cookie: {
       maxAge: 1000 * 60 * 60 * 24 * 7, // 1 week
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
     },
+
     store: new SessionStore({
       checkPeriod: 86400000, // prune expired entries every 24h
     }),
@@ -660,68 +678,96 @@ export function log(message: string, source = "express") {
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
 
-  const originalResJson = res.json;
-  res.json = function (bodyJson: any) {
-    capturedJsonResponse = bodyJson;
-    return originalResJson.call(res, bodyJson);
+  let capturedJsonResponse: any = undefined;
+
+  // Capture JSON responses
+  const originalJson = res.json.bind(res);
+  res.json = (body: any) => {
+    capturedJsonResponse = body;
+    return originalJson(body);
   };
 
-  res.on("finish", () => {
-    const duration = Date.now() - start;
-    if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-  const safe = { ...capturedJsonResponse } as any;
-  if (safe.accessToken) safe.accessToken = "[REDACTED]";
-  if (safe.refreshToken) safe.refreshToken = "[REDACTED]";
-  if (safe.token) safe.token = "[REDACTED]";
-  logLine += ` :: ${JSON.stringify(safe)}`;
-}
+  // Redaction helpers
+  const redactKeys = new Set([
+    "accessToken",
+    "refreshToken",
+    "token",
+    "idToken",
+    "session",
+    "sessionId",
+    "secret",
+    "password",
+    "apiKey",
+    "authorization",
+  ]);
 
-      log(logLine);
+  const redactDeep = (obj: any): any => {
+    if (obj === null || obj === undefined) return obj;
+    if (typeof obj !== "object") return obj;
+    if (Array.isArray(obj)) return obj.map(redactDeep);
+
+    const out: any = {};
+    for (const [k, v] of Object.entries(obj)) {
+      out[k] = redactKeys.has(k) ? "[REDACTED]" : redactDeep(v);
     }
+    return out;
+  };
+
+  // Log once when response finishes
+  res.once("finish", () => {
+    if (!path.startsWith("/api")) return;
+
+    const duration = Date.now() - start;
+    let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+
+    if (capturedJsonResponse !== undefined) {
+      try {
+        logLine += ` :: ${JSON.stringify(redactDeep(capturedJsonResponse))}`;
+      } catch {
+        logLine += ` :: [unserializable json response]`;
+      }
+    }
+
+    log(logLine);
   });
 
   next();
 });
 
+// --------------------------------------------------
 // Prevent caching for API responses
+// --------------------------------------------------
 app.use("/api", (_req, res, next) => {
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("Pragma", "no-cache");
   next();
 });
 
-
+// --------------------------------------------------
 // Replit requires binding to the PORT it provides
+// (IMPORTANT: only define port ONCE in the file)
+// --------------------------------------------------
 const port = Number(process.env.PORT) || 5000;
 
+// --------------------------------------------------
+// Boot diagnostics (before listen)
+// --------------------------------------------------
 console.log("[BOOT] PORT env =", process.env.PORT);
+console.log("[BOOT] about to listen; routes will register inside listen callback");
+
 app.get("/__status", (_req, res) => {
   res.json({ frontendReady });
 });
 
-
-
-
-
-
-// ✅ Open the port ASAP so Replit Preview can reach the app
-httpServer.listen(port, "0.0.0.0", () => {
-  log(`serving on port ${port}`);
-
-  // Initialize everything AFTER the port is open
-  (async () => {
-    try {
-      // Register API routes BEFORE static/Vite
-      await registerRoutes(httpServer, app);
-
-     // 🔍 Debug endpoint: list registered routes (view in browser)
+// --------------------------------------------------
+// Debug endpoint: list registered routes
+// MUST be defined BEFORE listen
+// --------------------------------------------------
 app.get("/api/__routes", (_req, res) => {
   try {
     const stack = (app as any)?._router?.stack ?? [];
+
     const routes = stack
       .filter((layer: any) => layer?.route)
       .map((layer: any) => ({
@@ -729,56 +775,81 @@ app.get("/api/__routes", (_req, res) => {
         methods: Object.keys(layer.route.methods || {}).map((m) => m.toUpperCase()),
       }));
 
-    res.json({ count: routes.length, routes });
+    return res.json({ count: routes.length, routes });
   } catch (e: any) {
-    res.status(500).json({ error: "failed to list routes", detail: e?.message || String(e) });
+    return res.status(500).json({ error: e?.message || String(e) });
   }
 });
 
-      app.all("/api/*", (req, res) => {
-        res.status(404).json({
-          error: "API route not found",
-          path: req.path,
-          method: req.method,
-        });
-      });
+// --------------------------------------------------
+// Listen ASAP so Replit health checks can reach the app
+// --------------------------------------------------
+console.log("[BOOT] about to listen", { portEnv: process.env.PORT, resolvedPort: port });
 
-      // Static serving / Vite dev server
-      const isProdRuntime = process.env.APP_RUNTIME === "prod";
-      if (isProdRuntime) {
-        serveStatic(app);
-      } else {
-        const { setupVite } = await import("./vite");
-        await setupVite(httpServer, app);
-      }
+httpServer.listen(port, "0.0.0.0", async () => {
+  log(`serving on port ${port}`);
+  console.log("[BOOT] server listening (callback entered)");
 
-      frontendReady = true;
-      log("Server fully initialized");
-
-      // Error handler (MUST be last middleware)
-      app.use((err: any, _req: any, res: any, _next: any) => {
-        const status = err.status || err.statusCode || 500;
-        const message = err.message || "Internal Server Error";
-        res.status(status).json({ message });
-      });
-
-      // Optional: seed after start (won’t block routes)
-if (process.env.RUN_SEED === "true") {
   try {
-    const { seedDatabase } = await import("./seed");
-    await seedDatabase();
-  } catch (e) {
-    console.error("[seed] failed:", e);
-  }
-} else {
-  console.log("[seed] skipped (set RUN_SEED=true to run)");
-}
-    } catch (err) {
-      console.error("Post-listen initialization error:", err);
-      // ⚠️ Do NOT process.exit(1) here — keep the port open so you can still hit /api/health and see logs
+    // --------------------------------------------------
+    // Register API routes
+    // --------------------------------------------------
+    console.log("[BOOT] registering routes...");
+    await registerRoutes(httpServer, app);
+    console.log("[BOOT] routes registered");
+
+    // --------------------------------------------------
+    // 404 for unknown API routes (after registerRoutes)
+    // --------------------------------------------------
+    app.all("/api/*", (req, res) => {
+      res.status(404).json({
+        error: "API route not found",
+        path: req.path,
+        method: req.method,
+      });
+    });
+
+    // --------------------------------------------------
+    // Static serving / Vite dev server
+    // --------------------------------------------------
+    const isProdRuntime = process.env.APP_RUNTIME === "prod";
+    if (isProdRuntime) {
+      serveStatic(app);
+    } else {
+      const { setupVite } = await import("./vite");
+      await setupVite(httpServer, app);
     }
-  })();
+
+    // --------------------------------------------------
+    // App ready
+    // --------------------------------------------------
+    frontendReady = true;
+    log("Server fully initialized");
+
+    // --------------------------------------------------
+    // Error handler (must be last)
+    // --------------------------------------------------
+    app.use((err: any, _req: any, res: any, _next: any) => {
+      const status = err.status || err.statusCode || 500;
+      const message = err.message || "Internal Server Error";
+      res.status(status).json({ message });
+    });
+
+    // --------------------------------------------------
+    // Optional seed (non-blocking)
+    // --------------------------------------------------
+    if (process.env.RUN_SEED === "true") {
+      try {
+        const { seedDatabase } = await import("./seed");
+        await seedDatabase();
+      } catch (e) {
+        console.error("[seed] failed:", e);
+      }
+    } else {
+      console.log("[seed] skipped (set RUN_SEED=true to run)");
+    }
+  } catch (err) {
+    console.error("[FATAL] post-listen initialization failed:", err);
+    // Keep port open for debugging instead of exiting
+  }
 });
-
-
-
