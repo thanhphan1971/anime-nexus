@@ -1,4 +1,6 @@
-import "./envAlias";
+import Stripe from "stripe";
+import { stripe } from "./stripeClient";
+import { storage } from "./storage";
 import "./forceDbEnv"; // must run before any DB-related imports
 
 import express from "express";
@@ -7,262 +9,6 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import session from "express-session";
 import MemoryStore from "memorystore";
-import { enforceProductionConfig } from "./configGuard";
-
-import Stripe from "stripe";
-import { stripe } from "./stripeClient";
-import { storage } from "./storage";
-import { createClient } from "@supabase/supabase-js";
-
-// --------------------------------------------------
-// Environment diagnostics
-// --------------------------------------------------
-console.log("[ENV AFTER ALIAS]", {
-  APP_RUNTIME: process.env.APP_RUNTIME,
-  SUPABASE_URL: (process.env.SUPABASE_URL || "").trim() ? "set" : "unset/empty",
-  SUPABASE_SERVICE_ROLE_KEY: (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim()
-    ? "set"
-    : "unset/empty",
-  SUPABASE_DATABASE_URL: (process.env.SUPABASE_DATABASE_URL || "").trim()
-    ? "set"
-    : "unset/empty",
-  DATABASE_URL: (process.env.DATABASE_URL || "").trim() ? "set" : "unset/empty",
-  SB_DB_URL: (process.env.SB_DB_URL || "").trim() ? "set" : "unset/empty",
-});
-
-// --------------------------------------------------
-// Supabase host check (safe: no secrets)
-// --------------------------------------------------
-try {
-  const host = process.env.SUPABASE_URL
-    ? new URL(process.env.SUPABASE_URL).hostname
-    : "(unset)";
-  console.log("[SUPABASE HOST]", host);
-} catch {
-  console.log("[SUPABASE HOST] invalid or missing SUPABASE_URL");
-}
-
-// --------------------------------------------------
-// Global error traps
-// --------------------------------------------------
-process.on("unhandledRejection", (reason) => {
-  console.error("[FATAL] unhandledRejection:", reason);
-});
-
-process.on("uncaughtException", (err) => {
-  console.error("[FATAL] uncaughtException:", err);
-});
-
-console.log("[BOOT] starting server");
-// ----------------------------------------------------
-// 🔎 PROD DB PROBE (safe: no secrets printed)
-// This runs BEFORE configGuard so we can see what prod env actually is.
-// ----------------------------------------------------
-const dbUrlHost = (() => {
-  try {
-    const raw = (process.env.DATABASE_URL || "").trim();
-    if (!raw) return null;
-    return new URL(raw).host; // host only (no user/pass)
-  } catch {
-    return "(invalid DATABASE_URL)";
-  }
-})();
-
-const sbDbHost = (() => {
-  try {
-    const raw = (process.env.SUPABASE_DATABASE_URL || "").trim();
-    if (!raw) return null;
-    return new URL(raw).host;
-  } catch {
-    return "(invalid SUPABASE_DATABASE_URL)";
-  }
-})();
-
-console.log("[DB PROBE] DATABASE_URL host:", dbUrlHost);
-console.log("[DB PROBE] SUPABASE_DATABASE_URL host:", sbDbHost);
-console.log("[DB PROBE] PGHOST:", process.env.PGHOST);
-console.log("[DB PROBE] PGDATABASE:", process.env.PGDATABASE);
-console.log("[DB PROBE] PGPORT:", process.env.PGPORT);
-console.log("[DB PROBE] PGUSER_SET:", !!process.env.PGUSER);
-
-const isProdRuntime =
-  process.env.APP_RUNTIME === "prod" || process.env.NODE_ENV === "production";
-
-try {
-  if (isProdRuntime) {
-    console.warn("============================================================");
-    console.warn("[configGuard] Strict production config disabled temporarily.");
-    console.warn("[configGuard] Replit is overriding DB/secrets. Booting anyway.");
-    console.warn("============================================================");
-  } else {
-    enforceProductionConfig(); // strict only in dev
-  }
-} catch (err) {
-  console.error("[configGuard] Validation error:", err);
-
-  if (isProdRuntime) {
-    console.warn("[configGuard] Non-fatal in prod. Continuing startup.");
-  } else {
-    process.exit(1);
-  }
-}
-// --- DB target (safe: no passwords) ---
-console.log("[DB ENV HOST]", {
-  PGHOST: process.env.PGHOST,
-  PGDATABASE: process.env.PGDATABASE,
-  PGPORT: process.env.PGPORT,
-  PGUSER_SET: !!process.env.PGUSER,
-});
-
-// --- Supabase env check ---
-console.log("[ENV] SUPABASE_URL present:", !!process.env.SUPABASE_URL);
-console.log("[ENV] SUPABASE_SERVICE_ROLE_KEY present:", !!process.env.SUPABASE_SERVICE_ROLE_KEY);
-console.log(
-  "[ENV] keys starting with SUPABASE:",
-  Object.keys(process.env).filter((k) => k.startsWith("SUPABASE")).sort()
-);
-
-// ------------------------------------
-// Environment-aware Supabase config (Replit-safe)
-// ------------------------------------
-
-// IMPORTANT:
-// - Do NOT set APP_RUNTIME in Workspace secrets.
-// - Set APP_RUNTIME=prod ONLY in Deployment secrets.
-// This avoids Replit secret sync issues.
-const isProd = isProdRuntime;
-
-const SUPABASE_URL = isProd
-  ? (process.env.SUPABASE_URL || process.env.DEV_SUPABASE_URL)
-  : (process.env.DEV_SUPABASE_URL || process.env.SUPABASE_URL);
-
-const SUPABASE_SERVICE_ROLE_KEY = isProd
-  ? (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.DEV_SUPABASE_SERVICE_ROLE_KEY)
-  : (process.env.DEV_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY);
-
-// ----------------------------------------------------
-// Supabase hard check (API only — not DB host)
-// ----------------------------------------------------
-if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-  console.error("[FATAL] Missing Supabase API env (SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY).");
-  process.exit(1);
-}
-
-// Safe diagnostic (no secrets)
-try {
-  console.log("[Supabase] host =", new URL(SUPABASE_URL).host);
-} catch {
-  console.log("[Supabase] host = (invalid SUPABASE_URL)");
-}
-
-// ✅ Safe environment diagnostics (never logs secrets)
-try {
-  const host = SUPABASE_URL ? new URL(SUPABASE_URL).hostname : "(missing)";
-  console.log(
-    `[ENV CHECK] APP_RUNTIME=${process.env.APP_RUNTIME || "(unset)"} prod=${isProd} supabase_host=${host}`
-  );
-} catch {
-  console.log(
-    `[ENV CHECK] APP_RUNTIME=${process.env.APP_RUNTIME || "(unset)"} prod=${isProd} supabase_host=(invalid_url)`
-  );
-}
-
-
-// ------------------------------------
-// App + server
-// ------------------------------------
-const app = express();
-
-// ✅ Replit healthcheck (does NOT override homepage)
-// Must be BEFORE other middleware
-// ----------------------------------------------------
-// Always return 200 for health checks
-app.head("/", (_req, res) => res.status(200).end());
-app.get("/", (_req, res, next) => {
-  // Replit healthcheck hits GET /
-  if (isProdRuntime) return res.status(200).send("ok");
-  return next(); // dev still goes to Vite
-});
-
-app.get("/healthcheck", (_req, res) => res.status(200).send("ok"));
-app.get("/api/health", (_req, res) => res.status(200).json({ ok: true }));
-// 🔍 Environment check endpoint (safe for prod)
-app.get("/api/env-check", (_req, res) => {
-  const runtime = process.env.APP_RUNTIME || "(unset)";
-  const prod = isProdRuntime; // use the same logic as the rest of the server
-
-  const selectedUrl = prod
-    ? (process.env.SUPABASE_URL || process.env.DEV_SUPABASE_URL)
-    : (process.env.DEV_SUPABASE_URL || process.env.SUPABASE_URL);
-
-  let host = "(missing)";
-  try {
-    host = selectedUrl ? new URL(selectedUrl).hostname : "(missing)";
-  } catch {
-    host = "(invalid_url)";
-  }
-
-  res.json({
-    appRuntime: runtime,
-    prod,
-    supabaseHost: host,
-    nodeEnv: process.env.NODE_ENV,
-    hasSupabaseUrl: !!process.env.SUPABASE_URL,
-    hasDevSupabaseUrl: !!process.env.DEV_SUPABASE_URL,
-    hasServiceRole: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
-    hasDevServiceRole: !!process.env.DEV_SUPABASE_SERVICE_ROLE_KEY,
-  });
-});
-
-// Supabase public config for client (safe: anon key only)
-app.get("/api/config/supabase", (_req, res) => {
-  res.setHeader("Cache-Control", "no-store");
-  res.setHeader("Pragma", "no-cache");
-
-  const url =
-    process.env.SUPABASE_URL ||
-    process.env.DEV_SUPABASE_URL ||
-    process.env.SB_URL;
-
-  const anonKey =
-    process.env.SUPABASE_ANON_KEY ||
-    process.env.DEV_SUPABASE_ANON_KEY ||
-    process.env.SB_ANON;
-
-  if (!url || !anonKey) {
-    return res.status(500).json({
-      error: "Supabase config missing",
-      missing: { url: !url, anonKey: !anonKey },
-    });
-  }
-
-  return res.json({ url, anonKey });
-});
-
-
-let frontendReady = false;
-
-const httpServer = createServer(app);
-
-// ------------------------------------
-// Supabase ADMIN client (SERVER ONLY)
-// ------------------------------------
-const supabaseAdminLocal = createClient(
-  SUPABASE_URL,
-  SUPABASE_SERVICE_ROLE_KEY,
-  { auth: { persistSession: false } }
-);
-
-// ------------------------------------
-//
-// ------------------------------------
-console.log("NODE_ENV =", process.env.NODE_ENV);
-console.log("SUPABASE_URL =", SUPABASE_URL);
-console.log("APP_BASE_URL =", process.env.APP_BASE_URL);
-console.log(
-  "STRIPE_SECRET_KEY starts with =",
-  (process.env.STRIPE_SECRET_KEY || "").slice(0, 8)
-);
 
 // ------------------------------------
 // Types
@@ -278,6 +24,201 @@ declare module "http" {
     rawBody: unknown;
   }
 }
+
+// -----------------------------
+// Logger helper
+// -----------------------------
+export function log(message: string, source = "express") {
+  const formattedTime = new Date().toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  });
+  console.log(`${formattedTime} [${source}] ${message}`);
+}
+
+
+// --- IMPORTANT: alias shim MUST run before configGuard is imported ---
+function applyEnvAlias(): void {
+  const supabaseUrl = (process.env.SUPABASE_URL || "").trim();
+  const supabaseService = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+
+  if (!process.env.SB_URL && supabaseUrl) {
+    process.env.SB_URL = supabaseUrl;
+  }
+
+  if (!process.env.SB_SERVICE && supabaseService) {
+    process.env.SB_SERVICE = supabaseService;
+  }
+
+  console.log("[ENV AFTER ALIAS]", {
+    SB_URL: !!process.env.SB_URL,
+    SB_SERVICE: !!process.env.SB_SERVICE,
+    SUPABASE_URL: !!process.env.SUPABASE_URL,
+    SUPABASE_SERVICE_ROLE_KEY: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+  });
+}
+
+applyEnvAlias();
+
+async function main() {
+  // Now it's safe to load config guard AFTER alias is applied
+  const { enforceProductionConfig } = await import("./configGuard");
+
+  // --------------------------------------------------
+  // Environment diagnostics
+  // --------------------------------------------------
+  console.log("[ENV DIAG]", {
+    APP_RUNTIME: process.env.APP_RUNTIME,
+    SUPABASE_URL: (process.env.SUPABASE_URL || "").trim() ? "set" : "unset/empty",
+    SUPABASE_SERVICE_ROLE_KEY: (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim()
+      ? "set"
+      : "unset/empty",
+    SUPABASE_DATABASE_URL: (process.env.SUPABASE_DATABASE_URL || "").trim()
+      ? "set"
+      : "unset/empty",
+    DATABASE_URL: (process.env.DATABASE_URL || "").trim() ? "set" : "unset/empty",
+    SB_DB_URL: (process.env.SB_DB_URL || "").trim() ? "set" : "unset/empty",
+    SB_URL: (process.env.SB_URL || "").trim() ? "set" : "unset/empty",
+    SB_SERVICE: (process.env.SB_SERVICE || "").trim() ? "set" : "unset/empty",
+  });
+
+  // --------------------------------------------------
+  // Supabase host check (safe: no secrets)
+  // --------------------------------------------------
+  try {
+    const host = process.env.SUPABASE_URL
+      ? new URL(process.env.SUPABASE_URL).hostname
+      : "(unset)";
+    console.log("[SUPABASE HOST]", host);
+  } catch {
+    console.log("[SUPABASE HOST] invalid or missing SUPABASE_URL");
+  }
+
+  // --------------------------------------------------
+  // Global error traps
+  // --------------------------------------------------
+  process.on("unhandledRejection", (reason) => {
+    console.error("[FATAL] unhandledRejection:", reason);
+  });
+
+  process.on("uncaughtException", (err) => {
+    console.error("[FATAL] uncaughtException:", err);
+  });
+
+  console.log("[BOOT] starting server");
+
+  // ✅ Run config validation AFTER alias is applied
+  enforceProductionConfig();
+
+  // Runtime flags / required env (define ONCE, in-scope for the whole server)
+  const isProdRuntime =
+    process.env.APP_RUNTIME === "prod" || process.env.NODE_ENV === "production";
+
+  const SUPABASE_URL =
+    process.env.SUPABASE_URL || process.env.DEV_SUPABASE_URL || process.env.SB_URL;
+
+  const SUPABASE_SERVICE_ROLE_KEY =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.DEV_SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SB_SERVICE;
+
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+  }
+
+  const app = express();
+
+  // ✅ Replit healthcheck (does NOT override homepage)
+  // Must be BEFORE other middleware
+  // ----------------------------------------------------
+  app.head("/", (_req, res) => res.status(200).end());
+  app.get("/", (_req, res, next) => {
+    // Replit healthcheck hits GET /
+    if (isProdRuntime) return res.status(200).send("ok");
+    return next(); // dev still goes to Vite
+  });
+
+  app.get("/healthcheck", (_req, res) => res.status(200).send("ok"));
+  app.get("/api/health", (_req, res) => res.status(200).json({ ok: true }));
+
+  // 🔍 Environment check endpoint (safe for prod)
+  app.get("/api/env-check", (_req, res) => {
+    const runtime = process.env.APP_RUNTIME || "(unset)";
+    const prod = isProdRuntime;
+
+    const selectedUrl = prod
+      ? process.env.SUPABASE_URL || process.env.DEV_SUPABASE_URL
+      : process.env.DEV_SUPABASE_URL || process.env.SUPABASE_URL;
+
+    let host = "(missing)";
+    try {
+      host = selectedUrl ? new URL(selectedUrl).hostname : "(missing)";
+    } catch {
+      host = "(invalid_url)";
+    }
+
+    return res.json({
+      appRuntime: runtime,
+      prod,
+      supabaseHost: host,
+      nodeEnv: process.env.NODE_ENV,
+      hasSupabaseUrl: !!process.env.SUPABASE_URL,
+      hasDevSupabaseUrl: !!process.env.DEV_SUPABASE_URL,
+      hasServiceRole: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+      hasDevServiceRole: !!process.env.DEV_SUPABASE_SERVICE_ROLE_KEY,
+    });
+  });
+
+  // Supabase public config for client (safe: anon key only)
+  app.get("/api/config/supabase", (_req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("Pragma", "no-cache");
+
+    const url =
+      process.env.SUPABASE_URL || process.env.DEV_SUPABASE_URL || process.env.SB_URL;
+
+    const anonKey =
+      process.env.SUPABASE_ANON_KEY ||
+      process.env.DEV_SUPABASE_ANON_KEY ||
+      process.env.SB_ANON;
+
+    if (!url || !anonKey) {
+      return res.status(500).json({
+        error: "Supabase config missing",
+        missing: { url: !url, anonKey: !anonKey },
+      });
+    }
+
+    return res.json({ url, anonKey });
+  });
+
+  let frontendReady = false;
+
+  const httpServer = createServer(app);
+
+  // ------------------------------------
+  // Supabase ADMIN client (SERVER ONLY)
+  // ------------------------------------
+  
+  console.log("[ENV SAFE]", {
+    nodeEnv: process.env.NODE_ENV,
+    appRuntime: process.env.APP_RUNTIME,
+    stripeSecretSet: !!process.env.STRIPE_SECRET_KEY,
+    appBaseUrlSet: !!process.env.APP_BASE_URL,
+    supabaseHost: (() => {
+      try {
+        return new URL(SUPABASE_URL).host;
+      } catch {
+        return "(invalid)";
+      }
+    })(),
+  });
+
+  // ... rest of your server continues below (routes, webhook, session, listen, etc.)
+
+
 
 // -----------------------------
 // Replit port detection probe (fast HEAD)
@@ -669,19 +610,6 @@ app.use(
 );
 
 // -----------------------------
-// Logger helper
-// -----------------------------
-export function log(message: string, source = "express") {
-  const formattedTime = new Date().toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true,
-  });
-  console.log(`${formattedTime} [${source}] ${message}`);
-}
-
-// -----------------------------
 // API request logging middleware
 // -----------------------------
 app.use((req, res, next) => {
@@ -857,8 +785,15 @@ httpServer.listen(port, "0.0.0.0", async () => {
     } else {
       console.log("[seed] skipped (set RUN_SEED=true to run)");
     }
-  } catch (err) {
+    } catch (err) {
     console.error("[FATAL] post-listen initialization failed:", err);
     // Keep port open for debugging instead of exiting
   }
+}); // closes httpServer.listen callback
+
+} // closes main()
+
+main().catch((err) => {
+  console.error("[FATAL] main() crashed:", err);
+  process.exit(1);
 });
