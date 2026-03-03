@@ -795,6 +795,8 @@ httpServer.listen(port, "0.0.0.0", async () => {
 
 } // closes main()
 
+console.log("[BOOT] file loaded: about to call main()");
+
 main().catch((err) => {
   console.error("[FATAL] main() crashed:", err);
   process.exit(1);
