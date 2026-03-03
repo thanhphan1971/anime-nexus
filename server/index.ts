@@ -1,3 +1,8 @@
+console.log("[BUILD ID]", {
+  sha: process.env.REPLIT_GIT_SHA || process.env.GIT_SHA || "(no env sha)",
+  now: new Date().toISOString(),
+});
+
 import Stripe from "stripe";
 import { stripe } from "./stripeClient";
 import { storage } from "./storage";
