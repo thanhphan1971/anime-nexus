@@ -721,16 +721,18 @@ app.get("/api/__routes", (_req, res) => {
 // --------------------------------------------------
 // Listen ASAP so Replit health checks can reach the app
 // --------------------------------------------------
-console.log("[BOOT] about to listen", { portEnv: process.env.PORT, resolvedPort: port });
+console.log("[BOOT] reached pre-listen checkpoint");
+
+console.log("[BOOT] about to listen", {
+  portEnv: process.env.PORT,
+  resolvedPort: port,
+});
 
 httpServer.listen(port, "0.0.0.0", async () => {
+  console.log("[BOOT] listen callback entered");
   log(`serving on port ${port}`);
-  console.log("[BOOT] server listening (callback entered)");
 
   try {
-    // --------------------------------------------------
-    // Register API routes
-    // --------------------------------------------------
     console.log("[BOOT] registering routes...");
     await registerRoutes(httpServer, app);
     console.log("[BOOT] routes registered");
