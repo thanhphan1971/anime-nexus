@@ -1,29 +1,29 @@
+import { seedDatabase } from "./seed";
+
+import "./envAlias";
+import "./forceDbEnv"; // must run before any DB-related imports
+
+import express from "express";
+import { createServer } from "http";
+
+import session from "express-session";
+import MemoryStoreFactory from "memorystore";
+
+import { registerRoutes } from "./routes";
+import { serveStatic } from "./static";
+import { stripe } from "./stripeClient";
+import { storage } from "./storage";
+
+import { enforceProductionConfig } from "./configGuard";
+
 console.log("[BUILD ID]", {
   sha: process.env.REPLIT_GIT_SHA || process.env.GIT_SHA || "(no env sha)",
   now: new Date().toISOString(),
 });
 
-import Stripe from "stripe";
-import { stripe } from "./stripeClient";
-import { storage } from "./storage";
-import "./forceDbEnv"; // must run before any DB-related imports
-
-import express from "express";
-import { registerRoutes } from "./routes";
-import { serveStatic } from "./static";
-import { createServer } from "http";
-import session from "express-session";
-import MemoryStore from "memorystore";
-
 // ------------------------------------
-// Types
+// Types (TS-only)
 // ------------------------------------
-declare module "express-session" {
-  interface SessionData {
-    userId: string;
-  }
-}
-
 declare module "http" {
   interface IncomingMessage {
     rawBody: unknown;
@@ -43,19 +43,13 @@ export function log(message: string, source = "express") {
   console.log(`${formattedTime} [${source}] ${message}`);
 }
 
-
-// --- IMPORTANT: alias shim MUST run before configGuard is imported ---
+// --- Alias shim MUST run before enforceProductionConfig is called ---
 function applyEnvAlias(): void {
   const supabaseUrl = (process.env.SUPABASE_URL || "").trim();
   const supabaseService = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
 
-  if (!process.env.SB_URL && supabaseUrl) {
-    process.env.SB_URL = supabaseUrl;
-  }
-
-  if (!process.env.SB_SERVICE && supabaseService) {
-    process.env.SB_SERVICE = supabaseService;
-  }
+  if (!process.env.SB_URL && supabaseUrl) process.env.SB_URL = supabaseUrl;
+  if (!process.env.SB_SERVICE && supabaseService) process.env.SB_SERVICE = supabaseService;
 
   console.log("[ENV AFTER ALIAS]", {
     SB_URL: !!process.env.SB_URL,
@@ -64,45 +58,12 @@ function applyEnvAlias(): void {
     SUPABASE_SERVICE_ROLE_KEY: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
   });
 }
-
 applyEnvAlias();
 
-async function main() {
-  // Now it's safe to load config guard AFTER alias is applied
-  const { enforceProductionConfig } = await import("./configGuard");
+// ✅ create MemoryStore class synchronously so it’s never undefined
+const MemoryStore = MemoryStoreFactory(session);
 
-  // --------------------------------------------------
-  // Environment diagnostics
-  // --------------------------------------------------
-  console.log("[ENV DIAG]", {
-    APP_RUNTIME: process.env.APP_RUNTIME,
-    SUPABASE_URL: (process.env.SUPABASE_URL || "").trim() ? "set" : "unset/empty",
-    SUPABASE_SERVICE_ROLE_KEY: (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim()
-      ? "set"
-      : "unset/empty",
-    SUPABASE_DATABASE_URL: (process.env.SUPABASE_DATABASE_URL || "").trim()
-      ? "set"
-      : "unset/empty",
-    DATABASE_URL: (process.env.DATABASE_URL || "").trim() ? "set" : "unset/empty",
-    SB_DB_URL: (process.env.SB_DB_URL || "").trim() ? "set" : "unset/empty",
-    SB_URL: (process.env.SB_URL || "").trim() ? "set" : "unset/empty",
-    SB_SERVICE: (process.env.SB_SERVICE || "").trim() ? "set" : "unset/empty",
-  });
 
-// --------------------------------------------------
-// Supabase host check (safe: no secrets)
-// --------------------------------------------------
-try {
-  const raw = (process.env.SUPABASE_URL ||
-    process.env.DEV_SUPABASE_URL ||
-    process.env.SB_URL ||
-    "").trim();
-
-  const host = raw ? new URL(raw).hostname : "(unset)";
-  console.log("[SUPABASE HOST]", host);
-} catch {
-  console.log("[SUPABASE HOST] invalid URL in SUPABASE_URL/DEV_SUPABASE_URL/SB_URL");
-}
 
 // --------------------------------------------------
 // Global error traps
@@ -310,7 +271,7 @@ if (!stripe) {
   return res.json({ received: true });
 }
 
-let event: Stripe.Event;
+let event: any;
 
 // ----------------------------------------------------
 // Verify Stripe signature
@@ -345,7 +306,7 @@ try {
     // ----------------------------------------------------
     try {
       if (event.type === "checkout.session.completed") {
-        const session = event.data.object as Stripe.Checkout.Session;
+        const session = event.data.object as any;
 
         console.log("[WEBHOOK SESSION]", {
           sessionId: session.id,
@@ -507,7 +468,7 @@ try {
   // customer.subscription.updated
   // -------------------------------------------------------
   if (event.type === "customer.subscription.updated") {
-    const subscription = event.data.object as Stripe.Subscription;
+    const subscription = event.data.object as any;
 
     console.log("customer.subscription.updated", {
       subscriptionId: subscription.id,
@@ -555,7 +516,7 @@ try {
   // customer.subscription.deleted
   // -------------------------------------------------------
   if (event.type === "customer.subscription.deleted") {
-    const subscription = event.data.object as Stripe.Subscription;
+    const subscription = event.data.object as any;
 
     console.log("customer.subscription.deleted", { subscriptionId: subscription.id });
 
@@ -603,7 +564,7 @@ app.use(express.urlencoded({ extended: false, limit: "10mb" }));
 // ✅ Required for secure cookies behind Replit / reverse proxies
 app.set("trust proxy", 1);
 
-const SessionStore = MemoryStore(session);
+const SessionStore = MemoryStore;
 
 app.use(
   session({
@@ -802,19 +763,17 @@ httpServer.listen(port, "0.0.0.0", () => {
       res.status(status).json({ message });
     });
 
-    // --------------------------------------------------
-    // Optional seed (non-blocking)
-    // --------------------------------------------------
-    if (process.env.RUN_SEED === "true") {
-      try {
-        const { seedDatabase } = await import("./seed");
-        await seedDatabase();
-      } catch (e) {
-        console.error("[seed] failed:", e);
-      }
-    } else {
-      console.log("[seed] skipped (set RUN_SEED=true to run)");
-    }
+// --------------------------------------------------
+// Optional seed (non-blocking)
+// --------------------------------------------------
+// --------------------------------------------------
+// Optional seed (non-blocking)
+// --------------------------------------------------
+if (process.env.RUN_SEED === "true") {
+  seedDatabase().catch((e) => console.error("[seed] failed:", e));
+} else {
+  console.log("[seed] skipped (set RUN_SEED=true to run)");
+}
 
   } catch (err) {
     console.error("[FATAL] post-listen initialization failed:", err);
@@ -823,12 +782,3 @@ httpServer.listen(port, "0.0.0.0", () => {
 })(); // closes async init IIFE
 
 }); // closes httpServer.listen callback
-
-} // closes main()
-
-console.log("[BOOT] file loaded: about to call main()");
-
-main().catch((err) => {
-  console.error("[FATAL] main() crashed:", err);
-  // Do NOT exit during deployment debugging
-});
