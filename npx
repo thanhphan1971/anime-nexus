@@ -1,0 +1,63 @@
+building client...
+vite v7.3.1 building client environment for production...
+transforming...
+✓ 2670 modules transformed.
+rendering chunks...
+[meta-images] using dev domain: https://114fecb8-dc41-4a9d-aa8b-84c989572529-00-36olhsw6fsrgg.riker.replit.dev
+[meta-images] updating meta image tags to: https://114fecb8-dc41-4a9d-aa8b-84c989572529-00-36olhsw6fsrgg.riker.replit.dev/opengraph.jpg
+computing gzip size...
+../dist/public/index.html                                             2.23 kB │ gzip:  0.85 kB
+../dist/public/assets/stable_fracture_blue_sigil-B_jbIyUE.webp       25.29 kB
+../dist/public/assets/volatile_fracture_purple_sigil-jlfu6-47.webp   42.40 kB
+../dist/public/assets/overcharged_rift_gold_sigil-O5Bn0A3j.webp      59.88 kB
+../dist/public/assets/futuristic_neo-tokyo_cityscape-DEGIr7fZ.webp  147.12 kB
+../dist/public/assets/index-C6qrWvtl.css                            227.80 kB │ gzip: 28.09 kB
+../dist/public/assets/separator-51yllaWP.js                           0.40 kB │ gzip:  0.28 kB
+../dist/public/assets/progress-DrFmbWIg.js                            0.46 kB │ gzip:  0.32 kB
+../dist/public/assets/textarea-BrKRxB2h.js                            0.49 kB │ gzip:  0.34 kB
+../dist/public/assets/checkbox-BQRqlv0H.js                            0.70 kB │ gzip:  0.40 kB
+../dist/public/assets/slider-BX0u-MhX.js                              0.73 kB │ gzip:  0.44 kB
+../dist/public/assets/badge-CP47BJ6a.js                               0.77 kB │ gzip:  0.42 kB
+../dist/public/assets/scroll-area-DZQx6Dla.js                         0.84 kB │ gzip:  0.44 kB
+../dist/public/assets/switch-ivCJYzpm.js                              0.85 kB │ gzip:  0.46 kB
+../dist/public/assets/alert-kEp7UyAH.js                               0.96 kB │ gzip:  0.49 kB
+../dist/public/assets/tabs-Do43Irnc.js                                1.13 kB │ gzip:  0.48 kB
+../dist/public/assets/ActivatePage-Cf6hUgGo.js                        1.24 kB │ gzip:  0.61 kB
+../dist/public/assets/table-BqCxXhwk.js                               1.60 kB │ gzip:  0.56 kB
+../dist/public/assets/CrystalSigil-O79RqtPU.js                        1.95 kB │ gzip:  0.89 kB
+../dist/public/assets/dialog-BzUNCzhQ.js                              2.24 kB │ gzip:  0.89 kB
+../dist/public/assets/react-query-BPOg5j8Z.js                         2.68 kB │ gzip:  1.23 kB
+../dist/public/assets/select-CuTQH1kD.js                              3.13 kB │ gzip:  1.16 kB
+../dist/public/assets/CodeOfEthicsPage-C7LGrFHm.js                    3.63 kB │ gzip:  1.61 kB
+../dist/public/assets/UniversePage-C0if9BgG.js                        4.04 kB │ gzip:  1.34 kB
+../dist/public/assets/SettingsPage-C1je_atw.js                        5.00 kB │ gzip:  1.94 kB
+../dist/public/assets/BenefitsPage--5O8F8D3.js                        7.57 kB │ gzip:  2.46 kB
+../dist/public/assets/AdminSecurityMetricsPage-BkQ9UEhw.js            7.72 kB │ gzip:  2.14 kB
+../dist/public/assets/HelpPage-K0q44L1_.js                            8.51 kB │ gzip:  2.95 kB
+../dist/public/assets/CardCatalogPage-tlJB5Cyw.js                     8.73 kB │ gzip:  2.88 kB
+../dist/public/assets/AdminPaymentExceptionsPage-FQp5-2tQ.js          8.93 kB │ gzip:  2.92 kB
+../dist/public/assets/AnimeListPage-CegCaI3d.js                       9.80 kB │ gzip:  3.38 kB
+../dist/public/assets/CheckoutPage-DyIATvNg.js                        9.93 kB │ gzip:  3.07 kB
+../dist/public/assets/CreatePostPage-CXSkuvsE.js                     11.83 kB │ gzip:  3.94 kB
+../dist/public/assets/CommunityDetailPage-C-iVWQHt.js                11.92 kB │ gzip:  3.69 kB
+../dist/public/assets/FriendsPage-Vkoju2dC.js                        13.07 kB │ gzip:  3.91 kB
+../dist/public/assets/AccountPage-Xiub1-xg.js                        16.24 kB │ gzip:  4.38 kB
+../dist/public/assets/DrawsPage-Cq4cEyEN.js                          16.26 kB │ gzip:  5.06 kB
+../dist/public/assets/CommunitiesPage-B91Ip9rt.js                    17.95 kB │ gzip:  4.68 kB
+../dist/public/assets/CardsPage-CownZXyB.js                          19.30 kB │ gzip:  5.31 kB
+../dist/public/assets/ProfilePage-o-7ngs5D.js                        19.94 kB │ gzip:  6.34 kB
+../dist/public/assets/cropper-DcPc-s7n.js                            20.65 kB │ gzip:  5.70 kB
+../dist/public/assets/floating-ui-CsZMgCBL.js                        22.64 kB │ gzip:  8.68 kB
+../dist/public/assets/ParentDashboardPage-Cd1ExNXP.js                22.84 kB │ gzip:  5.54 kB
+../dist/public/assets/ui-BJRnesCv.js                                 26.17 kB │ gzip:  9.20 kB
+../dist/public/assets/TokenShopPage-y4196I28.js                      36.05 kB │ gzip:  8.16 kB
+../dist/public/assets/GamePage-BcZyqHz6.js                           42.75 kB │ gzip:  9.85 kB
+../dist/public/assets/FeedPage-Duu6yT_a.js                           49.80 kB │ gzip: 12.57 kB
+../dist/public/assets/index-Dy4623NW.js                              51.71 kB │ gzip: 14.86 kB
+../dist/public/assets/AdminPage-C40p2pIV.js                          70.82 kB │ gzip: 14.89 kB
+../dist/public/assets/radix-BglJdJBD.js                             118.54 kB │ gzip: 34.44 kB
+../dist/public/assets/motion-CFwi7s5n.js                            121.00 kB │ gzip: 39.76 kB
+../dist/public/assets/supabase-B88JqYL8.js                          164.77 kB │ gzip: 43.89 kB
+../dist/public/assets/vendor-ChXNthXf.js                            306.11 kB │ gzip: 94.27 kB
+✓ built in 7.45s
+building server...
