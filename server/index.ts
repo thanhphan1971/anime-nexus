@@ -32,9 +32,6 @@ let enforceProductionConfig: (() => void) | undefined;
 let stripe: any;
 let storage: any;
 
-let session: any;
-let MemoryStore: any;
-
 // keep your existing log() if you have it; otherwise define a simple one
 function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -77,19 +74,17 @@ httpServer.listen(port, "0.0.0.0", () => {
   void (async () => {
     try {
       // Lazy-load EVERYTHING that might touch DB / Stripe / routes / sessions
-      const [
-        { default: session },
-        { default: MemoryStoreFactory },
-        { enforceProductionConfig },
-        { registerRoutes },
-        { serveStatic },
-      ] = await Promise.all([
-        import("express-session"),
-        import("memorystore"),
-        import("./configGuard"),
-        import("./routes"),
-        import("./static"),
-      ]);
+      const [sMod, msMod, configMod, routesMod, staticMod] = await Promise.all([
+  import("express-session"),
+  import("memorystore"),
+  import("./configGuard"),
+  import("./routes"),
+  import("./static"),
+]);
+
+const enforceProductionConfig: any = (configMod as any).enforceProductionConfig;
+const registerRoutes: any = (routesMod as any).registerRoutes;
+const serveStatic: any = (staticMod as any).serveStatic;
 
       // Global error traps (set after listen so they can't block boot)
       process.on("unhandledRejection", (reason) => {
@@ -99,26 +94,41 @@ httpServer.listen(port, "0.0.0.0", () => {
         console.error("[FATAL] uncaughtException:", err);
       });
 
-      // Session store (safe now)
-      const MemoryStore = MemoryStoreFactory(session);
+      // ---- robust CJS/ESM interop for session + memorystore (bundle-safe) ----
+const sessionAny: any = (sMod as any)?.default ?? sMod;
 
-      app.use(
-        session({
-          secret: process.env.SESSION_SECRET || "dev",
-          resave: false,
-          saveUninitialized: false,
-          cookie: {
-            secure: process.env.NODE_ENV === "production",
-            httpOnly: true,
-            sameSite: "lax",
-          },
-          store: new MemoryStore({ checkPeriod: 86400000 }),
-        })
-      );
+const MemoryStoreFactoryAny: any = (msMod as any)?.default ?? msMod;
+      
+      const MaybeStore: any = MemoryStoreFactoryAny(sessionAny);
+    const MemoryStoreCtor: any = MaybeStore?.default ?? MaybeStore;
+
+    if (typeof MemoryStoreCtor !== "function") {
+      console.error("[BOOT] MemoryStore is not a constructor", {
+        type: typeof MemoryStoreCtor,
+        keys: MemoryStoreCtor ? Object.keys(MemoryStoreCtor) : null,
+        msKeys: msMod ? Object.keys(msMod) : null,
+        sessionKeys: sMod ? Object.keys(sMod) : null,
+      });
+      throw new Error("MemoryStore factory did not return a constructor");
+    }
+
+    app.use(
+      sessionAny({
+        secret: process.env.SESSION_SECRET || "dev",
+        resave: false,
+        saveUninitialized: false,
+        cookie: {
+          secure: process.env.NODE_ENV === "production",
+          httpOnly: true,
+          sameSite: "lax",
+        },
+        store: new MemoryStoreCtor({ checkPeriod: 86400000 }),
+      })
+    );
 
       // Config guard must never kill boot
       try {
-        enforceProductionConfig();
+        enforceProductionConfig?.();
       } catch (e: unknown) {
         console.error("[BOOT] enforceProductionConfig failed (non-fatal):", e);
       }
@@ -145,21 +155,10 @@ httpServer.listen(port, "0.0.0.0", () => {
   })();
 });
 
-
-
-
-
 // Replit healthcheck protection
-
 // Replit healthcheck hits "/" while the app boots.
 // Return 200 immediately until the frontend is ready.
-app.get("/", (_req, res, next) => {
-  if (!frontendReady) {
-    return res.status(200).send("OK");
-  }
-  return next();
-});
-
+  
 // Health endpoints
 app.get("/healthcheck", (_req, res) => res.status(200).send("ok"));
 app.get("/api/health", (_req, res) => res.status(200).json({ ok: true }));
@@ -194,14 +193,6 @@ app.get("/api/env-check", (_req, res) => {
     hasSbService: !!process.env.SB_SERVICE,
   });
 });
-
-// ✅ Run config validation AFTER alias is applied — but DO NOT crash-loop the container.
-// If you want to enforce hard-fail later, do it AFTER listen() or behind a flag.
-try {
-  enforceProductionConfig?.();
-} catch (e) {
-  console.error("[BOOT] enforceProductionConfig failed (non-fatal for boot):", e);
-}
 
   // Supabase public config for client (safe: anon key only)
   app.get("/api/config/supabase", (_req, res) => {
@@ -608,37 +599,7 @@ app.use(express.urlencoded({ extended: false, limit: "10mb" }));
 // ✅ Required for secure cookies behind Replit / reverse proxies
 app.set("trust proxy", 1);
 
-const SessionStore = MemoryStore;
 
-app.use(
-  session({
-    // ✅ Fail fast in production if missing (don’t silently ship a known secret)
-    secret:
-      process.env.SESSION_SECRET ??
-      (process.env.NODE_ENV === "production"
-        ? (() => {
-            throw new Error("SESSION_SECRET is required in production");
-          })()
-        : "dev-secret"),
-
-    resave: false,
-    saveUninitialized: false,
-
-    // ✅ Helps cookie behavior behind proxies
-    proxy: process.env.NODE_ENV === "production",
-
-    cookie: {
-      maxAge: 1000 * 60 * 60 * 24 * 7, // 1 week
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-    },
-
-    store: new SessionStore({
-      checkPeriod: 86400000, // prune expired entries every 24h
-    }),
-  })
-);
 
 // -----------------------------
 // API request logging middleware
