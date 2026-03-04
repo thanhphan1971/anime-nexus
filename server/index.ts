@@ -111,16 +111,19 @@ if (!configOk) {
 
 const app = express();
 
-// ✅ Replit Deployments healthcheck hits "/" while the app is still booting.
-// Always return 200 ASAP in production so the container isn't killed during startup.
-// In dev, let GET / fall through to Vite/static handlers.
-app.head("/", (_req, res) => res.status(200).end());
+// Replit healthcheck protection
+let frontendReady = false;
 
+// Replit healthcheck hits "/" while the app boots.
+// Return 200 immediately until the frontend is ready.
 app.get("/", (_req, res, next) => {
-  if (isProdRuntime) return res.status(200).send("ok");
+  if (!frontendReady) {
+    return res.status(200).send("OK");
+  }
   return next();
 });
 
+// Health endpoints
 app.get("/healthcheck", (_req, res) => res.status(200).send("ok"));
 app.get("/api/health", (_req, res) => res.status(200).json({ ok: true }));
 
@@ -186,7 +189,6 @@ try {
     return res.json({ url, anonKey });
   });
 
-  let frontendReady = false;
 
   const httpServer = createServer(app);
 
