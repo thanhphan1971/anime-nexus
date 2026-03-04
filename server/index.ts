@@ -95,12 +95,20 @@ const serveStatic: any = (staticMod as any).serveStatic;
       });
 
       // ---- robust CJS/ESM interop for session + memorystore (bundle-safe) ----
-const sessionAny: any = (sMod as any)?.default ?? sMod;
+     const sessionAny: any = (sMod as any)?.default ?? sMod;
 
-const MemoryStoreFactoryAny: any = (msMod as any)?.default ?? msMod;
+     const MemoryStoreFactoryAny: any = (msMod as any)?.default ?? msMod;
       
-      const MaybeStore: any = MemoryStoreFactoryAny(sessionAny);
-    const MemoryStoreCtor: any = MaybeStore?.default ?? MaybeStore;
+    const maybe: any = MemoryStoreFactoryAny(sessionAny);
+
+    // memorystore bundling can wrap constructors like:
+    // - function Ctor
+    // - { default: Ctor }
+    // - { default: { default: Ctor } }
+    const MemoryStoreCtor: any =
+      maybe?.default?.default ??
+      maybe?.default ??
+      maybe;
 
     if (typeof MemoryStoreCtor !== "function") {
       console.error("[BOOT] MemoryStore is not a constructor", {
