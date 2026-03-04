@@ -234,7 +234,8 @@ try {
     appBaseUrlSet: !!process.env.APP_BASE_URL,
     supabaseHost: (() => {
       try {
-        return new URL(SUPABASE_URL).host;
+        const url = (SUPABASE_URL ?? "").trim();
+        return url ? new URL(url).host : "(unset)";
       } catch {
         return "(invalid)";
       }
@@ -753,10 +754,12 @@ console.log("[BOOT] about to listen", {
   resolvedPort: port,
 });
 
-httpServer.listen(port, "0.0.0.0", async () => {
+httpServer.listen(port, "0.0.0.0", () => {
   console.log("[BOOT] listen callback entered");
   log(`serving on port ${port}`);
 
+  // Run async initialization AFTER port is open
+(async () => {
   try {
     console.log("[BOOT] registering routes...");
     await registerRoutes(httpServer, app);
@@ -812,10 +815,13 @@ httpServer.listen(port, "0.0.0.0", async () => {
     } else {
       console.log("[seed] skipped (set RUN_SEED=true to run)");
     }
-    } catch (err) {
+
+  } catch (err) {
     console.error("[FATAL] post-listen initialization failed:", err);
     // Keep port open for debugging instead of exiting
   }
+})(); // closes async init IIFE
+
 }); // closes httpServer.listen callback
 
 } // closes main()
@@ -824,5 +830,5 @@ console.log("[BOOT] file loaded: about to call main()");
 
 main().catch((err) => {
   console.error("[FATAL] main() crashed:", err);
-  process.exit(1);
+  // Do NOT exit during deployment debugging
 });
