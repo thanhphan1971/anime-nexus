@@ -1,3 +1,8 @@
+console.log("[BOOT MARKER TOP]", {
+  marker: "DEPLOY_MARKER_9fe2c73_TOP",
+  now: new Date().toISOString(),
+});
+
 import { seedDatabase } from "./seed";
 
 import "./envAlias";
