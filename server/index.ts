@@ -17,6 +17,7 @@ import { storage } from "./storage";
 import { enforceProductionConfig } from "./configGuard";
 
 console.log("[BUILD ID]", {
+  marker: "DEPLOY_MARKER_9fe2c73",
   sha: process.env.REPLIT_GIT_SHA || process.env.GIT_SHA || "(no env sha)",
   now: new Date().toISOString(),
 });
