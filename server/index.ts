@@ -3,100 +3,19 @@ console.log("[BOOT MARKER TOP]", {
   now: new Date().toISOString(),
 });
 
-// ✅ These must stay first (they patch env BEFORE any DB-related module loads)
+// ✅ MUST be first: env shims only (no DB pools, no app module imports)
 import "./envAlias";
-import "./forceDbEnv"; // must run before any DB-related imports
+import "./forceDbEnv";
 
 import express from "express";
 import { createServer } from "http";
-
-import session from "express-session";
-import MemoryStoreFactory from "memorystore";
-
-// ❌ REMOVE these top-level imports (they can touch DB before listen)
-// import { seedDatabase } from "./seed";
-// import { registerRoutes } from "./routes";
-// import { serveStatic } from "./static";
-// import { stripe } from "./stripeClient";
-// import { storage } from "./storage";
-// import { enforceProductionConfig } from "./configGuard";
-
-// ✅ Lazy placeholders (loaded after listen)
-let seedDatabase: any;
-let registerRoutes: any;
-let serveStatic: any;
-let stripe: any;
-let storage: any;
-let enforceProductionConfig: any;
-
-console.log("[BUILD ID]", {
-  marker: "DEPLOY_MARKER_9fe2c73",
-  sha: process.env.REPLIT_GIT_SHA || process.env.GIT_SHA || "(no env sha)",
-  now: new Date().toISOString(),
-});
-
-// ------------------------------------
-// Types (TS-only)
-// ------------------------------------
-declare module "http" {
-  interface IncomingMessage {
-    rawBody: unknown;
-  }
-}
-
-// -----------------------------
-// Logger helper
-// -----------------------------
-export function log(message: string, source = "express") {
-  const formattedTime = new Date().toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true,
-  });
-  console.log(`${formattedTime} [${source}] ${message}`);
-}
-// --- Alias shim MUST run before enforceProductionConfig is called ---
-function applyEnvAlias(): void {
-  const supabaseUrl = (process.env.SUPABASE_URL || "").trim();
-  const supabaseService = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
-
-  if (!process.env.SB_URL && supabaseUrl) process.env.SB_URL = supabaseUrl;
-  if (!process.env.SB_SERVICE && supabaseService) process.env.SB_SERVICE = supabaseService;
-
-  console.log("[ENV AFTER ALIAS]", {
-    SB_URL: !!process.env.SB_URL,
-    SB_SERVICE: !!process.env.SB_SERVICE,
-    SUPABASE_URL: !!process.env.SUPABASE_URL,
-    SUPABASE_SERVICE_ROLE_KEY: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
-  });
-}
-applyEnvAlias();
-
-// ✅ create MemoryStore class synchronously so it’s never undefined
-const MemoryStore = MemoryStoreFactory(session);
-
-
-
 // --------------------------------------------------
-// Global error traps
+// Global placeholders (so TS has names in scope)
+// These are assigned via lazy imports AFTER listen()
 // --------------------------------------------------
-process.on("unhandledRejection", (reason) => {
-  console.error("[FATAL] unhandledRejection:", reason);
-});
-
-process.on("uncaughtException", (err) => {
-  console.error("[FATAL] uncaughtException:", err);
-});
-
-console.log("[BOOT] starting server");
-
-// Runtime flags (define ONCE, in-scope for the whole server)
 const isProdRuntime =
   process.env.APP_RUNTIME === "prod" || process.env.NODE_ENV === "production";
 
-// NOTE: do NOT throw here. If config is missing, we still want "/" to return 200
-// so Deployments doesn't kill the container before we can see logs / env-check.
 const SUPABASE_URL =
   process.env.SUPABASE_URL || process.env.DEV_SUPABASE_URL || process.env.SB_URL;
 
@@ -106,106 +25,110 @@ const SUPABASE_SERVICE_ROLE_KEY =
   process.env.SB_SERVICE;
 
 const configOk = !!SUPABASE_URL && !!SUPABASE_SERVICE_ROLE_KEY;
-if (!configOk) {
-  console.error("[BOOT] config missing:", {
-    hasSupabaseUrl: !!SUPABASE_URL,
-    hasServiceRole: !!SUPABASE_SERVICE_ROLE_KEY,
-    keysPresent: Object.keys(process.env).filter((k) =>
-      ["SUPABASE", "SB_", "DEV_SUPABASE"].some((p) => k.startsWith(p))
-    ),
+
+// typed placeholders (assigned after listen)
+let enforceProductionConfig: (() => void) | undefined;
+
+let stripe: any;
+let storage: any;
+
+let session: any;
+let MemoryStore: any;
+
+// keep your existing log() if you have it; otherwise define a simple one
+function log(message: string, source = "express") {
+  const formattedTime = new Date().toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
   });
+  console.log(`${formattedTime} [${source}] ${message}`);
 }
 
-const app = express();
+
+console.log("[BOOT] pre-listen checkpoint");
+
 // --------------------------------------------------
 // ✅ Bind port ASAP (before any DB/Stripe/routes work)
 // --------------------------------------------------
-
-// Replit requires binding to the PORT it provides
-const port = Number(process.env.PORT) || 5000;
-
-// Create HTTP server
+const app = express();
 const httpServer = createServer(app);
+const port = Number(process.env.PORT) || 5000;
 
 // Healthcheck protection
 let frontendReady = false;
 
-// Replit Deployments healthcheck hits "/" while the app boots.
-// Always return 200 until we're ready, so the container isn't killed.
+// Replit healthcheck hits "/" while booting
 app.get("/", (_req, res, next) => {
   if (!frontendReady) return res.status(200).send("OK");
   return next();
 });
 
-// Extra health endpoints (optional but useful)
 app.get("/healthcheck", (_req, res) => res.status(200).send("ok"));
 app.get("/api/health", (_req, res) => res.status(200).json({ ok: true }));
 
-// Safe env check endpoint (no secrets)
-app.get("/api/env-check", (_req, res) => {
-  const runtime = process.env.APP_RUNTIME || "(unset)";
-  const prod = isProdRuntime;
-
-  const selectedUrl = prod
-    ? process.env.SUPABASE_URL || process.env.DEV_SUPABASE_URL || process.env.SB_URL
-    : process.env.DEV_SUPABASE_URL || process.env.SUPABASE_URL || process.env.SB_URL;
-
-  let host = "(missing)";
-  try {
-    host = selectedUrl ? new URL(selectedUrl).hostname : "(missing)";
-  } catch {
-    host = "(invalid_url)";
-  }
-
-  return res.json({
-    appRuntime: runtime,
-    prod,
-    configOk,
-    supabaseHost: host,
-    nodeEnv: process.env.NODE_ENV,
-    hasSupabaseUrl: !!process.env.SUPABASE_URL,
-    hasDevSupabaseUrl: !!process.env.DEV_SUPABASE_URL,
-    hasSbUrl: !!process.env.SB_URL,
-    hasServiceRole: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
-    hasDevServiceRole: !!process.env.DEV_SUPABASE_SERVICE_ROLE_KEY,
-    hasSbService: !!process.env.SB_SERVICE,
-    frontendReady,
-  });
-});
-
 console.log("[BOOT] about to listen", { portEnv: process.env.PORT, resolvedPort: port });
 
-// ✅ Open the port ASAP so Replit healthcheck can reach the app
 httpServer.listen(port, "0.0.0.0", () => {
   console.log("[BOOT] listen callback entered", { port });
 
-  // Everything below happens AFTER the port is open
+  // Everything below runs AFTER the port is open
   void (async () => {
     try {
-      // Lazy-load heavy modules AFTER listen
-      ({ enforceProductionConfig } = await import("./configGuard"));
-      ({ registerRoutes } = await import("./routes"));
-      ({ serveStatic } = await import("./static"));
-      ({ stripe } = await import("./stripeClient"));
-      ({ storage } = await import("./storage"));
-      // Only import seed when needed (do NOT auto-run seeding in prod)
-      ({ seedDatabase } = await import("./seed"));
+      // Lazy-load EVERYTHING that might touch DB / Stripe / routes / sessions
+      const [
+        { default: session },
+        { default: MemoryStoreFactory },
+        { enforceProductionConfig },
+        { registerRoutes },
+        { serveStatic },
+      ] = await Promise.all([
+        import("express-session"),
+        import("memorystore"),
+        import("./configGuard"),
+        import("./routes"),
+        import("./static"),
+      ]);
 
-      console.log("[BOOT] lazy imports loaded");
+      // Global error traps (set after listen so they can't block boot)
+      process.on("unhandledRejection", (reason) => {
+        console.error("[FATAL] unhandledRejection:", reason);
+      });
+      process.on("uncaughtException", (err) => {
+        console.error("[FATAL] uncaughtException:", err);
+      });
 
-      // Do not crash startup on config guard — just log
+      // Session store (safe now)
+      const MemoryStore = MemoryStoreFactory(session);
+
+      app.use(
+        session({
+          secret: process.env.SESSION_SECRET || "dev",
+          resave: false,
+          saveUninitialized: false,
+          cookie: {
+            secure: process.env.NODE_ENV === "production",
+            httpOnly: true,
+            sameSite: "lax",
+          },
+          store: new MemoryStore({ checkPeriod: 86400000 }),
+        })
+      );
+
+      // Config guard must never kill boot
       try {
         enforceProductionConfig();
-      } catch (e) {
+      } catch (e: unknown) {
         console.error("[BOOT] enforceProductionConfig failed (non-fatal):", e);
       }
 
-      // Register API routes BEFORE static/Vite
+      // Register routes before static
       await registerRoutes(httpServer, app);
       console.log("[BOOT] routes registered");
 
       // Serve frontend
-      if (process.env.APP_RUNTIME === "prod") {
+      if (process.env.APP_RUNTIME === "prod" || process.env.NODE_ENV === "production") {
         serveStatic(app);
       } else {
         const { setupVite } = await import("./vite");
@@ -216,11 +139,15 @@ httpServer.listen(port, "0.0.0.0", () => {
       console.log("[BOOT] frontendReady true");
     } catch (err) {
       console.error("[FATAL] post-listen init failed (server stays alive):", err);
-      // Keep healthcheck passing so container doesn't get killed
+      // Keep healthcheck passing so deployment stays up
       frontendReady = true;
     }
   })();
 });
+
+
+
+
 
 // Replit healthcheck protection
 
@@ -271,7 +198,7 @@ app.get("/api/env-check", (_req, res) => {
 // ✅ Run config validation AFTER alias is applied — but DO NOT crash-loop the container.
 // If you want to enforce hard-fail later, do it AFTER listen() or behind a flag.
 try {
-  enforceProductionConfig();
+  enforceProductionConfig?.();
 } catch (e) {
   console.error("[BOOT] enforceProductionConfig failed (non-fatal for boot):", e);
 }
@@ -831,70 +758,3 @@ console.log("[BOOT] about to listen", {
   resolvedPort: port,
 });
 
-httpServer.listen(port, "0.0.0.0", () => {
-  console.log("[BOOT] listen callback entered");
-  log(`serving on port ${port}`);
-
-  // Run async initialization AFTER port is open
-(async () => {
-  try {
-    console.log("[BOOT] registering routes...");
-    await registerRoutes(httpServer, app);
-    console.log("[BOOT] routes registered");
-
-    // --------------------------------------------------
-    // 404 for unknown API routes (after registerRoutes)
-    // --------------------------------------------------
-    app.all("/api/*", (req, res) => {
-      res.status(404).json({
-        error: "API route not found",
-        path: req.path,
-        method: req.method,
-      });
-    });
-
-    // --------------------------------------------------
-    // Static serving / Vite dev server
-    // --------------------------------------------------
-    const isProdRuntime = process.env.APP_RUNTIME === "prod";
-    if (isProdRuntime) {
-      serveStatic(app);
-    } else {
-      const { setupVite } = await import("./vite");
-      await setupVite(httpServer, app);
-    }
-
-    // --------------------------------------------------
-    // App ready
-    // --------------------------------------------------
-    frontendReady = true;
-    log("Server fully initialized");
-
-    // --------------------------------------------------
-    // Error handler (must be last)
-    // --------------------------------------------------
-    app.use((err: any, _req: any, res: any, _next: any) => {
-      const status = err.status || err.statusCode || 500;
-      const message = err.message || "Internal Server Error";
-      res.status(status).json({ message });
-    });
-
-// --------------------------------------------------
-// Optional seed (non-blocking)
-// --------------------------------------------------
-// --------------------------------------------------
-// Optional seed (non-blocking)
-// --------------------------------------------------
-if (process.env.RUN_SEED === "true") {
-  seedDatabase().catch((e: unknown) => console.error("[seed] failed:", e));
-} else {
-  console.log("[seed] skipped (set RUN_SEED=true to run)");
-}
-
-  } catch (err) {
-    console.error("[FATAL] post-listen initialization failed:", err);
-    // Keep port open for debugging instead of exiting
-  }
-})(); // closes async init IIFE
-
-}); // closes httpServer.listen callback
