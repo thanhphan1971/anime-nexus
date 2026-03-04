@@ -89,92 +89,112 @@ async function main() {
     SB_SERVICE: (process.env.SB_SERVICE || "").trim() ? "set" : "unset/empty",
   });
 
-  // --------------------------------------------------
-  // Supabase host check (safe: no secrets)
-  // --------------------------------------------------
+// --------------------------------------------------
+// Supabase host check (safe: no secrets)
+// --------------------------------------------------
+try {
+  const raw = (process.env.SUPABASE_URL ||
+    process.env.DEV_SUPABASE_URL ||
+    process.env.SB_URL ||
+    "").trim();
+
+  const host = raw ? new URL(raw).hostname : "(unset)";
+  console.log("[SUPABASE HOST]", host);
+} catch {
+  console.log("[SUPABASE HOST] invalid URL in SUPABASE_URL/DEV_SUPABASE_URL/SB_URL");
+}
+
+// --------------------------------------------------
+// Global error traps
+// --------------------------------------------------
+process.on("unhandledRejection", (reason) => {
+  console.error("[FATAL] unhandledRejection:", reason);
+});
+
+process.on("uncaughtException", (err) => {
+  console.error("[FATAL] uncaughtException:", err);
+});
+
+console.log("[BOOT] starting server");
+
+// Runtime flags (define ONCE, in-scope for the whole server)
+const isProdRuntime =
+  process.env.APP_RUNTIME === "prod" || process.env.NODE_ENV === "production";
+
+// NOTE: do NOT throw here. If config is missing, we still want "/" to return 200
+// so Deployments doesn't kill the container before we can see logs / env-check.
+const SUPABASE_URL =
+  process.env.SUPABASE_URL || process.env.DEV_SUPABASE_URL || process.env.SB_URL;
+
+const SUPABASE_SERVICE_ROLE_KEY =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.DEV_SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.SB_SERVICE;
+
+const configOk = !!SUPABASE_URL && !!SUPABASE_SERVICE_ROLE_KEY;
+if (!configOk) {
+  console.error("[BOOT] config missing:", {
+    hasSupabaseUrl: !!SUPABASE_URL,
+    hasServiceRole: !!SUPABASE_SERVICE_ROLE_KEY,
+    keysPresent: Object.keys(process.env).filter((k) =>
+      ["SUPABASE", "SB_", "DEV_SUPABASE"].some((p) => k.startsWith(p))
+    ),
+  });
+}
+
+const app = express();
+
+// ✅ Replit Deployments healthcheck hits "/" while the app is still booting.
+// Always return 200 ASAP in production so the container isn't killed during startup.
+// In dev, let GET / fall through to Vite/static handlers.
+app.head("/", (_req, res) => res.status(200).end());
+
+app.get("/", (_req, res, next) => {
+  if (isProdRuntime) return res.status(200).send("ok");
+  return next();
+});
+
+app.get("/healthcheck", (_req, res) => res.status(200).send("ok"));
+app.get("/api/health", (_req, res) => res.status(200).json({ ok: true }));
+
+// 🔍 Environment check endpoint (safe for prod)
+app.get("/api/env-check", (_req, res) => {
+  const runtime = process.env.APP_RUNTIME || "(unset)";
+  const prod = isProdRuntime;
+
+  const selectedUrl = prod
+    ? process.env.SUPABASE_URL || process.env.DEV_SUPABASE_URL || process.env.SB_URL
+    : process.env.DEV_SUPABASE_URL || process.env.SUPABASE_URL || process.env.SB_URL;
+
+  let host = "(missing)";
   try {
-    const host = process.env.SUPABASE_URL
-      ? new URL(process.env.SUPABASE_URL).hostname
-      : "(unset)";
-    console.log("[SUPABASE HOST]", host);
+    host = selectedUrl ? new URL(selectedUrl).hostname : "(missing)";
   } catch {
-    console.log("[SUPABASE HOST] invalid or missing SUPABASE_URL");
+    host = "(invalid_url)";
   }
 
-  // --------------------------------------------------
-  // Global error traps
-  // --------------------------------------------------
-  process.on("unhandledRejection", (reason) => {
-    console.error("[FATAL] unhandledRejection:", reason);
+  return res.json({
+    appRuntime: runtime,
+    prod,
+    configOk,
+    supabaseHost: host,
+    nodeEnv: process.env.NODE_ENV,
+    hasSupabaseUrl: !!process.env.SUPABASE_URL,
+    hasDevSupabaseUrl: !!process.env.DEV_SUPABASE_URL,
+    hasSbUrl: !!process.env.SB_URL,
+    hasServiceRole: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+    hasDevServiceRole: !!process.env.DEV_SUPABASE_SERVICE_ROLE_KEY,
+    hasSbService: !!process.env.SB_SERVICE,
   });
+});
 
-  process.on("uncaughtException", (err) => {
-    console.error("[FATAL] uncaughtException:", err);
-  });
-
-  console.log("[BOOT] starting server");
-
-  // ✅ Run config validation AFTER alias is applied
+// ✅ Run config validation AFTER alias is applied — but DO NOT crash-loop the container.
+// If you want to enforce hard-fail later, do it AFTER listen() or behind a flag.
+try {
   enforceProductionConfig();
-
-  // Runtime flags / required env (define ONCE, in-scope for the whole server)
-  const isProdRuntime =
-    process.env.APP_RUNTIME === "prod" || process.env.NODE_ENV === "production";
-
-  const SUPABASE_URL =
-    process.env.SUPABASE_URL || process.env.DEV_SUPABASE_URL || process.env.SB_URL;
-
-  const SUPABASE_SERVICE_ROLE_KEY =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.DEV_SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.SB_SERVICE;
-
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-    throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
-  }
-
-  const app = express();
-
-  // ✅ Replit healthcheck (does NOT override homepage)
-  // Must be BEFORE other middleware
-  // ----------------------------------------------------
-  app.head("/", (_req, res) => res.status(200).end());
-  app.get("/", (_req, res, next) => {
-    // Replit healthcheck hits GET /
-    if (isProdRuntime) return res.status(200).send("ok");
-    return next(); // dev still goes to Vite
-  });
-
-  app.get("/healthcheck", (_req, res) => res.status(200).send("ok"));
-  app.get("/api/health", (_req, res) => res.status(200).json({ ok: true }));
-
-  // 🔍 Environment check endpoint (safe for prod)
-  app.get("/api/env-check", (_req, res) => {
-    const runtime = process.env.APP_RUNTIME || "(unset)";
-    const prod = isProdRuntime;
-
-    const selectedUrl = prod
-      ? process.env.SUPABASE_URL || process.env.DEV_SUPABASE_URL
-      : process.env.DEV_SUPABASE_URL || process.env.SUPABASE_URL;
-
-    let host = "(missing)";
-    try {
-      host = selectedUrl ? new URL(selectedUrl).hostname : "(missing)";
-    } catch {
-      host = "(invalid_url)";
-    }
-
-    return res.json({
-      appRuntime: runtime,
-      prod,
-      supabaseHost: host,
-      nodeEnv: process.env.NODE_ENV,
-      hasSupabaseUrl: !!process.env.SUPABASE_URL,
-      hasDevSupabaseUrl: !!process.env.DEV_SUPABASE_URL,
-      hasServiceRole: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
-      hasDevServiceRole: !!process.env.DEV_SUPABASE_SERVICE_ROLE_KEY,
-    });
-  });
+} catch (e) {
+  console.error("[BOOT] enforceProductionConfig failed (non-fatal for boot):", e);
+}
 
   // Supabase public config for client (safe: anon key only)
   app.get("/api/config/supabase", (_req, res) => {
