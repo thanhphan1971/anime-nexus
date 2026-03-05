@@ -65,104 +65,6 @@ app.get("/", (_req, res, next) => {
 app.get("/healthcheck", (_req, res) => res.status(200).send("ok"));
 app.get("/api/health", (_req, res) => res.status(200).json({ ok: true }));
 
-console.log("[BOOT] about to listen", { portEnv: process.env.PORT, resolvedPort: port });
-
-httpServer.listen(port, "0.0.0.0", () => {
-  console.log("[BOOT] listen callback entered", { port });
-
-  // Everything below runs AFTER the port is open
-  void (async () => {
-    try {
-      // Lazy-load EVERYTHING that might touch DB / Stripe / routes / sessions
-      const [sMod, msMod, configMod, routesMod, staticMod] = await Promise.all([
-  import("express-session"),
-  import("memorystore"),
-  import("./configGuard"),
-  import("./routes"),
-  import("./static"),
-]);
-
-const enforceProductionConfig: any = (configMod as any).enforceProductionConfig;
-const registerRoutes: any = (routesMod as any).registerRoutes;
-const serveStatic: any = (staticMod as any).serveStatic;
-
-      // Global error traps (set after listen so they can't block boot)
-      process.on("unhandledRejection", (reason) => {
-        console.error("[FATAL] unhandledRejection:", reason);
-      });
-      process.on("uncaughtException", (err) => {
-        console.error("[FATAL] uncaughtException:", err);
-      });
-
-      // ---- robust CJS/ESM interop for session + memorystore (bundle-safe) ----
-     const sessionAny: any = (sMod as any)?.default ?? sMod;
-
-     const MemoryStoreFactoryAny: any = (msMod as any)?.default ?? msMod;
-      
-    const maybe: any = MemoryStoreFactoryAny(sessionAny);
-
-    // memorystore bundling can wrap constructors like:
-    // - function Ctor
-    // - { default: Ctor }
-    // - { default: { default: Ctor } }
-    const MemoryStoreCtor: any =
-      maybe?.default?.default ??
-      maybe?.default ??
-      maybe;
-
-    if (typeof MemoryStoreCtor !== "function") {
-      console.error("[BOOT] MemoryStore is not a constructor", {
-        type: typeof MemoryStoreCtor,
-        keys: MemoryStoreCtor ? Object.keys(MemoryStoreCtor) : null,
-        msKeys: msMod ? Object.keys(msMod) : null,
-        sessionKeys: sMod ? Object.keys(sMod) : null,
-      });
-      throw new Error("MemoryStore factory did not return a constructor");
-    }
-
-    app.use(
-      sessionAny({
-        secret: process.env.SESSION_SECRET || "dev",
-        resave: false,
-        saveUninitialized: false,
-        cookie: {
-          secure: process.env.NODE_ENV === "production",
-          httpOnly: true,
-          sameSite: "lax",
-        },
-        store: new MemoryStoreCtor({ checkPeriod: 86400000 }),
-      })
-    );
-
-      // Config guard must never kill boot
-      try {
-        enforceProductionConfig?.();
-      } catch (e: unknown) {
-        console.error("[BOOT] enforceProductionConfig failed (non-fatal):", e);
-      }
-
-      // Register routes before static
-      await registerRoutes(httpServer, app);
-      console.log("[BOOT] routes registered");
-
-      // Serve frontend
-      if (process.env.APP_RUNTIME === "prod" || process.env.NODE_ENV === "production") {
-        serveStatic(app);
-      } else {
-        const { setupVite } = await import("./vite");
-        await setupVite(httpServer, app);
-      }
-
-      frontendReady = true;
-      console.log("[BOOT] frontendReady true");
-    } catch (err) {
-      console.error("[FATAL] post-listen init failed (server stays alive):", err);
-      // Keep healthcheck passing so deployment stays up
-      frontendReady = true;
-    }
-  })();
-});
-
 // Replit healthcheck protection
 // Replit healthcheck hits "/" while the app boots.
 // Return 200 immediately until the frontend is ready.
@@ -245,6 +147,7 @@ app.get("/api/env-check", (_req, res) => {
       }
     })(),
   });
+
 
   // ... rest of your server continues below (routes, webhook, session, listen, etc.)
 
@@ -690,7 +593,6 @@ app.use("/api", (_req, res, next) => {
 // Boot diagnostics (before listen)
 // --------------------------------------------------
 console.log("[BOOT] PORT env =", process.env.PORT);
-console.log("[BOOT] about to listen; routes will register inside listen callback");
 
 app.get("/__status", (_req, res) => {
   res.json({ frontendReady });
@@ -722,8 +624,144 @@ app.get("/api/__routes", (_req, res) => {
 // --------------------------------------------------
 console.log("[BOOT] reached pre-listen checkpoint");
 
-console.log("[BOOT] about to listen", {
+// --------------------------------------------------
+// Debug endpoint: env presence + key prefixes (NO values)
+// --------------------------------------------------
+app.get("/api/env-keys", (_req, res) => {
+  const keys = Object.keys(process.env).sort();
+  const has = (k: string) => {
+    const v = process.env[k];
+    return typeof v === "string" ? v.trim().length > 0 : !!v;
+  };
+
+  return res.json({
+    count: keys.length,
+    has: {
+      APP_RUNTIME: has("APP_RUNTIME"),
+      NODE_ENV: has("NODE_ENV"),
+      SESSION_SECRET: has("SESSION_SECRET"),
+
+      DATABASE_URL: has("DATABASE_URL"),
+      SUPABASE_URL: has("SUPABASE_URL"),
+      SUPABASE_SERVICE_ROLE_KEY: has("SUPABASE_SERVICE_ROLE_KEY"),
+
+      STRIPE_SECRET_KEY: has("STRIPE_SECRET_KEY"),
+      STRIPE_WEBHOOK_SECRET: has("STRIPE_WEBHOOK_SECRET"),
+
+      SB_URL: has("SB_URL"),
+      SB_SERVICE: has("SB_SERVICE"),
+      SB_DB_URL: has("SB_DB_URL"),
+    },
+    startsWith: {
+      SUPABASE: keys.filter((k) => k.startsWith("SUPABASE")),
+      SB_: keys.filter((k) => k.startsWith("SB_")),
+      PG: keys.filter((k) => k.startsWith("PG")),
+    },
+  });
+});
+
+// --------------------------------------------------
+// Start server (listen first, init after)
+// --------------------------------------------------
+
+
+httpServer.on("error", (err: any) => {
+  console.error("[BOOT] httpServer error event:", {
+    message: err?.message,
+    code: err?.code,
+    stack: err?.stack,
+  });
+});
+
+console.log("[BOOT] calling httpServer.listen", {
   portEnv: process.env.PORT,
   resolvedPort: port,
 });
 
+httpServer.listen(port, "0.0.0.0", () => {
+  console.log("[BOOT] listen callback entered", { port });
+
+  // Everything below runs AFTER the port is open
+  void (async () => {
+    try {
+      const [sMod, msMod, configMod, routesMod, staticMod] = await Promise.all([
+        import("express-session"),
+        import("memorystore"),
+        import("./configGuard"),
+        import("./routes"),
+        import("./static"),
+      ]);
+
+      const enforceProductionConfigAny: any = (configMod as any).enforceProductionConfig;
+      const registerRoutes: any = (routesMod as any).registerRoutes;
+      const serveStatic: any = (staticMod as any).serveStatic;
+
+      // Global error traps (after listen so they can't block binding)
+      process.on("unhandledRejection", (reason) => {
+        console.error("[FATAL] unhandledRejection:", reason);
+      });
+      process.on("uncaughtException", (err) => {
+        console.error("[FATAL] uncaughtException:", err);
+      });
+
+      // ---- robust CJS/ESM interop for session + memorystore ----
+      const sessionAny: any = (sMod as any)?.default ?? sMod;
+      const MemoryStoreFactoryAny: any = (msMod as any)?.default ?? msMod;
+
+      const maybe: any = MemoryStoreFactoryAny(sessionAny);
+      const MemoryStoreCtor: any = maybe?.default?.default ?? maybe?.default ?? maybe;
+
+      if (typeof MemoryStoreCtor !== "function") {
+        console.error("[BOOT] MemoryStore is not a constructor", {
+          type: typeof MemoryStoreCtor,
+          keys: MemoryStoreCtor ? Object.keys(MemoryStoreCtor) : null,
+          msKeys: msMod ? Object.keys(msMod as any) : null,
+          sessionKeys: sMod ? Object.keys(sMod as any) : null,
+        });
+        throw new Error("MemoryStore factory did not return a constructor");
+      }
+
+      // Install session middleware ONCE
+      app.set("trust proxy", 1);
+      app.use(
+        sessionAny({
+          secret: process.env.SESSION_SECRET || "dev",
+          resave: false,
+          saveUninitialized: false,
+          proxy: process.env.NODE_ENV === "production",
+          cookie: {
+            secure: process.env.NODE_ENV === "production",
+            httpOnly: true,
+            sameSite: "lax",
+          },
+          store: new MemoryStoreCtor({ checkPeriod: 86400000 }),
+        })
+      );
+
+      // Config guard must never crash boot
+      try {
+        enforceProductionConfigAny?.();
+      } catch (e: unknown) {
+        console.error("[BOOT] enforceProductionConfig failed (non-fatal):", e);
+      }
+
+      // Register API routes BEFORE static
+      await registerRoutes(httpServer, app);
+      console.log("[BOOT] routes registered");
+
+      // Serve frontend
+      if (process.env.APP_RUNTIME === "prod" || process.env.NODE_ENV === "production") {
+        serveStatic(app);
+      } else {
+        const { setupVite } = await import("./vite");
+        await setupVite(httpServer, app);
+      }
+
+      frontendReady = true;
+      console.log("[BOOT] frontendReady true");
+    } catch (err) {
+      console.error("[FATAL] post-listen init failed (server stays alive):", err);
+      frontendReady = true; // keep healthcheck passing
+    }
+  })();
+});
