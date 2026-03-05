@@ -1,14 +1,43 @@
-console.log("[BOOT MARKER TOP]", {
-  marker: "DEPLOY_MARKER_9fe2c73_TOP",
-  now: new Date().toISOString(),
-});
-
 // ✅ MUST be first: env shims only (no DB pools, no app module imports)
 import "./envAlias";
 import "./forceDbEnv";
 
 import express, { type Request, type Response, type NextFunction } from "express";
 import { createServer } from "http";
+
+console.log("[BOOT MARKER TOP]", {
+  marker: "DEPLOY_MARKER_9fe2c73_TOP",
+  now: new Date().toISOString(),
+});
+
+// --------------------------------------------------
+// Bind port ASAP so Replit Autoscale healthchecks succeed
+// --------------------------------------------------
+const app = express();
+const httpServer = createServer(app);
+
+let frontendReady = false;
+
+// minimal boot route so healthcheck never fails
+app.get("/", (_req: Request, res: Response, next: NextFunction) => {
+  if (!frontendReady) return res.status(200).send("OK");
+  return next();
+});
+
+const port = parseInt(process.env.PORT || "5000", 10);
+
+console.log("[BOOT] calling httpServer.listen", {
+  portEnv: process.env.PORT,
+  resolvedPort: port,
+});
+
+httpServer.listen(port, "0.0.0.0", () => {
+  console.log("[BOOT] listening", { port });
+});
+
+
+
+
 // --------------------------------------------------
 // Global placeholders (so TS has names in scope)
 // These are assigned via lazy imports AFTER listen()
@@ -46,31 +75,13 @@ function log(message: string, source = "express") {
 // --------------------------------------------------
 // ✅ Bind port ASAP (before any DB/Stripe/routes work)
 // --------------------------------------------------
-const app = express();
-const httpServer = createServer(app);
-
-const port = parseInt(process.env.PORT || "5000", 10);
-
-// Healthcheck protection
-let frontendReady = false;
-
-// ✅ Minimal root so Autoscale healthcheck doesn't get "connection refused"
-
-// ✅ Optional: keep your existing status endpoint (you already had this)
-app.get("/__status", (_req: Request, res: Response) => {
-  res.json({ frontendReady });
+console.log("[BOOT] calling httpServer.listen", {
+  portEnv: process.env.PORT,
+  resolvedPort: port,
 });
-
-// ✅ Bind NOW (before DB/Stripe/routes). This prevents crash-loop from "connection refused"
-console.log("[BOOT] calling httpServer.listen", { portEnv: process.env.PORT, resolvedPort: port });
 
 httpServer.listen(port, "0.0.0.0", () => {
   console.log("[BOOT] listening", { port });
-});
-// Replit healthcheck hits "/" while booting
-app.get("/", (_req: Request, res: Response, next: NextFunction) => {
-  if (!frontendReady) return res.status(200).send("OK");
-  return next();
 });
 
 app.get("/healthcheck", (_req, res) => res.status(200).send("ok"));
