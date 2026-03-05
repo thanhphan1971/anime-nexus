@@ -629,9 +629,18 @@ console.log("[BOOT] reached pre-listen checkpoint");
 // --------------------------------------------------
 app.get("/api/env-keys", (_req, res) => {
   const keys = Object.keys(process.env).sort();
+
   const has = (k: string) => {
     const v = process.env[k];
     return typeof v === "string" ? v.trim().length > 0 : !!v;
+  };
+
+  const safeHost = (urlStr?: string) => {
+    try {
+      return urlStr ? new URL(urlStr).host : "";
+    } catch {
+      return "";
+    }
   };
 
   return res.json({
@@ -652,6 +661,12 @@ app.get("/api/env-keys", (_req, res) => {
       SB_SERVICE: has("SB_SERVICE"),
       SB_DB_URL: has("SB_DB_URL"),
     },
+    hosts: {
+      SB_DB_URL: safeHost(process.env.SB_DB_URL),
+      DATABASE_URL: safeHost(process.env.DATABASE_URL),
+      SUPABASE_URL: safeHost(process.env.SUPABASE_URL),
+      PGHOST: (process.env.PGHOST || "").trim(),
+    },
     startsWith: {
       SUPABASE: keys.filter((k) => k.startsWith("SUPABASE")),
       SB_: keys.filter((k) => k.startsWith("SB_")),
@@ -663,7 +678,6 @@ app.get("/api/env-keys", (_req, res) => {
 // --------------------------------------------------
 // Start server (listen first, init after)
 // --------------------------------------------------
-
 
 httpServer.on("error", (err: any) => {
   console.error("[BOOT] httpServer error event:", {
@@ -680,7 +694,6 @@ console.log("[BOOT] calling httpServer.listen", {
 
 httpServer.listen(port, "0.0.0.0", () => {
   console.log("[BOOT] listen callback entered", { port });
-
   // Everything below runs AFTER the port is open
   void (async () => {
     try {
