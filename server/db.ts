@@ -11,7 +11,7 @@ import pg from "pg";
  * - Once secrets stabilize, you can re-enable strict Supabase-only enforcement.
  */
 
-const isProdRuntime = process.env.APP_RUNTIME === "prod" || process.env.NODE_ENV === "production";
+const isProdRuntime = process.env.APP_RUNTIME === "prod";
 
 function safeHost(urlStr: string): string {
   try {
@@ -29,37 +29,44 @@ function isSupabaseHost(host: string): boolean {
 
 function getDatabaseUrl(): { url: string; source: "SB_DB_URL" | "DATABASE_URL" | "PG*" } {
   // -----------------------------
-  // PROD: prefer SB_DB_URL, fallback DATABASE_URL
+  // PROD: prefer SB_DB_URL, then SUPABASE_DATABASE_URL, then DATABASE_URL
   // -----------------------------
   if (isProdRuntime) {
     const sb = (process.env.SB_DB_URL || "").trim();
+    const sbAlt = (process.env.SUPABASE_DATABASE_URL || "").trim();
     const db = (process.env.DATABASE_URL || "").trim();
 
-    const source: "SB_DB_URL" | "DATABASE_URL" = sb ? "SB_DB_URL" : "DATABASE_URL";
-    const raw = (sb || db || "").trim();
+    const raw = (sb || sbAlt || db || "").trim();
+
+    const source: "SB_DB_URL" | "DATABASE_URL" | "PG*" =
+      sb ? "SB_DB_URL" : sbAlt ? "SB_DB_URL" : "DATABASE_URL";
 
     // Safe debug (no values leaked)
     console.log("[DB] isProdRuntime =", true);
     console.log("[DB] SB_DB_URL present:", !!sb);
+    console.log("[DB] SUPABASE_DATABASE_URL present:", !!sbAlt);
     console.log("[DB] DATABASE_URL host:", safeHost(db));
     console.log("[DB] Source:", source);
 
     if (!raw) {
-      throw new Error("Missing DB connection in prod: set SB_DB_URL or DATABASE_URL.");
+      throw new Error(
+        "Missing DB connection in prod: set SB_DB_URL, SUPABASE_DATABASE_URL, or DATABASE_URL."
+      );
     }
 
     const host = safeHost(raw);
     if (!host) {
-      throw new Error("Production DB misconfigured: SB_DB_URL / DATABASE_URL is not a valid URL.");
+      throw new Error(
+        "Production DB misconfigured: SB_DB_URL / SUPABASE_DATABASE_URL / DATABASE_URL is not a valid URL."
+      );
     }
 
     if (!isSupabaseHost(host)) {
-      // DO NOT CRASH: Replit may be forcing Neon. Boot anyway so healthcheck can pass.
       console.warn("============================================================");
       console.warn("[DB] WARNING: Production DB host is NOT Supabase.");
       console.warn("[DB] Host =", host);
-      console.warn("[DB] This is usually because Replit forces Neon into DATABASE_URL");
-      console.warn("[DB] Fix by setting SB_DB_URL to your Supabase connection string.");
+      console.warn("[DB] Replit may be forcing Neon into DATABASE_URL.");
+      console.warn("[DB] Prefer setting SB_DB_URL to your Supabase connection string.");
       console.warn("============================================================");
     } else {
       console.log("[DB] Production DB looks like Supabase:", host);
