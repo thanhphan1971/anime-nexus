@@ -636,7 +636,12 @@ console.log("[BOOT] reached pre-listen checkpoint");
 // --------------------------------------------------
 // Debug endpoint: env presence + key prefixes (NO values)
 // --------------------------------------------------
-app.get("/api/env-keys", (_req, res) => {
+app.get("/api/env-keys", (_req: Request, res: Response) => {
+  // 🔒 Disable in production (prevents leaking infra info)
+  if (isProdRuntime) {
+    return res.status(404).json({ error: "Not found" });
+  }
+
   const keys = Object.keys(process.env).sort();
 
   const has = (k: string) => {
