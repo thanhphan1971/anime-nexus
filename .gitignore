@@ -1,6 +1,10 @@
 node_modules
-dist
+# dist (commit build artifacts for Autoscale)
+# dist
 .DS_Store
 server/public
 vite.config.ts.*
 *.tar.gz
+# Commit build artifacts for Autoscale (Autoscale runs from dist)
+!dist/
+!dist/**
