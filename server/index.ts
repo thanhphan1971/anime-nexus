@@ -7,7 +7,7 @@ console.log("[BOOT MARKER TOP]", {
 import "./envAlias";
 import "./forceDbEnv";
 
-import express from "express";
+import express, { type Request, type Response, type NextFunction } from "express";
 import { createServer } from "http";
 // --------------------------------------------------
 // Global placeholders (so TS has names in scope)
@@ -43,21 +43,32 @@ function log(message: string, source = "express") {
   console.log(`${formattedTime} [${source}] ${message}`);
 }
 
-
-console.log("[BOOT] pre-listen checkpoint");
-
 // --------------------------------------------------
 // ✅ Bind port ASAP (before any DB/Stripe/routes work)
 // --------------------------------------------------
 const app = express();
 const httpServer = createServer(app);
-const port = Number(process.env.PORT) || 5000;
+
+const port = parseInt(process.env.PORT || "5000", 10);
 
 // Healthcheck protection
 let frontendReady = false;
 
+// ✅ Minimal root so Autoscale healthcheck doesn't get "connection refused"
+
+// ✅ Optional: keep your existing status endpoint (you already had this)
+app.get("/__status", (_req: Request, res: Response) => {
+  res.json({ frontendReady });
+});
+
+// ✅ Bind NOW (before DB/Stripe/routes). This prevents crash-loop from "connection refused"
+console.log("[BOOT] calling httpServer.listen", { portEnv: process.env.PORT, resolvedPort: port });
+
+httpServer.listen(port, "0.0.0.0", () => {
+  console.log("[BOOT] listening", { port });
+});
 // Replit healthcheck hits "/" while booting
-app.get("/", (_req, res, next) => {
+app.get("/", (_req: Request, res: Response, next: NextFunction) => {
   if (!frontendReady) return res.status(200).send("OK");
   return next();
 });
@@ -70,8 +81,6 @@ app.get("/api/health", (_req, res) => res.status(200).json({ ok: true }));
 // Return 200 immediately until the frontend is ready.
   
 // Health endpoints
-app.get("/healthcheck", (_req, res) => res.status(200).send("ok"));
-app.get("/api/health", (_req, res) => res.status(200).json({ ok: true }));
 
 // 🔍 Environment check endpoint (safe for prod)
 app.get("/api/env-check", (_req, res) => {
