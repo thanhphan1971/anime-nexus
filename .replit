@@ -9,7 +9,7 @@ packages = ["lsof", "zip", "supabase-cli", "stripe-cli", "nano"]
 [deployment]
 deploymentTarget = "autoscale"
 build = ["sh", "-c", "echo \"skip build\""]
-run = ["sh", "-c", "npm install && npm run build && node dist/index.cjs"]
+run = ["sh", "-c", "ls -la dist dist/index.cjs || true; git rev-parse --short HEAD || true; node dist/index.cjs"]
 publicDir = "dist/public"
 
 [[ports]]
