@@ -242,13 +242,13 @@ export interface IStorage {
 
   // Stripe fulfillment idempotency
   tryCreateStripeFulfillment(input: {
-    stripeSessionId: string;
-    stripePaymentIntentId: string | null;
-    userId: string;
-    type: string;
-    tokenAmount: number;
-    amountCents?: number;
-  }): Promise<boolean>;
+  stripeSessionId: string;
+  stripePaymentIntentId: string | null;
+  userId: string;
+  type: string;
+  tokenAmount: number;
+  amountCents?: number;
+}): Promise<"inserted" | "pending" | "completed">;
   
   // Admin audit log operations
   createAdminAuditLog(entry: InsertAdminAuditLog): Promise<AdminAuditLog>;
@@ -1522,33 +1522,64 @@ export class DbStorage implements IStorage {
 
      // Stripe fulfillment idempotency (raw SQL table)
   async tryCreateStripeFulfillment(input: {
-    stripeSessionId: string;
-    stripePaymentIntentId: string | null;
-    userId: string;
-    type: string;
-    tokenAmount: number;
-    amountCents?: number;
-  }): Promise<boolean> {
-
-    console.log("[tryCreateStripeFulfillment] called", {
+  stripeSessionId: string;
+  stripePaymentIntentId: string | null;
+  userId: string;
+  type: string;
+  tokenAmount: number;
+  amountCents?: number;
+}): Promise<"inserted" | "pending" | "completed"> {
+  console.log("[tryCreateStripeFulfillment] called", {
     sessionId: input.stripeSessionId,
     userId: input.userId,
     tokenAmount: input.tokenAmount,
     amountCents: input.amountCents,
   });
-    
-   let result;
-   try {
-     result = await db.execute(sql`
+
+  // 1) Check existing fulfillment first
+  const existingResult = await db.execute(sql`
+    SELECT status
+    FROM public.stripe_fulfillments
+    WHERE stripe_session_id = ${input.stripeSessionId}
+    LIMIT 1;
+  `);
+
+  const existingRows = (existingResult as any)?.rows ?? existingResult;
+  const existing =
+    Array.isArray(existingRows) && existingRows.length > 0
+      ? existingRows[0]
+      : Array.isArray(existingRows?.rows) && existingRows.rows.length > 0
+      ? existingRows.rows[0]
+      : null;
+
+  if (existing?.status === "completed") {
+    console.log("[tryCreateStripeFulfillment] already completed", {
+      sessionId: input.stripeSessionId,
+    });
+    return "completed";
+  }
+
+  if (existing?.status === "pending") {
+    console.log("[tryCreateStripeFulfillment] already pending", {
+      sessionId: input.stripeSessionId,
+    });
+    return "pending";
+  }
+
+  // 2) Insert new pending fulfillment
+  let result;
+  try {
+    result = await db.execute(sql`
       INSERT INTO public.stripe_fulfillments
-        (stripe_session_id, stripe_payment_intent_id, user_id, type, token_amount, amount_cents)
+        (stripe_session_id, stripe_payment_intent_id, user_id, type, token_amount, amount_cents, status)
       VALUES
         (${input.stripeSessionId},
          ${input.stripePaymentIntentId},
          ${input.userId},
          ${input.type},
          ${input.tokenAmount},
-         ${input.amountCents ?? null})
+         ${input.amountCents ?? null},
+         'pending')
       ON CONFLICT (stripe_session_id) DO NOTHING
       RETURNING stripe_session_id;
     `);
@@ -1557,26 +1588,51 @@ export class DbStorage implements IStorage {
     throw err;
   }
 
-    // If RETURNING stripe_session_id gave a row → this is a NEW fulfillment
-const rows = (result as any)?.rows ?? result;
+  const rows = (result as any)?.rows ?? result;
+  const inserted =
+    Array.isArray(rows)
+      ? rows.length > 0
+      : Array.isArray(rows?.rows)
+      ? rows.rows.length > 0
+      : false;
 
-// Drizzle/Postgres sometimes returns different shapes
-const inserted =
-  Array.isArray(rows)
-    ? rows.length > 0
-    : Array.isArray(rows?.rows)
-    ? rows.rows.length > 0
-    : false;
+  console.log("[tryCreateStripeFulfillment] result", {
+    inserted,
+  });
 
-console.log("[tryCreateStripeFulfillment] result", {
-  inserted,
-});
-
-return inserted;
-
-    
+  if (inserted) {
+    return "inserted";
   }
 
+  // 3) Conflict happened between check and insert — re-read row
+  const retryReadResult = await db.execute(sql`
+    SELECT status
+    FROM public.stripe_fulfillments
+    WHERE stripe_session_id = ${input.stripeSessionId}
+    LIMIT 1;
+  `);
+
+  const retryRows = (retryReadResult as any)?.rows ?? retryReadResult;
+  const retryExisting =
+    Array.isArray(retryRows) && retryRows.length > 0
+      ? retryRows[0]
+      : Array.isArray(retryRows?.rows) && retryRows.rows.length > 0
+      ? retryRows.rows[0]
+      : null;
+
+  if (retryExisting?.status === "completed") return "completed";
+  return "pending";
+}
+
+  async markStripeFulfillmentCompleted(stripeSessionId: string): Promise<void> {
+  await db.execute(sql`
+    UPDATE public.stripe_fulfillments
+    SET status = 'completed',
+        fulfilled_at = now()
+    WHERE stripe_session_id = ${stripeSessionId};
+  `);
+}
+    
   // Admin audit log operations
   async createAdminAuditLog(entry: InsertAdminAuditLog): Promise<AdminAuditLog> {
     const result = await db.insert(adminAuditLog).values(entry).returning();
