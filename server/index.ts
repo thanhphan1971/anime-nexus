@@ -11,30 +11,20 @@ console.log("[BOOT MARKER TOP]", {
 });
 
 // --------------------------------------------------
-// Bind port ASAP so Replit Autoscale healthchecks succeed
+// App + server
 // --------------------------------------------------
 const app = express();
 const httpServer = createServer(app);
 
 let frontendReady = false;
 
-// minimal boot route so healthcheck never fails
+// minimal boot route so healthcheck never fails until frontend is ready
 app.get("/", (_req: Request, res: Response, next: NextFunction) => {
   if (!frontendReady) return res.status(200).send("OK");
   return next();
 });
 
 const port = parseInt(process.env.PORT || "5000", 10);
-
-console.log("[BOOT] calling httpServer.listen", {
-  portEnv: process.env.PORT,
-  resolvedPort: port,
-});
-
-httpServer.listen(port, "0.0.0.0", () => {
-  console.log("[BOOT] listening", { port });
-});
-
 
 
 
@@ -71,18 +61,6 @@ function log(message: string, source = "express") {
   });
   console.log(`${formattedTime} [${source}] ${message}`);
 }
-
-// --------------------------------------------------
-// ✅ Bind port ASAP (before any DB/Stripe/routes work)
-// --------------------------------------------------
-console.log("[BOOT] calling httpServer.listen", {
-  portEnv: process.env.PORT,
-  resolvedPort: port,
-});
-
-httpServer.listen(port, "0.0.0.0", () => {
-  console.log("[BOOT] listening", { port });
-});
 
 app.get("/healthcheck", (_req, res) => res.status(200).send("ok"));
 app.get("/api/health", (_req, res) => res.status(200).json({ ok: true }));
