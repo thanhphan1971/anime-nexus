@@ -220,38 +220,54 @@ app.use((req, res, next) => {
 app.post(
   "/api/stripe/webhook",
   express.raw({ type: "application/json" }),
-  async (req, res) => {
+  async (req: Request, res: Response) => {
     const sig = req.headers["stripe-signature"] as string | undefined;
     const secret = process.env.STRIPE_WEBHOOK_SECRET;
 
-if (!sig) return res.status(400).send("Missing stripe-signature");
-    
-if (!secret) {
-  console.warn("[Stripe] Webhook hit but STRIPE_WEBHOOK_SECRET missing");
-  return res.json({ received: true });
-}
+    if (!sig) {
+      return res.status(400).send("Missing stripe-signature");
+    }
 
-// ✅ INSERT THIS RIGHT HERE (before `let event`)
-if (!stripe) {
-  console.warn("[Stripe] Webhook hit but Stripe not configured");
-  return res.json({ received: true });
-}
+    if (!secret) {
+      const msg = "Missing STRIPE_WEBHOOK_SECRET";
+      if (process.env.NODE_ENV === "production") {
+        console.error("[Stripe]", msg);
+        return res.status(500).send(msg);
+      }
+      console.warn("[Stripe]", msg, "(dev mode)");
+      return res.json({ received: true });
+    }
 
-let event: any;
+    if (!stripe) {
+      const msg = "Stripe client not configured";
+      if (process.env.NODE_ENV === "production") {
+        console.error("[Stripe]", msg);
+        return res.status(500).send(msg);
+      }
+      console.warn("[Stripe]", msg, "(dev mode)");
+      return res.json({ received: true });
+    }
 
-// ----------------------------------------------------
-// Verify Stripe signature
-// ----------------------------------------------------
-try {
-  event = stripe.webhooks.constructEvent(req.body, sig, secret);
+    let event: any;
 
-  console.log("[WEBHOOK PROD TARGET]", {
-    APP_RUNTIME: process.env.APP_RUNTIME,
-    NODE_ENV: process.env.NODE_ENV,
-    SUPABASE_URL: process.env.SUPABASE_URL,
-    SB_URL: process.env.SB_URL,
-    DATABASE_URL_SET: !!process.env.DATABASE_URL,
-  });
+    // ----------------------------------------------------
+    // Verify Stripe signature
+    // ----------------------------------------------------
+    try {
+      event = stripe.webhooks.constructEvent(req.body, sig, secret);
+
+      console.log("[Stripe] webhook event", {
+        id: event.id,
+        type: event.type,
+      });
+
+      console.log("[WEBHOOK PROD TARGET]", {
+        APP_RUNTIME: process.env.APP_RUNTIME,
+        NODE_ENV: process.env.NODE_ENV,
+        SUPABASE_URL: process.env.SUPABASE_URL,
+        SB_URL: process.env.SB_URL,
+        DATABASE_URL_SET: !!process.env.DATABASE_URL,
+      });
 
       try {
         const dbHost = process.env.DATABASE_URL
@@ -266,7 +282,6 @@ try {
       console.error("Webhook signature verify failed:", err.message);
       return res.status(400).send(`Webhook Error: ${err.message}`);
     }
-
     // ----------------------------------------------------
     // Process events
     // ----------------------------------------------------
@@ -281,155 +296,162 @@ try {
           metadata: session.metadata,
         });
 
-        // ... your existing logic continues here
-    
-    console.log("checkout.session.completed", {
-      eventId: event.id,
-      sessionId: session.id,
-      mode: session.mode,
-      subscriptionId: session.subscription,
-      customerId: session.customer,
-      paymentStatus: session.payment_status,
-      metadata: session.metadata,
-    });
-
-    // A) SUBSCRIPTIONS (created via Checkout)
-    if (session.mode === "subscription") {
-      const userId = session.metadata?.userId;
-      const customerId = session.customer as string;
-      const subscriptionId = (session.subscription as string | null) || null;
-
-      if (!userId || !subscriptionId || !customerId) {
-        return res.json({ received: true });
-      }
-
-      const user = await storage.getUser(userId);
-      if (!user) return res.json({ received: true });
-
-      if (user.stripeCustomerId !== customerId) {
-        console.error(
-          `Webhook security: Customer mismatch for user ${userId}. Expected ${user.stripeCustomerId}, got ${customerId}`
-        );
-        return res.json({ received: true });
-      }
-      if (!stripe) {
-        return res.status(503).json({ error: "Stripe not configured" });
-      }     
-
-      const subscription: any = await stripe.subscriptions.retrieve(subscriptionId, {
-        expand: ["items.data.price"],
-      });
-
-      const interval = subscription?.items?.data?.[0]?.price?.recurring?.interval; // "month" | "year"
-      const subscriptionType =
-        interval === "year" ? "yearly" : interval === "month" ? "monthly" : null;
-
-      const periodEndSec = Number(subscription?.current_period_end || 0);
-      const premiumEndDate = periodEndSec ? new Date(periodEndSec * 1000) : null;
-
-      const willCancelAtPeriodEnd = !!subscription?.cancel_at_period_end;
-      const subscriptionStatus = willCancelAtPeriodEnd
-        ? "canceling"
-        : String(subscription?.status || "active");
-
-      await storage.updateUser(userId, {
-        stripeSubscriptionId: subscriptionId,
-        subscriptionStatus,
-        subscriptionType,
-        isPremium: true,
-        premiumStartDate: new Date(),
-        premiumEndDate,
-        sclassJoinedAt: new Date(),
-        willCancelAtPeriodEnd,
-      });
-
-      console.log(`User ${userId} subscription updated: ${subscriptionId}`);
-      return res.json({ received: true });
-    }
-
-    // B) ONE-TIME PAYMENTS (TOKEN PACKS / MINOR PURCHASES)
-    if (session.mode === "payment") {
-      if (session.payment_status !== "paid") {
-        return res.json({ received: true });
-      }
-
-      const type = session.metadata?.type;
-
-      // 1) Minor purchase: delegate to webhookHandlers.ts (your secure flow)
-      if (type === "minor_token_purchase") {
-        const { WebhookHandlers } = await import("./webhookHandlers");
-        await WebhookHandlers.processWebhook(req.body, sig);
-        return res.json({ received: true });
-      }
-
-      // 2) Adult token purchase: hard idempotency + server-authoritative token amount
-      if (type === "token_purchase") {
-        const userId = session.metadata?.userId || session.metadata?.user_id;
-        if (!userId) return res.json({ received: true });
-
-        // Source of truth: session metadata (set during checkout creation)
-        const tokenAmount =
-          Number(
-            session.metadata?.tokenAmount ??
-              session.metadata?.token_amount ??
-              0
-          ) || 0;
-
-        if (tokenAmount <= 0) {
-          console.error("Webhook token_purchase missing tokenAmount", {
-            sessionId: session.id,
-            metadata: session.metadata,
-          });
-          return res.json({ received: true });
-        }
-
-        const amountCents = Number(session.amount_total ?? 0) || null;
-
-        console.log("[FULFILLMENT] about to create", { sessionId: session.id });        
-        
-        const inserted = await storage.tryCreateStripeFulfillment({
-          
-          stripeSessionId: session.id,
-          stripePaymentIntentId: (session.payment_intent as string | null) ?? null,
-          userId,
-          type: "token_purchase",
-          tokenAmount,
-          amountCents: amountCents ?? undefined,
+        console.log("checkout.session.completed", {
+          eventId: event.id,
+          sessionId: session.id,
+          mode: session.mode,
+          subscriptionId: session.subscription,
+          customerId: session.customer,
+          paymentStatus: session.payment_status,
+          metadata: session.metadata,
         });
-        console.log("[FULFILLMENT] result", { sessionId: session.id, inserted });
 
-        if (!inserted) {
-          console.log("Webhook token_purchase duplicate session, skipping", {
-            sessionId: session.id,
+        // A) SUBSCRIPTIONS (created via Checkout)
+        if (session.mode === "subscription") {
+          const userId = session.metadata?.userId;
+          const customerId = session.customer as string;
+          const subscriptionId = (session.subscription as string | null) || null;
+
+          if (!userId || !subscriptionId || !customerId) {
+            return res.json({ received: true });
+          }
+
+          const user = await storage.getUser(userId);
+          if (!user) {
+            return res.json({ received: true });
+          }
+
+          if (user.stripeCustomerId !== customerId) {
+            console.error(
+              `Webhook security: Customer mismatch for user ${userId}. Expected ${user.stripeCustomerId}, got ${customerId}`
+            );
+            return res.json({ received: true });
+          }
+
+          if (!stripe) {
+            return res.status(503).json({ error: "Stripe not configured" });
+          }
+
+          const subscription: any = await stripe.subscriptions.retrieve(subscriptionId, {
+            expand: ["items.data.price"],
           });
+
+          const interval = subscription?.items?.data?.[0]?.price?.recurring?.interval;
+          const subscriptionType =
+            interval === "year" ? "yearly" : interval === "month" ? "monthly" : null;
+
+          const periodEndSec = Number(subscription?.current_period_end || 0);
+          const premiumEndDate = periodEndSec ? new Date(periodEndSec * 1000) : null;
+
+          const willCancelAtPeriodEnd = !!subscription?.cancel_at_period_end;
+          const subscriptionStatus = willCancelAtPeriodEnd
+            ? "canceling"
+            : String(subscription?.status || "active");
+
+          await storage.updateUser(userId, {
+            stripeSubscriptionId: subscriptionId,
+            subscriptionStatus,
+            subscriptionType,
+            isPremium: true,
+            premiumStartDate: new Date(),
+            premiumEndDate,
+            sclassJoinedAt: new Date(),
+            willCancelAtPeriodEnd,
+          });
+
+          console.log(`User ${userId} subscription updated: ${subscriptionId}`);
           return res.json({ received: true });
         }
 
-        try {
-          await storage.incrementUserTokens(userId, tokenAmount);
-        } catch (err) {
-          console.error("❌ incrementUserTokens failed", {
-            userId,
-            tokenAmount,
-            sessionId: session.id,
-            err,
-          });
+        // B) ONE-TIME PAYMENTS (TOKEN PACKS / MINOR PURCHASES)
+        if (session.mode === "payment") {
+          if (session.payment_status !== "paid") {
+            return res.json({ received: true });
+          }
+
+          const type = session.metadata?.type;
+
+          // 1) Minor purchase: delegate to webhookHandlers.ts
+          if (type === "minor_token_purchase") {
+            const { WebhookHandlers } = await import("./webhookHandlers");
+            await WebhookHandlers.processWebhook(req.body, sig);
+            return res.json({ received: true });
+          }
+
+          // 2) Adult token purchase: hard idempotency + server-authoritative token amount
+          if (type === "token_purchase") {
+            const userId = session.metadata?.userId || session.metadata?.user_id;
+            if (!userId) {
+              return res.json({ received: true });
+            }
+
+            const tokenAmount =
+              Number(
+                session.metadata?.tokenAmount ??
+                  session.metadata?.token_amount ??
+                  0
+              ) || 0;
+
+            if (tokenAmount <= 0) {
+              console.error("Webhook token_purchase missing tokenAmount", {
+                sessionId: session.id,
+                metadata: session.metadata,
+              });
+              return res.json({ received: true });
+            }
+
+            const amountCents = Number(session.amount_total ?? 0) || null;
+
+            console.log("[FULFILLMENT] about to create", { sessionId: session.id });
+
+            const inserted = await storage.tryCreateStripeFulfillment({
+              stripeSessionId: session.id,
+              stripePaymentIntentId: (session.payment_intent as string | null) ?? null,
+              userId,
+              type: "token_purchase",
+              tokenAmount,
+              amountCents: amountCents ?? undefined,
+            });
+
+            console.log("[FULFILLMENT] result", { sessionId: session.id, inserted });
+
+            if (!inserted) {
+              console.log("Webhook token_purchase duplicate session, skipping", {
+                sessionId: session.id,
+              });
+              return res.json({ received: true });
+            }
+
+            try {
+              await storage.incrementUserTokens(userId, tokenAmount);
+            } catch (err) {
+              console.error("❌ incrementUserTokens failed", {
+                userId,
+                tokenAmount,
+                sessionId: session.id,
+                err,
+              });
+
+              // IMPORTANT:
+              // Return 500 so Stripe retries instead of falsely marking this fulfilled.
+              return res.status(500).send("Token credit failed");
+            }
+
+            console.log(
+              `[Webhook token_purchase] Credited ${tokenAmount} tokens to user ${userId} (session ${session.id})`
+            );
+
+            return res.json({ received: true });
+          }
+
           return res.json({ received: true });
         }
-
-        console.log(
-          `[Webhook token_purchase] Credited ${tokenAmount} tokens to user ${userId} (session ${session.id})`
-        );
 
         return res.json({ received: true });
       }
-      
-      return res.json({ received: true });
-    } // closes: if (session.mode === "payment")
 
       return res.json({ received: true });
-    } // closes: if (event.type === "checkout.session.completed")
-
+    
   // -------------------------------------------------------
   // customer.subscription.updated
   // -------------------------------------------------------
