@@ -35,14 +35,6 @@ function safeParseUrl(urlStr: string): URL | null {
   }
 }
 
-function safeHost(urlStr: string): string {
-  return safeParseUrl(urlStr)?.host || "";
-}
-
-function safeDbName(urlStr: string): string {
-  return safeParseUrl(urlStr)?.pathname.replace(/^\//, "") || "";
-}
-
 function isSupabaseHost(host: string): boolean {
   return host.includes("supabase.co") || host.includes("pooler.supabase.com");
 }
@@ -131,8 +123,13 @@ if (isProdRuntime) {
 
 // Important: pass the full connection string directly.
 // This preserves query params like sslmode, pooler options, etc.
+
 const pool = new pg.Pool({
-  connectionString,
+  host: parsed.hostname,
+  port: Number(parsed.port || 5432),
+  database: parsed.pathname.replace(/^\//, "") || "postgres",
+  user: decodeURIComponent(parsed.username || ""),
+  password: decodeURIComponent(parsed.password || ""),
   ssl: isProdRuntime
     ? {
         rejectUnauthorized: false,
