@@ -19,9 +19,6 @@ const httpServer = createServer(app);
 let frontendReady = false;
 
 // minimal boot route so healthcheck never fails until frontend is ready
-app.get("/", (_req: Request, res: Response) => {
-  return res.status(200).send("OK");
-});
 
 const port = parseInt(process.env.PORT || "5000", 10);
 
