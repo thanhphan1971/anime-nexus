@@ -2,7 +2,7 @@
 import "./envAlias";
 import "./forceDbEnv";
 
-import express, { type Request, type Response, type NextFunction } from "express";
+import express, { type Request, type Response } from "express";
 import { createServer } from "http";
 
 console.log("[BOOT MARKER TOP]", {
@@ -24,8 +24,6 @@ app.get("/", (_req: Request, res: Response) => {
 });
 
 const port = parseInt(process.env.PORT || "5000", 10);
-
-
 
 // --------------------------------------------------
 // Global placeholders (so TS has names in scope)
@@ -409,7 +407,7 @@ app.post(
                 err,
               });
 
-              // IMPORTANT:
+                            // IMPORTANT:
               // Return 500 so Stripe retries instead of falsely marking this fulfilled.
               return res.status(500).send("Token credit failed");
             }
@@ -419,7 +417,7 @@ app.post(
             );
 
             return res.json({ received: true });
-          }
+           }
 
           return res.json({ received: true });
         }
@@ -427,92 +425,92 @@ app.post(
         return res.json({ received: true });
       }
 
-      return res.json({ received: true });
-    
-  // -------------------------------------------------------
-  // customer.subscription.updated
-  // -------------------------------------------------------
-  if (event.type === "customer.subscription.updated") {
-    const subscription = event.data.object as any;
+    // -------------------------------------------------------
+    // customer.subscription.updated
+    // -------------------------------------------------------
+    if (event.type === "customer.subscription.updated") {
+      const subscription = event.data.object as any;
 
-    console.log("customer.subscription.updated", {
-      subscriptionId: subscription.id,
-      status: subscription.status,
-      cancelAtPeriodEnd: subscription.cancel_at_period_end,
-    });
-
-    const user = await storage.getUserByStripeSubscriptionId(subscription.id);
-    if (!user) return res.json({ received: true });
-
-    const interval = subscription.items.data[0]?.price?.recurring?.interval; // "month" | "year"
-    const subscriptionType =
-      interval === "year" ? "yearly" : interval === "month" ? "monthly" : "monthly";
-
-    const periodEnd = (subscription as any).current_period_end;
-
-    if (subscription.cancel_at_period_end) {
-      await storage.updateUser(user.id, {
-        subscriptionStatus: String(subscription.status || "active"),
-        isPremium: true,
-        willCancelAtPeriodEnd: true,
-        subscriptionType,
-        subscriptionCanceledAt: new Date(),
-        premiumEndDate: periodEnd ? new Date(periodEnd * 1000) : null,
+      console.log("customer.subscription.updated", {
+        subscriptionId: subscription.id,
+        status: subscription.status,
+        cancelAtPeriodEnd: subscription.cancel_at_period_end,
       });
+
+      const user = await storage.getUserByStripeSubscriptionId(subscription.id);
+      if (!user) {
+        return res.json({ received: true });
+      }
+
+      const interval = subscription.items.data[0]?.price?.recurring?.interval;
+      const subscriptionType =
+        interval === "year" ? "yearly" : interval === "month" ? "monthly" : "monthly";
+
+      const periodEnd = subscription.current_period_end;
+
+      if (subscription.cancel_at_period_end) {
+        await storage.updateUser(user.id, {
+          subscriptionStatus: String(subscription.status || "active"),
+          isPremium: true,
+          willCancelAtPeriodEnd: true,
+          subscriptionType,
+          subscriptionCanceledAt: new Date(),
+          premiumEndDate: periodEnd ? new Date(periodEnd * 1000) : null,
+        });
+        return res.json({ received: true });
+      }
+
+      if (subscription.status === "active") {
+        await storage.updateUser(user.id, {
+          subscriptionStatus: "active",
+          subscriptionType,
+          isPremium: true,
+          willCancelAtPeriodEnd: false,
+          premiumEndDate: periodEnd ? new Date(periodEnd * 1000) : null,
+          subscriptionCanceledAt: null,
+        });
+        return res.json({ received: true });
+      }
+
       return res.json({ received: true });
     }
 
-    if (subscription.status === "active") {
-      await storage.updateUser(user.id, {
-        subscriptionStatus: "active",
-        subscriptionType,
-        isPremium: true,
-        willCancelAtPeriodEnd: false,
-        premiumEndDate: periodEnd ? new Date(periodEnd * 1000) : null,
-        subscriptionCanceledAt: null,
+    // -------------------------------------------------------
+    // customer.subscription.deleted
+    // -------------------------------------------------------
+    if (event.type === "customer.subscription.deleted") {
+      const subscription = event.data.object as any;
+
+      console.log("customer.subscription.deleted", {
+        subscriptionId: subscription.id,
       });
+
+      const user = await storage.getUserByStripeSubscriptionId(subscription.id);
+      if (user) {
+        await storage.updateUser(user.id, {
+          subscriptionStatus: "expired",
+          isPremium: false,
+          stripeSubscriptionId: null,
+          willCancelAtPeriodEnd: false,
+        });
+      }
+
       return res.json({ received: true });
     }
 
+    // Unhandled events
+    return res.json({ received: true });
+  } catch (dbError: any) {
+    console.error("Webhook DB update error:", dbError.message);
     return res.json({ received: true });
   }
-
-  // -------------------------------------------------------
-  // customer.subscription.deleted
-  // -------------------------------------------------------
-  if (event.type === "customer.subscription.deleted") {
-    const subscription = event.data.object as any;
-
-    console.log("customer.subscription.deleted", { subscriptionId: subscription.id });
-
-    const user = await storage.getUserByStripeSubscriptionId(subscription.id);
-    if (user) {
-      await storage.updateUser(user.id, {
-        subscriptionStatus: "expired",
-        isPremium: false,
-        stripeSubscriptionId: null,
-        willCancelAtPeriodEnd: false,
-      });
-    }
-
-    return res.json({ received: true });
-  }
-
-  // Unhandled events
-  return res.json({ received: true });
-} catch (dbError: any) {
-  console.error("Webhook DB update error:", dbError.message);
-  return res.json({ received: true });
-}
-  } // <-- closes async (req, res) => {
-);  // <-- closes app.post(
+}); // closes app.post(...)
 
 // 2) Normal body parsers for the rest of your API
 app.use(
   express.json({
     limit: "10mb",
     verify: (req, _res, buf) => {
-      // optional: keep raw bytes for debugging
       (req as any).rawBody = buf;
     },
   })
@@ -619,6 +617,9 @@ app.get("/__status", (_req, res) => {
 
 async function initAfterListen() {
   try {
+    console.log("[BOOT] initAfterListen start");
+
+    console.log("[BOOT] before dynamic imports");
     const [
       sMod,
       msMod,
@@ -636,13 +637,18 @@ async function initAfterListen() {
       import("./stripeClient"),
       import("./storage"),
     ]);
+    console.log("[BOOT] after dynamic imports");
 
     const enforceProductionConfigAny: any = (configMod as any).enforceProductionConfig;
     const registerRoutes: any = (routesMod as any).registerRoutes;
     const serveStatic: any = (staticMod as any).serveStatic;
 
+    console.log("[BOOT] after extracting imported symbols");
+
     stripe = (stripeMod as any).stripe;
     storage = (storageMod as any).storage;
+
+    console.log("[BOOT] after assigning stripe/storage");
 
     process.on("unhandledRejection", (reason) => {
       console.error("[FATAL] unhandledRejection:", reason);
@@ -651,11 +657,15 @@ async function initAfterListen() {
       console.error("[FATAL] uncaughtException:", err);
     });
 
+    console.log("[BOOT] after process handlers");
+
     const sessionAny: any = (sMod as any)?.default ?? sMod;
     const MemoryStoreFactoryAny: any = (msMod as any)?.default ?? msMod;
 
+    console.log("[BOOT] before MemoryStore factory");
     const maybe: any = MemoryStoreFactoryAny(sessionAny);
     const MemoryStoreCtor: any = maybe?.default?.default ?? maybe?.default ?? maybe;
+    console.log("[BOOT] after MemoryStore factory");
 
     if (typeof MemoryStoreCtor !== "function") {
       console.error("[BOOT] MemoryStore is not a constructor", {
@@ -667,6 +677,7 @@ async function initAfterListen() {
       throw new Error("MemoryStore factory did not return a constructor");
     }
 
+    console.log("[BOOT] before session middleware");
     app.set("trust proxy", 1);
     app.use(
       sessionAny({
@@ -682,48 +693,41 @@ async function initAfterListen() {
         store: new MemoryStoreCtor({ checkPeriod: 86400000 }),
       })
     );
+    console.log("[BOOT] after session middleware");
 
+    enforceProductionConfig = enforceProductionConfigAny;
+
+    console.log("[BOOT] before enforceProductionConfig");
     try {
       enforceProductionConfigAny?.();
     } catch (e: unknown) {
       console.error("[BOOT] enforceProductionConfig failed (non-fatal):", e);
     }
+    console.log("[BOOT] after enforceProductionConfig");
 
+    console.log("[BOOT] before registerRoutes");
     await registerRoutes(httpServer, app);
     console.log("[BOOT] routes registered");
 
     if (process.env.APP_RUNTIME === "prod" || process.env.NODE_ENV === "production") {
+      console.log("[BOOT] before serveStatic");
       serveStatic(app);
+      console.log("[BOOT] after serveStatic");
     } else {
+      console.log("[BOOT] before setupVite");
       const { setupVite } = await import("./vite");
       await setupVite(httpServer, app);
+      console.log("[BOOT] after setupVite");
     }
 
     frontendReady = true;
     console.log("[BOOT] frontendReady true");
+    console.log("[BOOT] initAfterListen finished");
   } catch (err) {
     console.error("[FATAL] post-listen init failed (server stays alive):", err);
     frontendReady = true;
   }
 }
-
-httpServer.on("error", (err: any) => {
-  console.error("[BOOT] httpServer error event:", {
-    message: err?.message,
-    code: err?.code,
-    stack: err?.stack,
-  });
-});
-
-console.log("[BOOT] calling httpServer.listen", {
-  portEnv: process.env.PORT,
-  resolvedPort: port,
-});
-
-httpServer.listen(port, "0.0.0.0", () => {
-  console.log("[BOOT] listen callback entered", { port });
-  void initAfterListen();
-});
 
 // --------------------------------------------------
 // Debug endpoint: list registered routes
@@ -745,11 +749,6 @@ app.get("/api/__routes", (_req, res) => {
     return res.status(500).json({ error: e?.message || String(e) });
   }
 });
-
-// --------------------------------------------------
-// Listen ASAP so Replit health checks can reach the app
-// --------------------------------------------------
-console.log("[BOOT] reached pre-listen checkpoint");
 
 // --------------------------------------------------
 // Debug endpoint: env presence + key prefixes (NO values)
@@ -804,5 +803,27 @@ app.get("/api/env-keys", (_req: Request, res: Response) => {
       SB_: keys.filter((k) => k.startsWith("SB_")),
       PG: keys.filter((k) => k.startsWith("PG")),
     },
+  });
+});
+
+httpServer.on("error", (err: any) => {
+  console.error("[BOOT] httpServer error event:", {
+    message: err?.message,
+    code: err?.code,
+    stack: err?.stack,
+  });
+});
+
+console.log("[BOOT] calling httpServer.listen", {
+  portEnv: process.env.PORT,
+  resolvedPort: port,
+});
+
+console.log("[BOOT] reached pre-listen checkpoint");
+
+httpServer.listen(port, "0.0.0.0", () => {
+  console.log("[BOOT] listen callback entered", { port });
+  initAfterListen().catch((err) => {
+    console.error("[BOOT ERROR] initAfterListen rejected", err);
   });
 });
