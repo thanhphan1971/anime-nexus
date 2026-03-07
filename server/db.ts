@@ -118,9 +118,19 @@ console.log("[DB] Using host:", effectiveHost, "| source:", source);
 // - Supabase requires SSL in production.
 // - Neon also typically works with SSL.
 // - In dev, keep it simple.
+const parsed = new URL(connectionString);
+
 const pool = new pg.Pool({
-  connectionString,
-  ssl: isProdRuntime ? { rejectUnauthorized: false } : false,
+  host: parsed.hostname,
+  port: Number(parsed.port || 5432),
+  database: parsed.pathname.replace(/^\//, "") || "postgres",
+  user: decodeURIComponent(parsed.username || ""),
+  password: decodeURIComponent(parsed.password || ""),
+  ssl: isProdRuntime
+    ? {
+        rejectUnauthorized: false,
+      }
+    : false,
 });
 
 export const db = drizzle(pool);
