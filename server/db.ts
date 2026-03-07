@@ -115,6 +115,7 @@ console.log("[DB SELECT]", {
   selectedHost,
   selectedDatabase: selectedDb,
 });
+console.log("[DB SELECT MARKER]", "be5afa0-live");
 
 if (isProdRuntime) {
   if (!isSupabaseHost(selectedHost)) {
