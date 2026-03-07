@@ -197,37 +197,65 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   try {
     const supabaseUser = req.supabaseUser;
 
+    console.log("[auth/me] start", {
+      supabaseId: supabaseUser?.id,
+      email: supabaseUser?.email,
+      hasReqDbUser: !!req.dbUser,
+    });
+
     if (!supabaseUser?.id || !supabaseUser?.email) {
+      console.log("[auth/me] missing supabase user");
       return res.status(401).json({ error: "Not authenticated" });
     }
 
-    // 1️⃣ if verifySupabaseToken already linked a DB user
-    let dbUser = req.dbUser ? await storage.getUser(req.dbUser.id) : null;
+    let dbUser = null;
 
-    // 2️⃣ if not linked yet, attempt automatic linking by email
+    if (req.dbUser) {
+      console.log("[auth/me] loading req.dbUser by id", { id: req.dbUser.id });
+      dbUser = await storage.getUser(req.dbUser.id);
+      console.log("[auth/me] loaded req.dbUser result", { found: !!dbUser });
+    }
+
     if (!dbUser) {
+      console.log("[auth/me] lookup by supabase id", { supabaseId: supabaseUser.id });
       const existingBySupabaseId = await storage.getUserBySupabaseId(supabaseUser.id);
+      console.log("[auth/me] lookup by supabase id result", { found: !!existingBySupabaseId });
 
       if (existingBySupabaseId) {
         dbUser = existingBySupabaseId;
       } else {
+        console.log("[auth/me] lookup legacy user by email", { email: supabaseUser.email });
         const legacyUser = await storage.getUserByEmail(supabaseUser.email);
+        console.log("[auth/me] lookup legacy user result", { found: !!legacyUser });
 
         if (legacyUser) {
           if (
             (legacyUser as any).supabaseUserId &&
             (legacyUser as any).supabaseUserId !== supabaseUser.id
           ) {
+            console.log("[auth/me] already linked to different supabase user", {
+              legacyUserId: (legacyUser as any).id,
+              existingSupabaseUserId: (legacyUser as any).supabaseUserId,
+              incomingSupabaseUserId: supabaseUser.id,
+            });
+
             return res.status(409).json({
               error: "Account already linked to another Supabase user",
               code: "ALREADY_LINKED",
             });
           }
 
+          console.log("[auth/me] linking legacy user", {
+            legacyUserId: (legacyUser as any).id,
+            supabaseUserId: supabaseUser.id,
+          });
+
           const linkedUser = await storage.updateUserSupabaseId(
             (legacyUser as any).id,
             supabaseUser.id
           );
+
+          console.log("[auth/me] link result", { found: !!linkedUser });
 
           if (!linkedUser) {
             return res.status(500).json({ error: "Failed to link account" });
@@ -238,16 +266,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
     }
 
-    // 3️⃣ still no user
     if (!dbUser) {
+      console.log("[auth/me] no db user found after all lookups");
       return res.json({ user: null });
     }
 
     const { password: _pw, ...safeUser } = dbUser as any;
+    console.log("[auth/me] success", { userId: safeUser.id, email: safeUser.email });
     return res.json({ user: safeUser });
 
   } catch (error: any) {
     console.error("[auth/me] failed:", error);
+    console.error("[auth/me] stack:", error?.stack);
     return res.status(500).json({ error: "Failed to load user" });
   }
 });
