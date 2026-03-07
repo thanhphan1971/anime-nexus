@@ -193,20 +193,64 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   // ================= CURRENT USER =================
 
-  app.get("/api/auth/me", verifySupabaseToken, async (req, res) => {
-    try {
-      if (!req.dbUser) return res.json({ user: null });
+ app.get("/api/auth/me", verifySupabaseToken, async (req, res) => {
+  try {
+    const supabaseUser = req.supabaseUser;
 
-      const user = await storage.getUser(req.dbUser.id);
-      if (!user) return res.json({ user: null });
-
-      const { password: _pw, ...safeUser } = user as any;
-      return res.json({ user: safeUser });
-    } catch (error: any) {
-      console.error("[auth/me] failed:", error);
-      return res.status(500).json({ error: "Failed to load user" });
+    if (!supabaseUser?.id || !supabaseUser?.email) {
+      return res.status(401).json({ error: "Not authenticated" });
     }
-  });
+
+    // 1️⃣ if verifySupabaseToken already linked a DB user
+    let dbUser = req.dbUser ? await storage.getUser(req.dbUser.id) : null;
+
+    // 2️⃣ if not linked yet, attempt automatic linking by email
+    if (!dbUser) {
+      const existingBySupabaseId = await storage.getUserBySupabaseId(supabaseUser.id);
+
+      if (existingBySupabaseId) {
+        dbUser = existingBySupabaseId;
+      } else {
+        const legacyUser = await storage.getUserByEmail(supabaseUser.email);
+
+        if (legacyUser) {
+          if (
+            (legacyUser as any).supabaseUserId &&
+            (legacyUser as any).supabaseUserId !== supabaseUser.id
+          ) {
+            return res.status(409).json({
+              error: "Account already linked to another Supabase user",
+              code: "ALREADY_LINKED",
+            });
+          }
+
+          const linkedUser = await storage.updateUserSupabaseId(
+            (legacyUser as any).id,
+            supabaseUser.id
+          );
+
+          if (!linkedUser) {
+            return res.status(500).json({ error: "Failed to link account" });
+          }
+
+          dbUser = linkedUser;
+        }
+      }
+    }
+
+    // 3️⃣ still no user
+    if (!dbUser) {
+      return res.json({ user: null });
+    }
+
+    const { password: _pw, ...safeUser } = dbUser as any;
+    return res.json({ user: safeUser });
+
+  } catch (error: any) {
+    console.error("[auth/me] failed:", error);
+    return res.status(500).json({ error: "Failed to load user" });
+  }
+});
 
   // ================= ONBOARDING =================
 
