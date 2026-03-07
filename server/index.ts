@@ -709,6 +709,81 @@ async function initAfterListen() {
     await registerRoutes(httpServer, app);
     console.log("[BOOT] routes registered");
 
+    // --------------------------------------------------
+    // Debug endpoint: list registered routes
+    // --------------------------------------------------
+    app.get("/api/__routes", (_req, res) => {
+      try {
+        const stack = (app as any)?._router?.stack ?? [];
+
+        const routes = stack
+          .filter((layer: any) => layer?.route)
+          .map((layer: any) => ({
+            path: layer.route.path,
+            methods: Object.keys(layer.route.methods || {}).map((m) => m.toUpperCase()),
+          }));
+
+        return res.json({ count: routes.length, routes });
+      } catch (e: any) {
+        return res.status(500).json({ error: e?.message || String(e) });
+      }
+    });
+
+    // --------------------------------------------------
+    // Debug endpoint: env presence + key prefixes (NO values)
+    // --------------------------------------------------
+    app.get("/api/env-keys", (_req: Request, res: Response) => {
+      if (isProdRuntime) {
+        return res.status(404).json({ error: "Not found" });
+      }
+
+      const keys = Object.keys(process.env).sort();
+
+      const has = (k: string) => {
+        const v = process.env[k];
+        return typeof v === "string" ? v.trim().length > 0 : !!v;
+      };
+
+      const safeHost = (urlStr?: string) => {
+        try {
+          return urlStr ? new URL(urlStr).host : "";
+        } catch {
+          return "";
+        }
+      };
+
+      return res.json({
+        count: keys.length,
+        has: {
+          APP_RUNTIME: has("APP_RUNTIME"),
+          NODE_ENV: has("NODE_ENV"),
+          SESSION_SECRET: has("SESSION_SECRET"),
+
+          DATABASE_URL: has("DATABASE_URL"),
+          SUPABASE_URL: has("SUPABASE_URL"),
+          SUPABASE_SERVICE_ROLE_KEY: has("SUPABASE_SERVICE_ROLE_KEY"),
+
+          STRIPE_SECRET_KEY: has("STRIPE_SECRET_KEY"),
+          STRIPE_WEBHOOK_SECRET: has("STRIPE_WEBHOOK_SECRET"),
+
+          SB_URL: has("SB_URL"),
+          SB_SERVICE: has("SB_SERVICE"),
+          SB_DB_URL: has("SB_DB_URL"),
+        },
+        hosts: {
+          SB_DB_URL: safeHost(process.env.SB_DB_URL),
+          DATABASE_URL: safeHost(process.env.DATABASE_URL),
+          SUPABASE_URL: safeHost(process.env.SUPABASE_URL),
+          PGHOST: (process.env.PGHOST || "").trim(),
+        },
+        startsWith: {
+          SUPABASE: keys.filter((k) => k.startsWith("SUPABASE")),
+          SB_: keys.filter((k) => k.startsWith("SB_")),
+          PG: keys.filter((k) => k.startsWith("PG")),
+        },
+      });
+    });
+
     if (process.env.APP_RUNTIME === "prod" || process.env.NODE_ENV === "production") {
       console.log("[BOOT] before serveStatic");
       serveStatic(app);
@@ -728,83 +803,6 @@ async function initAfterListen() {
     frontendReady = true;
   }
 }
-
-// --------------------------------------------------
-// Debug endpoint: list registered routes
-// MUST be defined BEFORE listen
-// --------------------------------------------------
-app.get("/api/__routes", (_req, res) => {
-  try {
-    const stack = (app as any)?._router?.stack ?? [];
-
-    const routes = stack
-      .filter((layer: any) => layer?.route)
-      .map((layer: any) => ({
-        path: layer.route.path,
-        methods: Object.keys(layer.route.methods || {}).map((m) => m.toUpperCase()),
-      }));
-
-    return res.json({ count: routes.length, routes });
-  } catch (e: any) {
-    return res.status(500).json({ error: e?.message || String(e) });
-  }
-});
-
-// --------------------------------------------------
-// Debug endpoint: env presence + key prefixes (NO values)
-// --------------------------------------------------
-app.get("/api/env-keys", (_req: Request, res: Response) => {
-  // 🔒 Disable in production (prevents leaking infra info)
-  if (isProdRuntime) {
-    return res.status(404).json({ error: "Not found" });
-  }
-
-  const keys = Object.keys(process.env).sort();
-
-  const has = (k: string) => {
-    const v = process.env[k];
-    return typeof v === "string" ? v.trim().length > 0 : !!v;
-  };
-
-  const safeHost = (urlStr?: string) => {
-    try {
-      return urlStr ? new URL(urlStr).host : "";
-    } catch {
-      return "";
-    }
-  };
-
-  return res.json({
-    count: keys.length,
-    has: {
-      APP_RUNTIME: has("APP_RUNTIME"),
-      NODE_ENV: has("NODE_ENV"),
-      SESSION_SECRET: has("SESSION_SECRET"),
-
-      DATABASE_URL: has("DATABASE_URL"),
-      SUPABASE_URL: has("SUPABASE_URL"),
-      SUPABASE_SERVICE_ROLE_KEY: has("SUPABASE_SERVICE_ROLE_KEY"),
-
-      STRIPE_SECRET_KEY: has("STRIPE_SECRET_KEY"),
-      STRIPE_WEBHOOK_SECRET: has("STRIPE_WEBHOOK_SECRET"),
-
-      SB_URL: has("SB_URL"),
-      SB_SERVICE: has("SB_SERVICE"),
-      SB_DB_URL: has("SB_DB_URL"),
-    },
-    hosts: {
-      SB_DB_URL: safeHost(process.env.SB_DB_URL),
-      DATABASE_URL: safeHost(process.env.DATABASE_URL),
-      SUPABASE_URL: safeHost(process.env.SUPABASE_URL),
-      PGHOST: (process.env.PGHOST || "").trim(),
-    },
-    startsWith: {
-      SUPABASE: keys.filter((k) => k.startsWith("SUPABASE")),
-      SB_: keys.filter((k) => k.startsWith("SB_")),
-      PG: keys.filter((k) => k.startsWith("PG")),
-    },
-  });
-});
 
 httpServer.on("error", (err: any) => {
   console.error("[BOOT] httpServer error event:", {
