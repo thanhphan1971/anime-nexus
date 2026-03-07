@@ -4,6 +4,8 @@ import "./forceDbEnv";
 
 import express, { type Request, type Response } from "express";
 import { createServer } from "http";
+import { db } from "./db";
+import { sql } from "drizzle-orm";
 
 console.log("[BOOT MARKER TOP]", {
   marker: "DEPLOY_MARKER_9fe2c73_TOP",
@@ -96,6 +98,64 @@ app.get("/api/env-check", (_req, res) => {
   });
 });
 
+
+// --------------------------------------------------
+// Debug: show which DB production is actually using
+// --------------------------------------------------
+app.get("/api/db-debug", async (_req, res) => {
+  try {
+    const selectedUrl =
+      (process.env.APP_RUNTIME === "prod"
+        ? process.env.SB_DB_URL ||
+          process.env.SUPABASE_DATABASE_URL ||
+          process.env.DATABASE_URL
+        : process.env.DATABASE_URL) || "";
+
+    let selectedHost = "(missing)";
+    let selectedDatabase = "(missing)";
+
+    try {
+      if (selectedUrl) {
+        const u = new URL(selectedUrl);
+        selectedHost = u.host;
+        selectedDatabase = u.pathname.replace(/^\//, "") || "postgres";
+      }
+    } catch {
+      selectedHost = "(invalid_url)";
+      selectedDatabase = "(invalid_url)";
+    }
+
+    let usersRegclass: any = null;
+    let usersCount: any = null;
+
+    try {
+      const reg = await db.execute(sql`select to_regclass('public.users') as r`);
+      usersRegclass = reg.rows?.[0]?.r ?? null;
+    } catch (e: any) {
+      usersRegclass = { error: e.message };
+    }
+
+    try {
+      const cnt = await db.execute(sql`select count(*)::int as c from public.users`);
+      usersCount = cnt.rows?.[0]?.c ?? null;
+    } catch (e: any) {
+      usersCount = { error: e.message };
+    }
+
+    return res.json({
+      appRuntime: process.env.APP_RUNTIME,
+      selectedHost,
+      selectedDatabase,
+      hasSbDbUrl: !!process.env.SB_DB_URL,
+      hasDatabaseUrl: !!process.env.DATABASE_URL,
+      usersRegclass,
+      usersCount
+    });
+
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+});
   // Supabase public config for client (safe: anon key only)
   app.get("/api/config/supabase", (_req, res) => {
     res.setHeader("Cache-Control", "no-store");
