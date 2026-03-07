@@ -210,32 +210,61 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
     let dbUser = null;
 
+    // 1) Trust req.dbUser first — middleware already loaded it
     if (req.dbUser) {
-      console.log("[auth/me] loading req.dbUser by id", { id: req.dbUser.id });
-      dbUser = await storage.getUser(req.dbUser.id);
-      console.log("[auth/me] loaded req.dbUser result", { found: !!dbUser });
+      console.log("[auth/me] using req.dbUser directly", {
+        id: req.dbUser.id,
+        email: req.dbUser.email,
+      });
+      dbUser = req.dbUser;
     }
 
+    // 2) Fallback: lookup by supabase id
     if (!dbUser) {
-      console.log("[auth/me] lookup by supabase id", { supabaseId: supabaseUser.id });
-      const existingBySupabaseId = await storage.getUserBySupabaseId(supabaseUser.id);
-      console.log("[auth/me] lookup by supabase id result", { found: !!existingBySupabaseId });
+      try {
+        console.log("[auth/me] lookup by supabase id", {
+          supabaseId: supabaseUser.id,
+        });
 
-      if (existingBySupabaseId) {
-        dbUser = existingBySupabaseId;
-      } else {
-        console.log("[auth/me] lookup legacy user by email", { email: supabaseUser.email });
+        const existingBySupabaseId = await storage.getUserBySupabaseId(
+          supabaseUser.id,
+        );
+
+        console.log("[auth/me] lookup by supabase id result", {
+          found: !!existingBySupabaseId,
+        });
+
+        if (existingBySupabaseId) {
+          dbUser = existingBySupabaseId;
+        }
+      } catch (error: any) {
+        console.error("[auth/me] lookup by supabase id failed:", error);
+        console.error("[auth/me] lookup by supabase id stack:", error?.stack);
+        throw error;
+      }
+    }
+
+    // 3) Fallback: lookup legacy user by email
+    if (!dbUser) {
+      try {
+        console.log("[auth/me] lookup legacy user by email", {
+          email: supabaseUser.email,
+        });
+
         const legacyUser = await storage.getUserByEmail(supabaseUser.email);
-        console.log("[auth/me] lookup legacy user result", { found: !!legacyUser });
+
+        console.log("[auth/me] lookup legacy user result", {
+          found: !!legacyUser,
+        });
 
         if (legacyUser) {
           if (
-            (legacyUser as any).supabaseUserId &&
-            (legacyUser as any).supabaseUserId !== supabaseUser.id
+            legacyUser.supabaseUserId &&
+            legacyUser.supabaseUserId !== supabaseUser.id
           ) {
             console.log("[auth/me] already linked to different supabase user", {
-              legacyUserId: (legacyUser as any).id,
-              existingSupabaseUserId: (legacyUser as any).supabaseUserId,
+              legacyUserId: legacyUser.id,
+              existingSupabaseUserId: legacyUser.supabaseUserId,
               incomingSupabaseUserId: supabaseUser.id,
             });
 
@@ -246,16 +275,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           }
 
           console.log("[auth/me] linking legacy user", {
-            legacyUserId: (legacyUser as any).id,
+            legacyUserId: legacyUser.id,
             supabaseUserId: supabaseUser.id,
           });
 
           const linkedUser = await storage.updateUserSupabaseId(
-            (legacyUser as any).id,
-            supabaseUser.id
+            legacyUser.id,
+            supabaseUser.id,
           );
 
-          console.log("[auth/me] link result", { found: !!linkedUser });
+          console.log("[auth/me] link result", {
+            found: !!linkedUser,
+          });
 
           if (!linkedUser) {
             return res.status(500).json({ error: "Failed to link account" });
@@ -263,6 +294,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
           dbUser = linkedUser;
         }
+      } catch (error: any) {
+        console.error("[auth/me] legacy lookup/link failed:", error);
+        console.error("[auth/me] legacy lookup/link stack:", error?.stack);
+        throw error;
       }
     }
 
@@ -271,10 +306,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       return res.json({ user: null });
     }
 
-    const { password: _pw, ...safeUser } = dbUser as any;
-    console.log("[auth/me] success", { userId: safeUser.id, email: safeUser.email });
-    return res.json({ user: safeUser });
+    const { password, ...safeUser } = dbUser;
 
+    console.log("[auth/me] success", {
+      userId: safeUser.id,
+      email: safeUser.email,
+    });
+
+    return res.json({ user: safeUser });
   } catch (error: any) {
     console.error("[auth/me] failed:", error);
     console.error("[auth/me] stack:", error?.stack);
