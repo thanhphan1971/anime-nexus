@@ -11,6 +11,8 @@ import { AuthProvider, useAuth } from "@/context/AuthContext";
 // Keep these eager (small/critical)
 import NotFound from "@/pages/not-found";
 import AuthPage from "@/pages/AuthPage";
+import ForgotPasswordPage from "@/pages/ForgotPasswordPage";
+import ResetPasswordPage from "@/pages/ResetPasswordPage";
 
 // Lazy-load everything else (big bundle win)
 const FeedPage = lazy(() => import("@/pages/FeedPage"));
@@ -66,14 +68,13 @@ function Router() {
   const [location, setLocation] = useLocation();
 
   // ✅ Detect legacy auth URLs
-  const legacyAuthPaths = [
+    const legacyAuthPaths = [
     "/login",
     "/signup",
     "/sign-in",
     "/sign-up",
     "/auth",
     "/auth/callback",
-    "/reset-password",
   ];
 
   const isLegacyAuth = legacyAuthPaths.some(
@@ -161,8 +162,19 @@ useEffect(() => {
     );
   }
 
-  // Logged out -> show Auth page (keep eager)
+    // Logged out -> allow auth-related public pages
   if (!user) {
+    if (location === "/forgot-password") {
+      return <ForgotPasswordPage />;
+    }
+
+    if (
+      location === "/reset-password" ||
+      location.startsWith("/reset-password?")
+    ) {
+      return <ResetPasswordPage />;
+    }
+
     return <AuthPage />;
   }
 
@@ -236,10 +248,9 @@ useEffect(() => {
           <Route path="/auth/callback">
             <Redirect to="/" />
           </Route>
-          <Route path="/reset-password">
-            <Redirect to="/" />
-          </Route>
-
+                    <Route path="/forgot-password" component={ForgotPasswordPage} />
+          <Route path="/reset-password" component={ResetPasswordPage} />
+          
           <Route component={NotFound} />
         </Switch>
       </Suspense>

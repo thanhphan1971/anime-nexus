@@ -333,6 +333,19 @@ export default function AuthPage() {
                 </div>
               </div>
 
+             {isLogin && (
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setLocation("/forgot-password")}
+                    className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                    data-testid="button-forgot-password"
+                  >
+                    Forgot your password?
+                  </button>
+                </div>
+              )}
+
               <Button
                 type="submit"
                 className="w-full h-12 text-lg font-bold bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-opacity shadow-[0_0_20px_hsl(var(--primary)/0.4)]"
