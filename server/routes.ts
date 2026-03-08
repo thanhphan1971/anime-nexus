@@ -191,9 +191,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
-  // ================= CURRENT USER =================
-
- app.get("/api/auth/me", verifySupabaseToken, async (req, res) => {
+  app.get("/api/auth/me", verifySupabaseToken, async (req: any, res) => {
   try {
     const supabaseUser = req.supabaseUser;
 
@@ -205,119 +203,54 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
     if (!supabaseUser?.id || !supabaseUser?.email) {
       console.log("[auth/me] missing supabase user");
-      return res.status(401).json({ error: "Not authenticated" });
+      return res.status(200).json({ user: null });
     }
 
-    let dbUser = null;
-
-    // 1) Trust req.dbUser first — middleware already loaded it
+    // If middleware already attached a DB user, use it.
     if (req.dbUser) {
       console.log("[auth/me] using req.dbUser directly", {
         id: req.dbUser.id,
         email: req.dbUser.email,
       });
-      dbUser = req.dbUser;
+
+      const { password, ...safeUser } = req.dbUser;
+      return res.status(200).json({ user: safeUser });
     }
 
-    // 2) Fallback: lookup by supabase id
-    if (!dbUser) {
-      try {
-        console.log("[auth/me] lookup by supabase id", {
-          supabaseId: supabaseUser.id,
-        });
+    // Fail-soft fallback: do NOT touch DB tonight.
+    const fallbackUser = {
+      id: supabaseUser.id ?? null,
+      email: supabaseUser.email ?? null,
+      username:
+        supabaseUser.user_metadata?.username ??
+        supabaseUser.email?.split("@")[0] ??
+        null,
+      firstName:
+        supabaseUser.user_metadata?.firstName ??
+        supabaseUser.user_metadata?.first_name ??
+        null,
+      lastName:
+        supabaseUser.user_metadata?.lastName ??
+        supabaseUser.user_metadata?.last_name ??
+        null,
+      profileImageUrl:
+        supabaseUser.user_metadata?.avatar_url ??
+        supabaseUser.user_metadata?.profile_image_url ??
+        null,
+      source: "supabase_auth_fallback",
+    };
 
-        const existingBySupabaseId = await storage.getUserBySupabaseId(
-          supabaseUser.id,
-        );
-
-        console.log("[auth/me] lookup by supabase id result", {
-          found: !!existingBySupabaseId,
-        });
-
-        if (existingBySupabaseId) {
-          dbUser = existingBySupabaseId;
-        }
-      } catch (error: any) {
-        console.error("[auth/me] lookup by supabase id failed:", error);
-        console.error("[auth/me] lookup by supabase id stack:", error?.stack);
-        throw error;
-      }
-    }
-
-    // 3) Fallback: lookup legacy user by email
-    if (!dbUser) {
-      try {
-        console.log("[auth/me] lookup legacy user by email", {
-          email: supabaseUser.email,
-        });
-
-        const legacyUser = await storage.getUserByEmail(supabaseUser.email);
-
-        console.log("[auth/me] lookup legacy user result", {
-          found: !!legacyUser,
-        });
-
-        if (legacyUser) {
-          if (
-            legacyUser.supabaseUserId &&
-            legacyUser.supabaseUserId !== supabaseUser.id
-          ) {
-            console.log("[auth/me] already linked to different supabase user", {
-              legacyUserId: legacyUser.id,
-              existingSupabaseUserId: legacyUser.supabaseUserId,
-              incomingSupabaseUserId: supabaseUser.id,
-            });
-
-            return res.status(409).json({
-              error: "Account already linked to another Supabase user",
-              code: "ALREADY_LINKED",
-            });
-          }
-
-          console.log("[auth/me] linking legacy user", {
-            legacyUserId: legacyUser.id,
-            supabaseUserId: supabaseUser.id,
-          });
-
-          const linkedUser = await storage.updateUserSupabaseId(
-            legacyUser.id,
-            supabaseUser.id,
-          );
-
-          console.log("[auth/me] link result", {
-            found: !!linkedUser,
-          });
-
-          if (!linkedUser) {
-            return res.status(500).json({ error: "Failed to link account" });
-          }
-
-          dbUser = linkedUser;
-        }
-      } catch (error: any) {
-        console.error("[auth/me] legacy lookup/link failed:", error);
-        console.error("[auth/me] legacy lookup/link stack:", error?.stack);
-        throw error;
-      }
-    }
-
-    if (!dbUser) {
-      console.log("[auth/me] no db user found after all lookups");
-      return res.json({ user: null });
-    }
-
-    const { password, ...safeUser } = dbUser;
-
-    console.log("[auth/me] success", {
-      userId: safeUser.id,
-      email: safeUser.email,
+    console.log("[auth/me] returning fallback user", {
+      id: fallbackUser.id,
+      email: fallbackUser.email,
+      source: fallbackUser.source,
     });
 
-    return res.json({ user: safeUser });
+    return res.status(200).json({ user: fallbackUser });
   } catch (error: any) {
     console.error("[auth/me] failed:", error);
     console.error("[auth/me] stack:", error?.stack);
-    return res.status(500).json({ error: "Failed to load user" });
+    return res.status(200).json({ user: null });
   }
 });
 
