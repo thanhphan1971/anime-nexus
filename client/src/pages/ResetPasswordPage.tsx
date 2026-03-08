@@ -13,11 +13,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY
-);
-
 export default function ResetPasswordPage() {
   const [, setLocation] = useLocation();
   const [password, setPassword] = useState("");
@@ -38,6 +33,17 @@ export default function ResetPasswordPage() {
     }
 
     setIsSubmitting(true);
+
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      toast.error("Supabase environment is missing");
+      setIsSubmitting(false);
+      return;
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
     const { error } = await supabase.auth.updateUser({
       password,
