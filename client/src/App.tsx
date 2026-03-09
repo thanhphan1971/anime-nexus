@@ -149,7 +149,7 @@ useEffect(() => {
     );
   }
 
-  if (isLoading) {
+    if (isLoading) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-background text-primary">
         <div className="flex flex-col items-center gap-4">
@@ -162,17 +162,19 @@ useEffect(() => {
     );
   }
 
-    // Logged out -> allow auth-related public pages
+  // Allow password reset routes whether user is logged out
+  // or temporarily authenticated via Supabase recovery link.
+  if (
+    location === "/reset-password" ||
+    location.startsWith("/reset-password?")
+  ) {
+    return <ResetPasswordPage />;
+  }
+
+  // Logged out -> allow auth-related public pages
   if (!user) {
     if (location === "/forgot-password") {
       return <ForgotPasswordPage />;
-    }
-
-    if (
-      location === "/reset-password" ||
-      location.startsWith("/reset-password?")
-    ) {
-      return <ResetPasswordPage />;
     }
 
     return <AuthPage />;
