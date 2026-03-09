@@ -58,61 +58,66 @@ export default function AuthPage() {
   const isMinor = userAge !== null && userAge < 18;
   const isUnder13 = userAge !== null && userAge < 13;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  e.preventDefault();
 
-    console.log("✅ AUTH SUBMIT", {
-      isLogin,
-      email: formData.email,
-      hasPassword: !!formData.password,
-      time: Date.now(),
-    });
+  console.log("✅ AUTH SUBMIT", {
+    isLogin,
+    email: formData.email,
+    hasPassword: !!formData.password,
+    time: Date.now(),
+  });
 
-    try {
-      if (isLogin) {
-        console.log("➡️ calling login()");
-        await login(formData.email, formData.password);
-        console.log("✅ login() resolved");
+  try {
+    if (isLogin) {
+      console.log("➡️ calling login()");
+      await login(formData.email, formData.password);
+      console.log("✅ login() resolved");
 
-        toast.success("Welcome back!");
-        setLocation("/");
-      } else {
-        if (isUnder13 && !formData.parentEmail) {
-          toast.error(
-            "Parent/guardian email is required for users under 13 (COPPA compliance)"
-          );
-          return;
-        }
-
-        const avatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${formData.username}`;
-
-        console.log("➡️ calling signup()");
-        await signup({
-          email: formData.email,
-          username: formData.username,
-          password: formData.password,
-          name: formData.name || formData.username,
-          handle: formData.handle || `@${formData.username}`,
-          avatar,
-          bio: "New to AniRealm",
-          animeInterests: [],
-          theme: "cyberpunk",
-          birthDate: formData.birthDate ? new Date(formData.birthDate) : undefined,
-          isMinor,
-          parentEmail: isUnder13 ? formData.parentEmail : undefined,
-        });
-        console.log("✅ signup() resolved");
-
-        if (isUnder13) {
-          toast.success(
-            "Account created! A verification email has been sent to your parent/guardian for COPPA compliance."
-          );
-        } else {
-          toast.success("Account created! Welcome to AniRealm!");
-        }
-        setLocation("/");
+      toast.success("Welcome back!");
+      setLocation("/");
+    } else {
+      if (isUnder13 && !formData.parentEmail) {
+        toast.error(
+          "Parent/guardian email is required for users under 13 (COPPA compliance)"
+        );
+        return;
       }
-    } catch (error: any) {
+
+      const avatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${formData.username}`;
+
+      console.log("➡️ calling signup()");
+      await signup({
+        email: formData.email,
+        username: formData.username,
+        password: formData.password,
+        name: formData.name || formData.username,
+        handle: formData.handle || `@${formData.username}`,
+        avatar,
+        bio: "New to AniRealm",
+        animeInterests: [],
+        theme: "cyberpunk",
+        birthDate: formData.birthDate
+          ? new Date(formData.birthDate)
+          : undefined,
+        isMinor,
+        parentEmail: isUnder13 ? formData.parentEmail : undefined,
+      });
+
+      console.log("✅ signup() resolved");
+
+      if (isUnder13) {
+        toast.success(
+          "Account created! A verification email has been sent to your parent/guardian for COPPA compliance."
+        );
+      } else {
+        toast.success("Account created and logged in successfully.");
+      }
+
+      setLocation("/");
+    }
+  } catch (error: any) {
+    
       console.error("❌ AUTH ERROR", error);
       toast.error(
         error?.message ||
