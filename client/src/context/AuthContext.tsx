@@ -221,10 +221,16 @@ const profile = await fetchProfile(newSession.access_token, profileAbortRef.curr
     }
   };
 
-  const signup = async (data: SignupData) => {
+    const signup = async (data: SignupData) => {
     setIsLoading(true);
     try {
       const supabase = await getSupabase();
+
+      console.log("[SIGNUP] starting", {
+        email: data.email,
+        username: data.username,
+        handle: data.handle,
+      });
 
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: data.email,
@@ -240,16 +246,23 @@ const profile = await fetchProfile(newSession.access_token, profileAbortRef.curr
         },
       });
 
+      console.log("[SIGNUP] signUp response", {
+        hasUser: !!authData?.user,
+        userId: authData?.user?.id ?? null,
+        userEmail: authData?.user?.email ?? null,
+        hasSession: !!authData?.session,
+        authError: authError?.message ?? null,
+      });
+
       if (authError) throw new Error(authError.message);
       if (!authData.user) throw new Error("Failed to create account");
 
-      // If email confirmation is ON, session is null.
-      // Not a failure; UI should show "Check your email".
       if (!authData.session) {
-        return;
+        throw new Error(
+          "Signup created the account, but no active session was returned. Check whether email confirmation is required."
+        );
       }
 
-      // Create profile now that we have a session token
       const profilePayload: any = {
         id: authData.user.id,
         email: data.email,
@@ -268,6 +281,13 @@ const profile = await fetchProfile(newSession.access_token, profileAbortRef.curr
         profilePayload.avatar = data.avatar.trim();
       }
 
+      console.log("[SIGNUP] creating profile", {
+        id: profilePayload.id,
+        email: profilePayload.email,
+        username: profilePayload.username,
+        handle: profilePayload.handle,
+      });
+
       const profileResponse = await fetch("/api/profiles", {
         method: "POST",
         headers: {
@@ -277,13 +297,18 @@ const profile = await fetchProfile(newSession.access_token, profileAbortRef.curr
         body: JSON.stringify(profilePayload),
       });
 
-      
       if (!profileResponse.ok) {
         const text = await profileResponse.text().catch(() => "");
         throw new Error(`Failed to create profile: ${profileResponse.status} ${text}`);
       }
 
       const profile = await profileResponse.json();
+
+      console.log("[SIGNUP] profile created", {
+        id: profile?.id,
+        email: profile?.email,
+        username: profile?.username,
+      });
 
       await applySession(authData.session);
       setUser(profile);
