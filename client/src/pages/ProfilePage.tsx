@@ -240,9 +240,44 @@ const openFilePicker = () => {
     // 1) Crop to DataURL
     const croppedDataUrl = await getCroppedImg(imageToCrop, croppedAreaPixels);
 
-    // 2) Convert DataURL -> Blob
-    const blob = await (await fetch(croppedDataUrl)).blob();
-    const mimeType = blob.type || "image/jpeg";
+    // 2) Compress image using canvas
+    const img = new Image();
+    img.src = croppedDataUrl;
+
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error("Failed to load cropped image"));
+    });
+
+    const canvas = document.createElement("canvas");
+
+    const MAX_SIZE = 512;
+    const scale = Math.min(MAX_SIZE / img.width, MAX_SIZE / img.height, 1);
+
+    canvas.width = Math.max(1, Math.round(img.width * scale));
+    canvas.height = Math.max(1, Math.round(img.height * scale));
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas context failed");
+
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+    // Convert to compressed blob
+    const blob: Blob = await new Promise((resolve, reject) => {
+      canvas.toBlob(
+        (b) => {
+          if (!b) {
+            reject(new Error("Image compression failed"));
+            return;
+          }
+          resolve(b);
+        },
+        "image/webp",
+        0.82
+      );
+    });
+
+    const mimeType = blob.type || "image/webp";
     const sizeBytes = blob.size;
 
     // 3) Get signed upload URL
