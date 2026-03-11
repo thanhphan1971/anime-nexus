@@ -229,6 +229,44 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
     }
 
+        // 2b) No legacy DB row exists -> create one now
+    if (!dbUser) {
+      const base =
+        (supabaseUser.email || "user")
+          .split("@")[0]
+          .toLowerCase()
+          .replace(/[^a-z0-9_]/g, "")
+          .slice(0, 16) || "user";
+
+      const suffix = supabaseUser.id.slice(0, 8);
+      const username = `${base}_${suffix}`;
+      const handle = `@${username}`;
+
+      dbUser = await storage.createUserWithId(supabaseUser.id, {
+        email: supabaseUser.email,
+        username,
+        password: "",
+        name:
+          (supabaseUser as any).user_metadata?.name ||
+          (supabaseUser as any).user_metadata?.full_name ||
+          base,
+        handle,
+        avatar:
+          (supabaseUser as any).user_metadata?.avatar_url ||
+          "/avatars/preset_001.svg",
+        bio: "",
+        supabaseUserId: supabaseUser.id,
+      });
+
+      console.log("[auth/me] created DB user from Supabase auth", {
+        id: dbUser.id,
+        email: dbUser.email,
+        username: dbUser.username,
+        handle: dbUser.handle,
+        supabaseUserId: (dbUser as any).supabaseUserId,
+      });
+    }
+
     // 3) If we have a DB user, always return the fresh DB row
     if (dbUser) {
       console.log("[auth/me] using linked DB user", {
