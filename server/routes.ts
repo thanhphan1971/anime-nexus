@@ -206,41 +206,62 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       return res.status(200).json({ user: null });
     }
 
-    // Always re-read the latest DB user so profile edits are reflected immediately.
-    if (req.dbUser?.id) {
-      const freshUser = await storage.getUser(req.dbUser.id);
+       // 1) Try linked DB user by supabase_user_id
+    let dbUser = await storage.getUserBySupabaseId(supabaseUser.id);
 
-      if (freshUser) {
-        console.log("[auth/me] using fresh DB user", {
-          id: freshUser.id,
-          email: freshUser.email,
-          name: freshUser.name,
-          handle: freshUser.handle,
-        });
+    // 2) If not linked yet, try legacy account by email and link it
+    if (!dbUser) {
+      const legacyUser = await storage.getUserByEmail(supabaseUser.email);
 
-        const {
-          password,
-          email,
-          parentEmail,
-          birthDate,
-          stripeCustomerId,
-          stripeSubscriptionId,
-          ...safeUser
-        } = freshUser as any;
+      if (legacyUser) {
+        if (
+          (legacyUser as any).supabaseUserId &&
+          (legacyUser as any).supabaseUserId !== supabaseUser.id
+        ) {
+          return res.status(409).json({
+            error: "This account is already linked to a different Supabase user",
+            code: "ALREADY_LINKED",
+          });
+        }
 
-        const bd = birthDate
+        await storage.updateUserSupabaseId(legacyUser.id, supabaseUser.id);
+        dbUser = await storage.getUser(legacyUser.id);
+      }
+    }
+
+    // 3) If we have a DB user, always return the fresh DB row
+    if (dbUser) {
+      console.log("[auth/me] using linked DB user", {
+        id: dbUser.id,
+        email: dbUser.email,
+        supabaseUserId: (dbUser as any).supabaseUserId,
+        name: dbUser.name,
+        handle: dbUser.handle,
+      });
+
+      const {
+        password,
+        email,
+        parentEmail,
+        birthDate,
+        stripeCustomerId,
+        stripeSubscriptionId,
+        ...safeUser
+      } = dbUser as any;
+
+      const bd =
+        birthDate
           ? birthDate instanceof Date
             ? birthDate
             : new Date(birthDate as any)
           : null;
 
-        return res.status(200).json({
-          user: {
-            ...safeUser,
-            ageBand: (freshUser as any).ageBand || calculateAgeBand(bd),
-          },
-        });
-      }
+      return res.status(200).json({
+        user: {
+          ...safeUser,
+          ageBand: (dbUser as any).ageBand || calculateAgeBand(bd),
+        },
+      });
     }
 
     // Fail-soft fallback: do NOT touch DB tonight.
