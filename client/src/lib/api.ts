@@ -113,8 +113,11 @@ export function useUpdateUser() {
         method: "PATCH",
         body: JSON.stringify(updates),
       }),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
+      queryClient.invalidateQueries({ queryKey: ["users", variables.userId] });
+      queryClient.invalidateQueries({ queryKey: ["userProfile", variables.userId] });
+      queryClient.invalidateQueries({ queryKey: ["userByHandle"] });
     },
   });
 }
@@ -193,8 +196,11 @@ export function useUpdateAvatar() {
         method: "PATCH",
         body: JSON.stringify({ avatarId }),
       }),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
+      queryClient.invalidateQueries({ queryKey: ["users", variables.userId] });
+      queryClient.invalidateQueries({ queryKey: ["userProfile", variables.userId] });
+      queryClient.invalidateQueries({ queryKey: ["userByHandle"] });
     },
   });
 }
