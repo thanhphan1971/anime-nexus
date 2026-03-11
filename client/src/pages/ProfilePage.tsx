@@ -193,10 +193,11 @@ const openFilePicker = () => {
     toast.error("No file selected");
     return;
   }
-  // ✅ Allow up to 10MB
-  if (file.size > 10 * 1024 * 1024) {
+  // ✅ Allow up to 2MB
+  if (file.size > 2 * 1024 * 1024) {
     console.warn("[upload] rejected: file too large", file.size);
-    toast.error("Image must be less than 10MB");
+    toast.error("Avatar image must be 2 MB or smaller");
+    e.target.value = "";
     return;
   }
 
