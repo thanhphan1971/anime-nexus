@@ -3924,6 +3924,13 @@ app.post("/api/media/upload-url", verifySupabaseToken, async (req, res) => {
     const contentType = req.body.contentType ?? req.body.mimeType; // accept both names
 
     const sizeBytesNum = Number(sizeBytes);
+        const MAX_AVATAR_BYTES = 2 * 1024 * 1024; // 2 MB
+
+    if (kind === "avatar" && sizeBytesNum > MAX_AVATAR_BYTES) {
+      return res.status(400).json({
+        error: "Avatar image must be 2 MB or smaller",
+      });
+    }
 
     if (!contentType || !kind || !Number.isFinite(sizeBytesNum) || sizeBytesNum <= 0) {
       return res.status(400).json({
