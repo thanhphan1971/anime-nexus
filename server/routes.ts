@@ -206,15 +206,41 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       return res.status(200).json({ user: null });
     }
 
-    // If middleware already attached a DB user, use it.
-    if (req.dbUser) {
-      console.log("[auth/me] using req.dbUser directly", {
-        id: req.dbUser.id,
-        email: req.dbUser.email,
-      });
+    // Always re-read the latest DB user so profile edits are reflected immediately.
+    if (req.dbUser?.id) {
+      const freshUser = await storage.getUser(req.dbUser.id);
 
-      const { password, ...safeUser } = req.dbUser;
-      return res.status(200).json({ user: safeUser });
+      if (freshUser) {
+        console.log("[auth/me] using fresh DB user", {
+          id: freshUser.id,
+          email: freshUser.email,
+          name: freshUser.name,
+          handle: freshUser.handle,
+        });
+
+        const {
+          password,
+          email,
+          parentEmail,
+          birthDate,
+          stripeCustomerId,
+          stripeSubscriptionId,
+          ...safeUser
+        } = freshUser as any;
+
+        const bd = birthDate
+          ? birthDate instanceof Date
+            ? birthDate
+            : new Date(birthDate as any)
+          : null;
+
+        return res.status(200).json({
+          user: {
+            ...safeUser,
+            ageBand: (freshUser as any).ageBand || calculateAgeBand(bd),
+          },
+        });
+      }
     }
 
     // Fail-soft fallback: do NOT touch DB tonight.
