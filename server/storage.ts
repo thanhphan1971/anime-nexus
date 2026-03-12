@@ -98,6 +98,7 @@ import {
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql, desc, ne, inArray, lte, lt, asc, gt, isNull } from "drizzle-orm";
+import { calculateLevelFromXp } from "./lib/leveling";
 
 export interface IStorage {
   // User operations
@@ -392,8 +393,28 @@ export class DbStorage implements IStorage {
     return result[0];
   }
 
-  async updateUser(id: string, updates: Partial<User>): Promise<User | undefined> {
+   async updateUser(id: string, updates: Partial<User>): Promise<User | undefined> {
     const result = await db.update(users).set(updates).where(eq(users.id, id)).returning();
+    return result[0];
+  }
+
+  async awardXp(userId: string, amount: number): Promise<User | undefined> {
+    const user = await this.getUser(userId);
+    if (!user) return undefined;
+
+    const currentXp = Number((user as any).xp ?? 0) || 0;
+    const newXp = Math.max(0, currentXp + amount);
+    const newLevel = calculateLevelFromXp(newXp);
+
+    const result = await db
+      .update(users)
+      .set({
+        xp: newXp,
+        level: newLevel,
+      })
+      .where(eq(users.id, userId))
+      .returning();
+
     return result[0];
   }
 

@@ -206,7 +206,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       return res.status(200).json({ user: null });
     }
 
-       // 1) Try linked DB user by supabase_user_id
+    // 1) Try linked DB user by supabase_user_id
     let dbUser = await storage.getUserBySupabaseId(supabaseUser.id);
 
     // 2) If not linked yet, try legacy account by email and link it
@@ -229,7 +229,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
     }
 
-        // 2b) No legacy DB row exists -> create one now
+       // 2b) No legacy DB row exists -> create one now
     if (!dbUser) {
       const base =
         (supabaseUser.email || "user")
@@ -255,15 +255,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           (supabaseUser as any).user_metadata?.avatar_url ||
           "/avatars/preset_001.svg",
         bio: "",
-        supabaseUserId: supabaseUser.id,
       });
 
+      await storage.updateUserSupabaseId(dbUser.id, supabaseUser.id);
+      dbUser = await storage.getUser(dbUser.id);
+
       console.log("[auth/me] created DB user from Supabase auth", {
-        id: dbUser.id,
-        email: dbUser.email,
-        username: dbUser.username,
-        handle: dbUser.handle,
-        supabaseUserId: (dbUser as any).supabaseUserId,
+        id: dbUser?.id,
+        email: dbUser?.email,
+        username: dbUser?.username,
+        handle: dbUser?.handle,
+        supabaseUserId: (dbUser as any)?.supabaseUserId,
       });
     }
 
@@ -1118,6 +1120,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       
       // Mark first summon for onboarding (auto-grants Realmwalker I badge)
       await storage.markFirstSummon(user.id);
+
+      // Award XP for paid summon
+      await storage.awardXp(user.id, 15);
       
       res.json({ 
         cards: pulledCards, 
@@ -1230,11 +1235,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         freeSummonsUsedToday: newUsedToday,
       });
       
-      // Check and grant collection milestone badges
+            // Check and grant collection milestone badges
       const newBadges = await storage.checkAndGrantCollectionMilestones(user.id);
       
       // Mark first summon for onboarding (auto-grants Realmwalker I badge)
       await storage.markFirstSummon(user.id);
+
+      // Award XP for free summon
+      await storage.awardXp(user.id, 10);
       
       res.json({
         card: pulledCard,
@@ -5905,7 +5913,7 @@ app.post("/api/stripe/subscription/reactivate", verifySupabaseToken, async (req:
           status: current.status,
           cancel_at_period_end: current.cancel_at_period_end,
           cancel_at: current.cancel_at,
-          current_period_end: current.current_period_end,
+          current_period_end: (current as any).current_period_end,
         },
       });
     }
@@ -5922,7 +5930,7 @@ app.post("/api/stripe/subscription/reactivate", verifySupabaseToken, async (req:
         status: updated.status,
         cancel_at_period_end: updated.cancel_at_period_end,
         cancel_at: updated.cancel_at,
-        current_period_end: updated.current_period_end,
+        current_period_end: (updated as any).current_period_end,
       },
     });
   } catch (error: any) {

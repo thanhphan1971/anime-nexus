@@ -17,6 +17,7 @@ export const users = pgTable("users", {
   avatarUpdatedAt: timestamp("avatar_updated_at"),
   bio: text("bio").default(''),
   level: integer("level").notNull().default(1),
+  xp: integer("xp").notNull().default(0),
   followers: integer("followers").notNull().default(0),
   following: integer("following").notNull().default(0),
   tokens: integer("tokens").notNull().default(1000),
