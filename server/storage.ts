@@ -399,24 +399,31 @@ export class DbStorage implements IStorage {
   }
 
   async awardXp(userId: string, amount: number): Promise<User | undefined> {
-    const user = await this.getUser(userId);
-    if (!user) return undefined;
+  const user = await this.getUser(userId);
+  if (!user) return undefined;
 
-    const currentXp = Number((user as any).xp ?? 0) || 0;
-    const newXp = Math.max(0, currentXp + amount);
-    const newLevel = calculateLevelFromXp(newXp);
+  const currentXp = Number((user as any).xp ?? 0) || 0;
+  const oldLevel = Number(user.level ?? 1) || 1;
+  const newXp = Math.max(0, currentXp + amount);
+  const newLevel = calculateLevelFromXp(newXp);
 
-    const result = await db
-      .update(users)
-      .set({
-        xp: newXp,
-        level: newLevel,
-      })
-      .where(eq(users.id, userId))
-      .returning();
-
-    return result[0];
+  let tokenBonus = 0;
+  if (newLevel > oldLevel) {
+    tokenBonus = (newLevel - oldLevel) * 50;
   }
+
+  const result = await db
+    .update(users)
+    .set({
+      xp: newXp,
+      level: newLevel,
+      tokens: (user.tokens ?? 0) + tokenBonus,
+    })
+    .where(eq(users.id, userId))
+    .returning();
+
+  return result[0];
+}
 
   async updateUserSupabaseId(id: string, supabaseUserId: string): Promise<User | undefined> {
     const result = await db.update(users).set({ supabaseUserId }).where(eq(users.id, id)).returning();

@@ -17,14 +17,11 @@ import {
   insertDrawSchema,
   insertPrizeSchema,
   insertCardCategorySchema,
-} from "@shared/schema";
-
-  
-
+} from "@shared/schema";  
 
 import { verifySupabaseToken, optionalSupabaseAuth, requireAdmin } from "./lib/supabaseAuth";
 import { calculateAgeBand } from "./lib/dbAdapter";
-
+import { getXpProgress } from "./lib/leveling";
 
 import {
   FREE_ODDS,
@@ -38,7 +35,6 @@ import {
 
 import { getDrawLockTime, getCooldownEndTime } from "./drawCycle";
 
-
 // 🔒 Stripe configuration guard (feature-flagged)
 function stripeIsConfigured(): boolean {
   if ((process.env.BILLING_ENABLED || "").toLowerCase() === "false") return false;
@@ -51,9 +47,7 @@ function stripeIsConfigured(): boolean {
 
   return true;
 }
-
-
-
+  
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
   // -------------------------------------------------------
   // ENV CHECK (temporary debug endpoint - remove after testing)
@@ -1119,10 +1113,25 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const newBadges = await storage.checkAndGrantCollectionMilestones(user.id);
       
       // Mark first summon for onboarding (auto-grants Realmwalker I badge)
-      await storage.markFirstSummon(user.id);
+await storage.markFirstSummon(user.id);
 
-      // Award XP for paid summon
-      await storage.awardXp(user.id, 15);
+// Award base XP for paid summon
+await storage.awardXp(user.id, 15);
+
+// Bonus XP for rare pulls
+const rarityBonusXp = pulledCards.reduce((sum, card) => {
+  const rarity = String(card.rarity || "").toLowerCase();
+
+  if (rarity === "legendary") return sum + 100;
+  if (rarity === "epic") return sum + 50;
+  if (rarity === "rare") return sum + 30;
+
+  return sum;
+}, 0);
+
+if (rarityBonusXp > 0) {
+  await storage.awardXp(user.id, rarityBonusXp);
+}
       
       res.json({ 
         cards: pulledCards, 
@@ -1239,10 +1248,22 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const newBadges = await storage.checkAndGrantCollectionMilestones(user.id);
       
       // Mark first summon for onboarding (auto-grants Realmwalker I badge)
-      await storage.markFirstSummon(user.id);
+await storage.markFirstSummon(user.id);
 
-      // Award XP for free summon
-      await storage.awardXp(user.id, 10);
+// Award base XP for free summon
+await storage.awardXp(user.id, 10);
+
+// Bonus XP for rare pull
+const pulledRarity = String(pulledCard.rarity || "").toLowerCase();
+let rarityBonusXp = 0;
+
+if (pulledRarity === "legendary") rarityBonusXp = 100;
+else if (pulledRarity === "epic") rarityBonusXp = 50;
+else if (pulledRarity === "rare") rarityBonusXp = 30;
+
+if (rarityBonusXp > 0) {
+  await storage.awardXp(user.id, rarityBonusXp);
+}
       
       res.json({
         card: pulledCard,

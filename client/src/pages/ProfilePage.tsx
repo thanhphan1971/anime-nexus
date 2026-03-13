@@ -639,50 +639,79 @@ const handleCropCancel = () => {
         </div>
 
         {/* Profile Info Overlay */}
-        <div className="px-4 md:px-8 relative -mt-16 md:-mt-20 flex flex-col md:flex-row items-end md:items-end gap-6">
-         <div className="h-32 w-32 md:h-40 md:w-40 shrink-0 aspect-square rounded-full border-4 border-background overflow-hidden shadow-2xl bg-background">
-  <img
-    src={profileUser.avatar || "/default-avatar.png"}
-    alt={profileUser.name}
-    className="block !h-full !w-full object-cover"
-    data-testid="img-profile-avatar"
-  />
-</div>
-          
-          <div className="flex-1 pb-2 text-center md:text-left">
-            <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 mb-1">
-              <h1 className="text-3xl font-display font-bold" data-testid="text-profile-name">{profileUser.name}</h1>
-              {profileUser.isPremium && (
-                <Badge className="w-fit mx-auto md:mx-0 bg-yellow-500/20 text-yellow-500 border-yellow-500/50">
-                  <Crown className="h-3 w-3 mr-1" /> S-Class
-                </Badge>
-              )}
-              <Badge variant="secondary" className="w-fit mx-auto md:mx-0 bg-primary/20 text-primary border-primary/50">
-                Lvl. {profileUser.level || 1}
-              </Badge>
-            </div>
-            <p className="text-muted-foreground font-mono" data-testid="text-profile-handle">{profileUser.handle}</p>
-          </div>
+<div className="px-4 md:px-8 relative -mt-16 md:-mt-20 flex flex-col md:flex-row items-end md:items-end gap-6">
+  <div className="h-32 w-32 md:h-40 md:w-40 shrink-0 aspect-square rounded-full border-4 border-background overflow-hidden shadow-2xl bg-background">
+    <img
+      src={profileUser.avatar || "/default-avatar.png"}
+      alt={profileUser.name}
+      className="block !h-full !w-full object-cover"
+      data-testid="img-profile-avatar"
+    />
+  </div>
 
-          <div className="flex gap-3 pb-4 w-full md:w-auto">
-            {isOwnProfile ? (
-              <Button 
-                variant="outline" 
-                className="flex-1 md:flex-none border-white/10"
-                onClick={openEditDialog}
-                data-testid="button-edit-profile"
-              >
-                <Settings className="h-4 w-4 mr-2" /> Edit Profile
-              </Button>
-            ) : (
-              <Button className="flex-1 md:flex-none bg-primary hover:bg-primary/90" data-testid="button-follow">
-                Follow
-              </Button>
-            )}
-          </div>
-        </div>
+  <div className="flex-1 pb-2 text-center md:text-left">
+    <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 mb-1">
+      <h1 className="text-3xl font-display font-bold" data-testid="text-profile-name">
+        {profileUser.name}
+      </h1>
+
+      {profileUser.isPremium && (
+        <Badge className="w-fit mx-auto md:mx-0 bg-yellow-500/20 text-yellow-500 border-yellow-500/50">
+          <Crown className="h-3 w-3 mr-1" /> S-Class
+        </Badge>
+      )}
+
+      <Badge
+        variant="secondary"
+        className="w-fit mx-auto md:mx-0 bg-primary/20 text-primary border-primary/50"
+      >
+        Lvl. {profileUser.level || 1}
+      </Badge>
+    </div>
+
+    {/* XP Progress Bar */}
+    <div className="mt-2 w-full max-w-xs mx-auto md:mx-0">
+      <div className="mb-1 text-xs text-muted-foreground">
+        {(profileUser.currentLevelXp ?? 0)} / {(profileUser.nextLevelXp ?? 100)} XP
       </div>
 
+      <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+        <div
+          className="h-full bg-primary transition-all"
+          style={{
+            width: `${Math.min(
+              100,
+              (((profileUser.currentLevelXp ?? 0) /
+                Math.max(1, profileUser.nextLevelXp ?? 100)) * 100)
+            )}%`,
+          }}
+        />
+      </div>
+    </div>
+
+    <p className="text-muted-foreground font-mono" data-testid="text-profile-handle">
+      {profileUser.handle}
+    </p>
+  </div>
+
+  <div className="flex gap-3 pb-4 w-full md:w-auto">
+    {isOwnProfile ? (
+      <Button
+        variant="outline"
+        className="flex-1 md:flex-none border-white/10"
+        onClick={openEditDialog}
+        data-testid="button-edit-profile"
+      >
+        <Settings className="h-4 w-4 mr-2" /> Edit Profile
+      </Button>
+    ) : (
+      <Button className="flex-1 md:flex-none bg-primary hover:bg-primary/90" data-testid="button-follow">
+        Follow
+      </Button>
+    )}
+  </div>
+</div>
+  </div> {/* Close Profile Header */}
       {/* Bio & Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="md:col-span-1 space-y-4">
