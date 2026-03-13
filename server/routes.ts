@@ -1113,7 +1113,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const newBadges = await storage.checkAndGrantCollectionMilestones(user.id);
       
       // Mark first summon for onboarding (auto-grants Realmwalker I badge)
-await storage.markFirstSummon(user.id);
+try {
+  await storage.markFirstSummon(user.id);
+} catch (err) {
+  console.error("[SUMMON markFirstSummon ERROR]", err);
+}
 
 // Award base XP for paid summon
 await storage.awardXp(user.id, 15);
@@ -1248,7 +1252,11 @@ if (rarityBonusXp > 0) {
       const newBadges = await storage.checkAndGrantCollectionMilestones(user.id);
       
      // Mark first summon for onboarding (auto-grants Realmwalker I badge)
-await storage.markFirstSummon(user.id);
+try {
+  await storage.markFirstSummon(user.id);
+} catch (err) {
+  console.error("[SUMMON markFirstSummon ERROR]", err);
+}
 
 try {
   // Award base XP for free summon
