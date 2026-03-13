@@ -21,7 +21,7 @@ import {
 
 import { verifySupabaseToken, optionalSupabaseAuth, requireAdmin } from "./lib/supabaseAuth";
 import { calculateAgeBand } from "./lib/dbAdapter";
-import { getXpProgress } from "./lib/leveling";
+// import { getXpProgress } from "./lib/leveling";
 
 import {
   FREE_ODDS,
@@ -1101,70 +1101,70 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       });
       
       // Check if we should show the reminder (threshold reached and not shown yet today)
-      let showReminder = false;
-      if (paidSummonsToday >= PAID_SUMMON_REMINDER.THRESHOLD && !reminderShownToday) {
-        showReminder = true;
-        await storage.updateUser(user.id, {
-          paidReminderShownToday: true,
-        });
-      }
-      
-      // Check and grant collection milestone badges
-      const newBadges = await storage.checkAndGrantCollectionMilestones(user.id);
-      
-      // Mark first summon for onboarding (auto-grants Realmwalker I badge)
-try {
-  await storage.markFirstSummon(user.id);
-} catch (err) {
-  console.error("[SUMMON markFirstSummon ERROR]", err);
-}
-
-// Award base XP for paid summon
-await storage.awardXp(user.id, 15);
-
-// Bonus XP for rare pulls
-const rarityBonusXp = pulledCards.reduce((sum, card) => {
-  const rarity = String(card.rarity || "").toLowerCase();
-
-  if (rarity === "legendary") return sum + 100;
-  if (rarity === "epic") return sum + 50;
-  if (rarity === "rare") return sum + 30;
-
-  return sum;
-}, 0);
-
-if (rarityBonusXp > 0) {
-  await storage.awardXp(user.id, rarityBonusXp);
-}
-      
-      res.json({ 
-        cards: pulledCards, 
-        newBadges,
-        showPaidSummonReminder: showReminder,
-      });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
+let showReminder = false;
+if (paidSummonsToday >= PAID_SUMMON_REMINDER.THRESHOLD && !reminderShownToday) {
+  showReminder = true;
+  await storage.updateUser(user.id, {
+    paidReminderShownToday: true,
   });
+}
 
-  // ========== FREE DAILY GACHA ENDPOINTS ==========
-  
+try {
+  // Award base XP for paid summon
+  await storage.awardXp(user.id, 15);
+
+  // Bonus XP for rare pulls
+  const rarityBonusXp = pulledCards.reduce((sum, card) => {
+    const rarity = String(card.rarity || "").toLowerCase();
+
+    if (rarity === "legendary") return sum + 100;
+    if (rarity === "epic") return sum + 50;
+    if (rarity === "rare") return sum + 30;
+
+    return sum;
+  }, 0);
+
+  if (rarityBonusXp > 0) {
+    await storage.awardXp(user.id, rarityBonusXp);
+  }
+} catch (xpError) {
+  console.error("[PAID SUMMON XP ERROR]", xpError);
+}
+
+res.json({
+  cards: pulledCards,
+  showPaidSummonReminder: showReminder,
+});
+} catch (error: any) {
+  console.error("[PAID SUMMON FATAL]", {
+    message: error instanceof Error ? error.message : String(error),
+    stack: error instanceof Error ? error.stack : undefined,
+    error,
+  });
+  res.status(500).json({ error: error.message });
+}
+});
+      // ========== FREE DAILY GACHA ENDPOINTS ==========
+
   // Get free summon status for current user
   app.get("/api/gacha/free-status", verifySupabaseToken, async (req, res) => {
     try {
       if (!req.dbUser) {
         return res.status(401).json({ error: "Not authenticated" });
       }
-      
+
       const user = req.dbUser;
-      const dailyLimit = user.isPremium ? FREE_SUMMON_LIMITS.PREMIUM_USER : FREE_SUMMON_LIMITS.FREE_USER;
-      
+      const dailyLimit = user.isPremium
+        ? FREE_SUMMON_LIMITS.PREMIUM_USER
+        : FREE_SUMMON_LIMITS.FREE_USER;
+
       // Check if reset is needed
       let usedToday = user.freeSummonsUsedToday || 0;
-      let resetAt = user.freeSummonsResetAt ? new Date(user.freeSummonsResetAt) : null;
-      
+      let resetAt = user.freeSummonsResetAt
+        ? new Date(user.freeSummonsResetAt)
+        : null;
+
       if (needsReset(resetAt)) {
-        // Reset the counter
         usedToday = 0;
         resetAt = getNextResetTime();
         await storage.updateUser(user.id, {
@@ -1172,10 +1172,10 @@ if (rarityBonusXp > 0) {
           freeSummonsResetAt: resetAt,
         });
       }
-      
+
       res.json({
         dailyFreeLimit: dailyLimit,
-        usedToday: usedToday,
+        usedToday,
         remainingToday: Math.max(0, dailyLimit - usedToday),
         nextResetAt: resetAt?.toISOString() || getNextResetTime().toISOString(),
         isPremium: user.isPremium,
@@ -1191,14 +1191,18 @@ if (rarityBonusXp > 0) {
       if (!req.dbUser) {
         return res.status(401).json({ error: "Not authenticated" });
       }
-      
+
       const user = req.dbUser;
-      const dailyLimit = user.isPremium ? FREE_SUMMON_LIMITS.PREMIUM_USER : FREE_SUMMON_LIMITS.FREE_USER;
-      
+      const dailyLimit = user.isPremium
+        ? FREE_SUMMON_LIMITS.PREMIUM_USER
+        : FREE_SUMMON_LIMITS.FREE_USER;
+
       // Check if reset is needed
       let usedToday = user.freeSummonsUsedToday || 0;
-      let resetAt = user.freeSummonsResetAt ? new Date(user.freeSummonsResetAt) : null;
-      
+      let resetAt = user.freeSummonsResetAt
+        ? new Date(user.freeSummonsResetAt)
+        : null;
+
       if (needsReset(resetAt)) {
         usedToday = 0;
         resetAt = getNextResetTime();
@@ -1207,7 +1211,7 @@ if (rarityBonusXp > 0) {
           freeSummonsResetAt: resetAt,
         });
       }
-      
+
       // Check if user has free summons remaining
       if (usedToday >= dailyLimit) {
         return res.status(400).json({
@@ -1215,81 +1219,90 @@ if (rarityBonusXp > 0) {
           nextResetAt: resetAt?.toISOString() || getNextResetTime().toISOString(),
         });
       }
-      
+
       // Get standard banner cards only
       const standardCards = await storage.getStandardBannerCards();
       if (standardCards.length === 0) {
-        return res.status(400).json({ error: "No cards available in the Standard Banner pool" });
+        return res.status(400).json({
+          error: "No cards available in the Standard Banner pool",
+        });
       }
-      
+
       // Use FREE_ODDS table to select rarity
       const selectedRarity = selectRarity(FREE_ODDS);
-      
+
       // Filter cards by selected rarity
-      let eligibleCards = standardCards.filter(c => c.rarity === selectedRarity);
-      
+      let eligibleCards = standardCards.filter(
+        (c) => c.rarity === selectedRarity
+      );
+
       // Fallback: if no cards of that rarity, pick from any available
       if (eligibleCards.length === 0) {
         eligibleCards = standardCards;
       }
-      
+
       // Pick a random card
-      const pulledCard = eligibleCards[Math.floor(Math.random() * eligibleCards.length)];
-      
+      const pulledCard =
+        eligibleCards[Math.floor(Math.random() * eligibleCards.length)];
+
       // Add card to user's collection
       await storage.addCardToUser({
         userId: user.id,
         cardId: pulledCard.id,
       });
-      
+
       // Update free summons counter
       const newUsedToday = usedToday + 1;
       await storage.updateUser(user.id, {
         freeSummonsUsedToday: newUsedToday,
       });
-      
-            // Check and grant collection milestone badges
+
+      // Check and grant collection milestone badges
       const newBadges = await storage.checkAndGrantCollectionMilestones(user.id);
-      
-     // Mark first summon for onboarding (auto-grants Realmwalker I badge)
-try {
-  await storage.markFirstSummon(user.id);
-} catch (err) {
-  console.error("[SUMMON markFirstSummon ERROR]", err);
-}
 
-try {
-  // Award base XP for free summon
-  await storage.awardXp(user.id, 10);
+      // Mark first summon for onboarding (auto-grants Realmwalker I badge)
+      try {
+        await storage.markFirstSummon(user.id);
+      } catch (err) {
+        console.error("[FREE SUMMON markFirstSummon ERROR]", err);
+      }
 
-  // Bonus XP for rare pull
-  const pulledRarity = String(pulledCard.rarity || "").toLowerCase();
-  let rarityBonusXp = 0;
+      try {
+        // Award base XP for free summon
+        await storage.awardXp(user.id, 10);
 
-  if (pulledRarity === "legendary") rarityBonusXp = 100;
-  else if (pulledRarity === "epic") rarityBonusXp = 50;
-  else if (pulledRarity === "rare") rarityBonusXp = 30;
+        // Bonus XP for rare pull
+        const pulledRarity = String(pulledCard.rarity || "").toLowerCase();
+        let rarityBonusXp = 0;
 
-  if (rarityBonusXp > 0) {
-    await storage.awardXp(user.id, rarityBonusXp);
-  }
-} catch (xpError) {
-  console.error("[FREE SUMMON XP ERROR]", xpError);
-}
-      
+        if (pulledRarity === "legendary") rarityBonusXp = 100;
+        else if (pulledRarity === "epic") rarityBonusXp = 50;
+        else if (pulledRarity === "rare") rarityBonusXp = 30;
+
+        if (rarityBonusXp > 0) {
+          await storage.awardXp(user.id, rarityBonusXp);
+        }
+      } catch (xpError) {
+        console.error("[FREE SUMMON XP ERROR]", xpError);
+      }
+
       res.json({
         card: pulledCard,
+        newBadges,
         remainingToday: Math.max(0, dailyLimit - newUsedToday),
         nextResetAt: resetAt?.toISOString() || getNextResetTime().toISOString(),
-        newBadges,
       });
     } catch (error: any) {
+      console.error("[FREE SUMMON FATAL]", {
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        error,
+      });
       res.status(500).json({ error: error.message });
     }
   });
 
   // ========== END FREE DAILY GACHA ==========
-  
   // Admin: Create new card
   app.post("/api/cards", verifySupabaseToken, async (req, res) => {
     try {
