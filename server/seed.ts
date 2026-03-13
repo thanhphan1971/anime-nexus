@@ -583,3 +583,13 @@ async function seedSampleUsers() {
   await db.insert(users).values(sampleUsers);
   console.log("✅ Sample users added for matching!");
 }
+
+seedDatabase()
+.then(() => {
+  console.log("✅ Seed complete");
+  process.exit(0);
+})
+.catch((err) => {
+  console.error("❌ Seed failed", err);
+  process.exit(1);
+});

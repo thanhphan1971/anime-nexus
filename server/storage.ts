@@ -612,7 +612,7 @@ export class DbStorage implements IStorage {
       ...r.user_cards,
       card: r.cards,
     }));
-  }
+  }F
 
   async addCardToUser(insertUserCard: InsertUserCard): Promise<UserCard> {
     const result = await db.insert(userCards).values(insertUserCard).returning();
