@@ -1247,22 +1247,26 @@ if (rarityBonusXp > 0) {
             // Check and grant collection milestone badges
       const newBadges = await storage.checkAndGrantCollectionMilestones(user.id);
       
-      // Mark first summon for onboarding (auto-grants Realmwalker I badge)
+     // Mark first summon for onboarding (auto-grants Realmwalker I badge)
 await storage.markFirstSummon(user.id);
 
-// Award base XP for free summon
-await storage.awardXp(user.id, 10);
+try {
+  // Award base XP for free summon
+  await storage.awardXp(user.id, 10);
 
-// Bonus XP for rare pull
-const pulledRarity = String(pulledCard.rarity || "").toLowerCase();
-let rarityBonusXp = 0;
+  // Bonus XP for rare pull
+  const pulledRarity = String(pulledCard.rarity || "").toLowerCase();
+  let rarityBonusXp = 0;
 
-if (pulledRarity === "legendary") rarityBonusXp = 100;
-else if (pulledRarity === "epic") rarityBonusXp = 50;
-else if (pulledRarity === "rare") rarityBonusXp = 30;
+  if (pulledRarity === "legendary") rarityBonusXp = 100;
+  else if (pulledRarity === "epic") rarityBonusXp = 50;
+  else if (pulledRarity === "rare") rarityBonusXp = 30;
 
-if (rarityBonusXp > 0) {
-  await storage.awardXp(user.id, rarityBonusXp);
+  if (rarityBonusXp > 0) {
+    await storage.awardXp(user.id, rarityBonusXp);
+  }
+} catch (xpError) {
+  console.error("[FREE SUMMON XP ERROR]", xpError);
 }
       
       res.json({
