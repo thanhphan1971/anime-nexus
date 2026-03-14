@@ -1131,6 +1131,22 @@ app.post("/api/cards/summon", verifySupabaseToken, async (req, res) => {
       })),
     });
 
+    const freshUserAfterSummon = await storage.getUser(user.id);
+
+console.log("[PAID SUMMON FINAL TOKEN CHECK]", {
+  userId: user.id,
+  tokensBeforeRequest: user.tokens,
+  summonCost,
+  expectedTokensAfterCharge: newTokenBalance,
+  dbTokensAfterAllLogic: freshUserAfterSummon?.tokens,
+  paidSummonsToday,
+  pulledCards: pulledCards.map((card: any) => ({
+    id: card.id,
+    name: card.name,
+    rarity: card.rarity,
+  })),
+});
+
     res.json({
       cards: pulledCards,
       showPaidSummonReminder: showReminder,
