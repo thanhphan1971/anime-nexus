@@ -1012,137 +1012,139 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
-  // Card catalog with pagination and filtering
-  app.get("/api/cards/catalog", async (req, res) => {
-    try {
-      const page = Math.max(1, parseInt(req.query.page as string) || 1);
-      const limit = Math.min(Math.max(1, parseInt(req.query.limit as string) || 20), 50);
-      const sortOrder = (req.query.sort as string) === 'oldest' ? 'oldest' : 'newest';
-      
-      // Whitelist valid rarities to prevent injection
-      const validRarities = ['Common', 'Rare', 'Epic', 'Legendary', 'Mythic'];
-      let rarities: string[] | undefined;
-      if (req.query.rarities) {
-        const requestedRarities = (req.query.rarities as string).split(',');
-        rarities = requestedRarities.filter(r => validRarities.includes(r));
-        if (rarities.length === 0) rarities = undefined;
-      }
-      
-      const result = await storage.getCatalogCards({ page, limit, rarities, sortOrder });
-      res.json(result);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
+  // Paid summon endpoint
+app.post("/api/cards/summon", verifySupabaseToken, async (req, res) => {
+  try {
+    if (!req.dbUser) {
+      return res.status(401).json({ error: "Not authenticated" });
     }
-  });
-  
-  app.get("/api/users/:userId/cards", async (req, res) => {
-    try {
-      const userCards = await storage.getUserCards(req.params.userId);
-      res.json(userCards);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
+
+    const user = req.dbUser;
+
+    console.log("[PAID SUMMON USER]", {
+      userId: user.id,
+      tokensBefore: user.tokens,
+      isPremium: user.isPremium,
+      paidSummonsToday: user.paidSummonsToday,
+      paidSummonsResetAt: user.paidSummonsResetAt,
+      paidReminderShownToday: user.paidReminderShownToday,
+    });
+
+    const summonCost = 100;
+
+    if (user.tokens < summonCost) {
+      return res.status(400).json({ error: "Insufficient tokens" });
     }
-  });
-  
-  app.post("/api/cards/summon", verifySupabaseToken, async (req, res) => {
+
+    const allCards = await storage.getActiveCards();
+
+    console.log("[PAID SUMMON] active cards count", allCards.length);
+
+    if (allCards.length === 0) {
+      return res.status(400).json({ error: "No cards available in the gacha pool" });
+    }
+
+    const numPulls = user.isPremium ? 2 : 1;
+    const pulledCards: any[] = [];
+
+    for (let i = 0; i < numPulls; i++) {
+      const randomCard = allCards[Math.floor(Math.random() * allCards.length)];
+      pulledCards.push(randomCard);
+
+      await storage.addCardToUser({
+        userId: user.id,
+        cardId: randomCard.id,
+      });
+    }
+
+    const newTokenBalance = user.tokens - summonCost;
+
+    console.log("[PAID SUMMON TOKENS UPDATE]", {
+      userId: user.id,
+      summonCost,
+      tokensBefore: user.tokens,
+      tokensAfter: newTokenBalance,
+    });
+
+    await storage.updateUser(user.id, {
+      tokens: newTokenBalance,
+    });
+
+    let paidSummonsToday = user.paidSummonsToday || 0;
+    let paidResetAt = user.paidSummonsResetAt ? new Date(user.paidSummonsResetAt) : null;
+    let reminderShownToday = user.paidReminderShownToday || false;
+
+    if (needsReset(paidResetAt)) {
+      paidSummonsToday = 0;
+      paidResetAt = getNext7PMETResetTime();
+      reminderShownToday = false;
+
+      await storage.updateUser(user.id, {
+        paidSummonsToday: 0,
+        paidSummonsResetAt: paidResetAt,
+        paidReminderShownToday: false,
+      });
+    }
+
+    paidSummonsToday += 1;
+
+    await storage.updateUser(user.id, {
+      paidSummonsToday,
+    });
+
+    let showReminder = false;
+    if (paidSummonsToday >= PAID_SUMMON_REMINDER.THRESHOLD && !reminderShownToday) {
+      showReminder = true;
+      await storage.updateUser(user.id, {
+        paidReminderShownToday: true,
+      });
+    }
+
     try {
-      if (!req.dbUser) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
-      
-      const user = req.dbUser;
-      if (user.tokens < 100) {
-        return res.status(400).json({ error: "Insufficient tokens" });
-      }
-      
-      // Get only active (non-archived) cards and pick random ones
-      const allCards = await storage.getActiveCards();
-      if (allCards.length === 0) {
-        return res.status(400).json({ error: "No cards available in the gacha pool" });
-      }
-      const numPulls = user.isPremium ? 2 : 1;
-      const pulledCards = [];
-      
-      for (let i = 0; i < numPulls; i++) {
-        const randomCard = allCards[Math.floor(Math.random() * allCards.length)];
-        pulledCards.push(randomCard);
-        await storage.addCardToUser({
-          userId: user.id,
-          cardId: randomCard.id,
-        });
-      }
-      
-      // Deduct tokens
-      await storage.updateUser(user.id, {
-        tokens: user.tokens - 100,
-      });
-      
-      // Track daily paid summons for soft reminder
-      let paidSummonsToday = user.paidSummonsToday || 0;
-      let paidResetAt = user.paidSummonsResetAt ? new Date(user.paidSummonsResetAt) : null;
-      let reminderShownToday = user.paidReminderShownToday || false;
-      
-      // Check if paid summon counter needs reset (7:00 PM ET)
-      if (needsReset(paidResetAt)) {
-        paidSummonsToday = 0;
-        paidResetAt = getNext7PMETResetTime();
-        reminderShownToday = false;
-        await storage.updateUser(user.id, {
-          paidSummonsToday: 0,
-          paidSummonsResetAt: paidResetAt,
-          paidReminderShownToday: false,
-        });
-      }
-      
-      // Increment paid summon counter
-      paidSummonsToday += 1;
-      await storage.updateUser(user.id, {
-        paidSummonsToday: paidSummonsToday,
-      });
-      
-      // Check if we should show the reminder (threshold reached and not shown yet today)
-let showReminder = false;
-if (paidSummonsToday >= PAID_SUMMON_REMINDER.THRESHOLD && !reminderShownToday) {
-  showReminder = true;
-  await storage.updateUser(user.id, {
-    paidReminderShownToday: true,
-  });
-}
+      await storage.awardXp(user.id, 15);
 
-try {
-  // Award base XP for paid summon
-  await storage.awardXp(user.id, 15);
+      const rarityBonusXp = pulledCards.reduce((sum: number, card: any) => {
+  const rarity = String(card.rarity || "").toLowerCase();
 
-  // Bonus XP for rare pulls
-  const rarityBonusXp = pulledCards.reduce((sum, card) => {
-    const rarity = String(card.rarity || "").toLowerCase();
+  if (rarity === "epic") return sum + 10;
+  if (rarity === "rare") return sum + 5;
 
-    if (rarity === "legendary") return sum + 100;
-    if (rarity === "epic") return sum + 50;
-    if (rarity === "rare") return sum + 30;
+  return sum;
+}, 0);
 
-    return sum;
-  }, 0);
+      if (rarityBonusXp > 0) {
+        await storage.awardXp(user.id, rarityBonusXp);
+      }
+    } catch (xpError) {
+      console.error("[PAID SUMMON XP ERROR]", xpError);
+    }
 
-  if (rarityBonusXp > 0) {
-    await storage.awardXp(user.id, rarityBonusXp);
+    console.log("[PAID SUMMON RESPONSE]", {
+      userId: user.id,
+      tokensAfter: newTokenBalance,
+      paidSummonsToday,
+      showPaidSummonReminder: showReminder,
+      cardsPulled: pulledCards.map((card: any) => ({
+        id: card.id,
+        name: card.name,
+        rarity: card.rarity,
+      })),
+    });
+
+    res.json({
+      cards: pulledCards,
+      showPaidSummonReminder: showReminder,
+      tokensRemaining: newTokenBalance,
+      summonCost,
+    });
+  } catch (error: any) {
+    console.error("[PAID SUMMON FATAL]", {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      error,
+    });
+    res.status(500).json({ error: error.message });
   }
-} catch (xpError) {
-  console.error("[PAID SUMMON XP ERROR]", xpError);
-}
-
-res.json({
-  cards: pulledCards,
-  showPaidSummonReminder: showReminder,
-});
-} catch (error: any) {
-  console.error("[PAID SUMMON FATAL]", {
-    message: error instanceof Error ? error.message : String(error),
-    stack: error instanceof Error ? error.stack : undefined,
-    error,
-  });
-  res.status(500).json({ error: error.message });
-}
 });
       // ========== FREE DAILY GACHA ENDPOINTS ==========
 
