@@ -1,7 +1,6 @@
 import { type Express } from "express";
 import { createServer as createViteServer, createLogger } from "vite";
 import { type Server } from "http";
-import viteConfig from "../vite.config";
 import fs from "fs";
 import path from "path";
 
@@ -15,14 +14,12 @@ export async function setupVite(server: Server, app: Express) {
   };
 
   const vite = await createViteServer({
-    ...viteConfig,
-    configFile: false,
+    configFile: path.resolve(import.meta.dirname, "..", "vite.config.ts"),
     customLogger: {
       ...viteLogger,
       error: (msg, options) => {
         viteLogger.error(msg, options);
         throw new Error("Vite server init failed");
-
       },
     },
     server: serverOptions,
@@ -33,6 +30,12 @@ export async function setupVite(server: Server, app: Express) {
 
   app.use("*", async (req, res, next) => {
     const url = req.originalUrl;
+
+    // Let Vite handle module files, assets, API routes, etc.
+    const accept = req.headers.accept || "";
+    if (!accept.includes("text/html")) {
+      return next();
+    }
 
     try {
       const clientTemplate = path.resolve(
@@ -45,6 +48,7 @@ export async function setupVite(server: Server, app: Express) {
       // always reload the index.html file from disk in case it changes
       const template = await fs.promises.readFile(clientTemplate, "utf-8");
       const page = await vite.transformIndexHtml(url, template);
+
       res.status(200).set({ "Content-Type": "text/html" }).end(page);
     } catch (e) {
       vite.ssrFixStacktrace(e as Error);

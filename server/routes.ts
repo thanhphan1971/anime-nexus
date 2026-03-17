@@ -417,6 +417,27 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  app.get("/api/users/:id/cards", verifySupabaseToken, async (req, res) => {
+  try {
+    if (!req.dbUser) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    // Allow user to read their own cards
+    // Admins can read anyone's cards
+    if (req.dbUser.id !== req.params.id && !(req.dbUser as any).isAdmin) {
+      return res.status(403).json({ error: "Not authorized to view these cards" });
+    }
+
+    const userCards = await storage.getUserCards(req.params.id);
+
+    return res.json(userCards);
+  } catch (error: any) {
+    console.error("[users/:id/cards] failed:", error);
+    return res.status(500).json({ error: "Failed to load user cards" });
+  }
+});
+
   app.patch("/api/users/:id", verifySupabaseToken, async (req, res) => {
     try {
       if (!req.dbUser) return res.status(401).json({ error: "Not authenticated" });
@@ -1012,6 +1033,21 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  function rollPaidSummonRarity(): "common" | "rare" | "epic" | "legendary" | "mythic" {
+  const roll = Math.random() * 100;
+
+  if (roll < 75) return "common";
+  if (roll < 92) return "rare";
+  if (roll < 97) return "epic";
+  if (roll < 99.5) return "legendary";
+  return "mythic";
+}
+
+function pickRandomFromPool<T>(items: T[]): T | null {
+  if (!items.length) return null;
+  return items[Math.floor(Math.random() * items.length)];
+}
+
   // Paid summon endpoint
 app.post("/api/cards/summon", verifySupabaseToken, async (req, res) => {
   try {
@@ -1045,17 +1081,72 @@ app.post("/api/cards/summon", verifySupabaseToken, async (req, res) => {
     }
 
     const numPulls = user.isPremium ? 2 : 1;
-    const pulledCards: any[] = [];
+const pulledCards: any[] = [];
 
-    for (let i = 0; i < numPulls; i++) {
-      const randomCard = allCards[Math.floor(Math.random() * allCards.length)];
-      pulledCards.push(randomCard);
+for (let i = 0; i < numPulls; i++) {
+  const rarityRoll = rollPaidSummonRarity();
 
-      await storage.addCardToUser({
-        userId: user.id,
-        cardId: randomCard.id,
-      });
-    }
+  let rarityPool = allCards.filter(
+    (card: any) => String(card.rarity || "").toLowerCase() === rarityRoll
+  );
+
+  if (rarityPool.length === 0 && rarityRoll === "mythic") {
+    rarityPool = allCards.filter(
+      (card: any) => String(card.rarity || "").toLowerCase() === "legendary"
+    );
+  }
+
+  if (
+    rarityPool.length === 0 &&
+    (rarityRoll === "mythic" || rarityRoll === "legendary")
+  ) {
+    rarityPool = allCards.filter(
+      (card: any) => String(card.rarity || "").toLowerCase() === "epic"
+    );
+  }
+
+  if (
+    rarityPool.length === 0 &&
+    (rarityRoll === "mythic" || rarityRoll === "legendary" || rarityRoll === "epic")
+  ) {
+    rarityPool = allCards.filter(
+      (card: any) => String(card.rarity || "").toLowerCase() === "rare"
+    );
+  }
+
+  if (rarityPool.length === 0) {
+    rarityPool = allCards.filter(
+      (card: any) => String(card.rarity || "").toLowerCase() === "common"
+    );
+  }
+
+  if (rarityPool.length === 0) {
+    rarityPool = allCards;
+  }
+
+  const randomCard = pickRandomFromPool(rarityPool);
+
+  if (!randomCard) {
+    return res.status(400).json({ error: "No summonable card found" });
+  }
+
+  console.log("[PAID SUMMON ROLL]", {
+    userId: user.id,
+    pullIndex: i + 1,
+    rarityRoll,
+    rarityPoolSize: rarityPool.length,
+    selectedCardId: (randomCard as any).id,
+    selectedCardName: (randomCard as any).name,
+    selectedCardRarity: (randomCard as any).rarity,
+  });
+
+  pulledCards.push(randomCard);
+
+  await storage.addCardToUser({
+    userId: user.id,
+    cardId: randomCard.id,
+  });
+}
 
     const newTokenBalance = user.tokens - summonCost;
 
