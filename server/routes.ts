@@ -423,13 +423,28 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       return res.status(401).json({ error: "Not authenticated" });
     }
 
-    // Allow user to read their own cards
-    // Admins can read anyone's cards
+    console.log("[USER CARDS READ]", {
+      requestedUserId: req.params.id,
+      authUserId: req.dbUser.id,
+      isAdmin: (req.dbUser as any).isAdmin,
+    });
+
     if (req.dbUser.id !== req.params.id && !(req.dbUser as any).isAdmin) {
       return res.status(403).json({ error: "Not authorized to view these cards" });
     }
 
     const userCards = await storage.getUserCards(req.params.id);
+
+    console.log("[USER CARDS READ RESULT]", {
+      requestedUserId: req.params.id,
+      count: userCards.length,
+      cards: userCards.map((c: any) => ({
+        id: c.id,
+        cardId: c.cardId,
+        cardName: c.card?.name,
+        rarity: c.card?.rarity,
+      })),
+    });
 
     return res.json(userCards);
   } catch (error: any) {
@@ -1355,10 +1370,17 @@ console.log("[PAID SUMMON FINAL TOKEN CHECK]", {
         eligibleCards[Math.floor(Math.random() * eligibleCards.length)];
 
       // Add card to user's collection
-      await storage.addCardToUser({
-        userId: user.id,
-        cardId: pulledCard.id,
-      });
+      console.log("[PAID SUMMON WRITE ATTEMPT]", {
+       userId: user.id,
+       cardId: randomCard.id,
+       cardName: randomCard.name,
+       cardRarity: randomCard.rarity,
+     });
+
+     await storage.addCardToUser({
+       userId: user.id,
+       cardId: randomCard.id,
+     });
 
       // Update free summons counter
       const newUsedToday = usedToday + 1;

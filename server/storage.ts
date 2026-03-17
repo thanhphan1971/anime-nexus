@@ -601,18 +601,18 @@ export class DbStorage implements IStorage {
   }
 
   async getUserCards(userId: string): Promise<Array<UserCard & { card: Card }>> {
-    const result = await db
-      .select()
-      .from(userCards)
-      .innerJoin(cards, eq(userCards.cardId, cards.id))
-      .where(eq(userCards.userId, userId))
-      .orderBy(desc(userCards.acquiredAt));
-    
-    return result.map((r: any) => ({
-      ...r.user_cards,
-      card: r.cards,
-    }));
-  }F
+  const result = await db
+    .select()
+    .from(userCards)
+    .innerJoin(cards, eq(userCards.cardId, cards.id))
+    .where(eq(userCards.userId, userId))
+    .orderBy(desc(userCards.acquiredAt));
+
+  return result.map((r: any) => ({
+    ...r.user_cards,
+    card: r.cards,
+  }));
+}
 
   async addCardToUser(insertUserCard: InsertUserCard): Promise<UserCard> {
     const result = await db.insert(userCards).values(insertUserCard).returning();

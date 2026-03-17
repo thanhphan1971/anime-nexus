@@ -20,7 +20,7 @@ export const users = pgTable("users", {
   xp: integer("xp").notNull().default(0),
   followers: integer("followers").notNull().default(0),
   following: integer("following").notNull().default(0),
-  tokens: integer("tokens").notNull().default(1000),
+  tokens: integer("tokens").notNull().default(500),
   isPremium: boolean("is_premium").notNull().default(false),
   premiumStartDate: timestamp("premium_start_date"),
   premiumEndDate: timestamp("premium_end_date"),
