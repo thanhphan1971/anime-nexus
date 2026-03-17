@@ -432,6 +432,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (req.dbUser.id !== req.params.id && !(req.dbUser as any).isAdmin) {
       return res.status(403).json({ error: "Not authorized to view these cards" });
     }
+    console.log("[CARDS ROUTE MARKER]", {
+  marker: "PROD_CHECK_6942a09",
+  requestedUserId: req.params.id,
+  authUserId: req.dbUser.id,
+});
 
     const userCards = await storage.getUserCards(req.params.id);
 
@@ -1071,6 +1076,10 @@ app.post("/api/cards/summon", verifySupabaseToken, async (req, res) => {
     }
 
     const user = req.dbUser;
+    console.log("[SUMMON ROUTE MARKER]", {
+  marker: "PROD_CHECK_6942a09",
+  userId: user.id,
+});
 
     console.log("[PAID SUMMON USER]", {
       userId: user.id,
@@ -1370,17 +1379,17 @@ console.log("[PAID SUMMON FINAL TOKEN CHECK]", {
         eligibleCards[Math.floor(Math.random() * eligibleCards.length)];
 
       // Add card to user's collection
-      console.log("[PAID SUMMON WRITE ATTEMPT]", {
-       userId: user.id,
-       cardId: randomCard.id,
-       cardName: randomCard.name,
-       cardRarity: randomCard.rarity,
-     });
+      console.log("[FREE SUMMON WRITE ATTEMPT]", {
+  userId: user.id,
+  cardId: pulledCard.id,
+  cardName: pulledCard.name,
+  cardRarity: pulledCard.rarity,
+});
 
-     await storage.addCardToUser({
-       userId: user.id,
-       cardId: randomCard.id,
-     });
+await storage.addCardToUser({
+  userId: user.id,
+  cardId: pulledCard.id,
+});
 
       // Update free summons counter
       const newUsedToday = usedToday + 1;
