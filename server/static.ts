@@ -13,8 +13,8 @@ export function serveStatic(app: Express) {
 
   app.use(express.static(distPath));
 
-  // Never let SPA fallback swallow API routes
-  app.use("*", (req, res) => {
+// Never let SPA fallback swallow API routes
+app.use("*", (req, res) => {
     if (req.originalUrl.startsWith("/api/")) {
       return res.status(404).json({ error: "API route not found" });
     }
