@@ -61,6 +61,13 @@ function log(message: string, source = "express") {
 app.get("/healthcheck", (_req, res) => res.status(200).send("ok"));
 app.get("/api/health", (_req, res) => res.status(200).json({ ok: true }));
 
+app.get("/api/deploy-marker", (_req, res) => {
+  res.json({
+    marker: "DEPLOY_CHECK_9071da5",
+    time: new Date().toISOString(),
+  });
+});
+
 // Replit healthcheck protection
 // Replit healthcheck hits "/" while the app boots.
 // Return 200 immediately until the frontend is ready.
