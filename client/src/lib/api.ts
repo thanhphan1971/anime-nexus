@@ -250,20 +250,30 @@ export function useSummonCards() {
       }),
 
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["userCards"] });
-      queryClient.invalidateQueries({ queryKey: ["users"] });
-    },
-  });
+  queryClient.invalidateQueries({ queryKey: ["userCards"] });
+  queryClient.invalidateQueries({ queryKey: ["users"] });
+},
+});
 }
 
 export function useCreateCard() {
   const queryClient = useQueryClient();
+
   return useMutation({
-    mutationFn: (data: { name: string; character: string; anime: string; rarity: string; image: string; power: number; element: string }) =>
+    mutationFn: (data: {
+      name: string;
+      character: string;
+      anime: string;
+      rarity: string;
+      image: string;
+      power: number;
+      element: string;
+    }) =>
       apiCall("/api/cards", {
         method: "POST",
         body: JSON.stringify(data),
       }),
+
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["cards"] });
     },
@@ -272,9 +282,13 @@ export function useCreateCard() {
 
 export function useDeleteCard() {
   const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: ({ cardId, force }: { cardId: string; force?: boolean }) =>
-      apiCall(`/api/cards/${cardId}${force ? '?force=true' : ''}`, { method: "DELETE" }),
+      apiCall(`/api/cards/${cardId}${force ? "?force=true" : ""}`, {
+        method: "DELETE",
+      }),
+
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["cards"] });
       queryClient.invalidateQueries({ queryKey: ["adminCards"] });
@@ -291,9 +305,11 @@ export function useAdminCards() {
 
 export function useArchiveCard() {
   const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: (cardId: string) =>
       apiCall(`/api/cards/${cardId}/archive`, { method: "POST" }),
+
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["cards"] });
       queryClient.invalidateQueries({ queryKey: ["adminCards"] });
@@ -303,9 +319,11 @@ export function useArchiveCard() {
 
 export function useUnarchiveCard() {
   const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: (cardId: string) =>
       apiCall(`/api/cards/${cardId}/unarchive`, { method: "POST" }),
+
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["cards"] });
       queryClient.invalidateQueries({ queryKey: ["adminCards"] });
@@ -315,19 +333,35 @@ export function useUnarchiveCard() {
 
 export function useUpdateCard() {
   const queryClient = useQueryClient();
+
   return useMutation({
-    mutationFn: ({ cardId, updates }: { cardId: string; updates: Partial<{ name: string; character: string; anime: string; rarity: string; image: string; power: number; element: string; categoryId: string | null }> }) =>
+    mutationFn: ({
+      cardId,
+      updates,
+    }: {
+      cardId: string;
+      updates: Partial<{
+        name: string;
+        character: string;
+        anime: string;
+        rarity: string;
+        image: string;
+        power: number;
+        element: string;
+        categoryId: string | null;
+      }>;
+    }) =>
       apiCall(`/api/cards/${cardId}`, {
         method: "PATCH",
         body: JSON.stringify(updates),
       }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["cards"] });
-      queryClient.invalidateQueries({ queryKey: ["adminCards"] });
-    },
+
+    onSuccess: (_data, _variables, _context) => {
+  queryClient.invalidateQueries({ queryKey: ["userCards"] });
+  queryClient.invalidateQueries({ queryKey: ["users"] });
+},
   });
 }
-
 // Card Categories API
 export function useCardCategories() {
   return useQuery({
