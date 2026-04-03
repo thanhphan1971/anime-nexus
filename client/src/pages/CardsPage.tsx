@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect, useRef } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,6 +27,7 @@ function getInitialMode(): string {
 export default function CardsPage() {
   const { user, refreshUser } = useAuth();
   const { data: userCards, isLoading: cardsLoading } = useUserCards(user?.id);
+const queryClient = useQueryClient();
   const { data: marketListings, isLoading: marketLoading } = useMarketListings();
   const summonCards = useSummonCards();
   const purchaseListing = usePurchaseListing();
@@ -115,6 +117,7 @@ export default function CardsPage() {
     setShareDismissed(false);
 
     await refreshUser();
+       await queryClient.invalidateQueries({ queryKey: ["userCards", user?.id] });
 
     toast.success(`Pulled x${count}: received ${result.cards?.length || 0} card(s)!`);
 
