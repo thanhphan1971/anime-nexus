@@ -1056,10 +1056,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   function rollPaidSummonRarity(): "common" | "rare" | "epic" | "legendary" | "mythic" {
   const roll = Math.random() * 100;
 
-  if (roll < 75) return "common";
-  if (roll < 92) return "rare";
-  if (roll < 97) return "epic";
-  if (roll < 99.5) return "legendary";
+  if (roll < 82) return "common";
+  if (roll < 96) return "rare";
+  if (roll < 99) return "epic";
+  if (roll < 99.8) return "legendary";
   return "mythic";
 }
 
