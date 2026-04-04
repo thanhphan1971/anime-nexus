@@ -241,19 +241,19 @@ export function useUserCards(userId: string | undefined) {
 export function useSummonCards() {
   const queryClient = useQueryClient();
 
-  return useMutation<any, any, { count: 1 | 10 }>({
-    mutationFn: ({ count }) =>
+  return useMutation<any, any, { count: 1 | 10; bannerKey?: string }>({
+    mutationFn: ({ count, bannerKey }) =>
       apiCall("/api/cards/summon", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ count }),
+        body: JSON.stringify({ count, bannerKey }),
       }),
 
     onSuccess: () => {
-  queryClient.invalidateQueries({ queryKey: ["userCards"] });
-  queryClient.invalidateQueries({ queryKey: ["users"] });
-},
-});
+      queryClient.invalidateQueries({ queryKey: ["userCards"] });
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+    },
+  });
 }
 
 export function useCreateCard() {

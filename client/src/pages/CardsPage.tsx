@@ -1,4 +1,4 @@
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect, useRef } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,6 +38,7 @@ const queryClient = useQueryClient();
   const [hasShared, setHasShared] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
   const [shareDismissed, setShareDismissed] = useState(false);
+  const [selectedBanner, setSelectedBanner] = useState("standard"); 
   const paidSummonRef = useRef<HTMLDivElement>(null);
   const freeSummonRef = useRef<HTMLDivElement>(null);
   const shareSummon = useShareSummon();
@@ -57,6 +58,15 @@ const queryClient = useQueryClient();
 
   const { data: freeStatus, refetch: refetchFreeStatus } = useFreeGachaStatus();
   const freeSummonMutation = useFreeSummon();
+
+  const { data: banners } = useQuery({
+  queryKey: ["banners"],
+  queryFn: async () => {
+    const res = await fetch("/api/banners");
+    if (!res.ok) throw new Error("Failed to load banners");
+    return res.json();
+  },
+});
 
   const filteredCards = userCards?.filter((userCard: any) => {
     if (rarityFilter === "All") return true;
@@ -103,38 +113,43 @@ const queryClient = useQueryClient();
     toast.error("Please sign in to summon");
     return;
   }
+  
+if ((user.tokens || 0) < cost) {
+  toast.error(`Insufficient tokens! Need ${cost} tokens to pull x${count}.`);
+  return;
+}
 
-  if ((user.tokens || 0) < cost) {
-    toast.error(`Insufficient tokens! Need ${cost} tokens to pull x${count}.`);
-    return;
+try {
+  const summonPayload = {
+    count,
+    bannerKey: selectedBanner,
+  };
+
+  const result = await summonCards.mutateAsync(summonPayload as any);
+
+  setReward(result.cards);
+  setHasShared(false);
+  setShareDismissed(false);
+
+  await refreshUser();
+  await queryClient.invalidateQueries({ queryKey: ["userCards", user?.id] });
+
+  toast.success(`Pulled x${count}: received ${result.cards?.length || 0} card(s)!`);
+
+  if (result.showPaidSummonReminder) {
+    setTimeout(() => {
+      toast.info(
+        "You've summoned a lot today.\nFree daily summons reset at 7:00 PM.",
+        {
+          description: "Weekly and monthly draws are capped for fairness.",
+          duration: 6000,
+        }
+      );
+    }, 1500);
   }
-
-  try {
-    const result = await summonCards.mutateAsync({ count });
-
-    setReward(result.cards);
-    setHasShared(false);
-    setShareDismissed(false);
-
-    await refreshUser();
-       await queryClient.invalidateQueries({ queryKey: ["userCards", user?.id] });
-
-    toast.success(`Pulled x${count}: received ${result.cards?.length || 0} card(s)!`);
-
-    if (result.showPaidSummonReminder) {
-      setTimeout(() => {
-        toast.info(
-          "You've summoned a lot today.\nFree daily summons reset at 7:00 PM.",
-          {
-            description: "Weekly and monthly draws are capped for fairness.",
-            duration: 6000,
-          }
-        );
-      }, 1500);
-    }
-  } catch (error: any) {
-    toast.error(error.message || "Summon failed");
-  }
+} catch (error: any) {
+  toast.error(error.message || "Summon failed");
+}
 };
 
   const handleShareToFeed = async () => {
@@ -320,6 +335,25 @@ const queryClient = useQueryClient();
                       <span className="font-mono font-bold text-yellow-400">{(user?.tokens || 0).toLocaleString()}</span>
                       <span className="text-xs text-muted-foreground">Current Balance</span>
                     </div>
+
+                    <div className="mt-4 w-full">
+  <p className="text-xs text-muted-foreground mb-2">Select Banner</p>
+  <div className="flex flex-wrap gap-2">
+    {banners?.map((banner: any) => (
+      <button
+        key={banner.key}
+        onClick={() => setSelectedBanner(banner.key)}
+        className={`px-3 py-2 rounded-md border text-sm transition ${
+          selectedBanner === banner.key
+            ? "bg-yellow-500 text-black border-yellow-400"
+            : "bg-black/30 text-white border-white/10 hover:border-yellow-500/50"
+        }`}
+      >
+        {banner.name}
+      </button>
+    ))}
+  </div>
+</div>
                     
                     <div className="mt-4 space-y-2 w-full">
 
