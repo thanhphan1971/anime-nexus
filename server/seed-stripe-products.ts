@@ -2,9 +2,13 @@ import { stripe } from './stripeClient';
 
 async function createSClassProducts() {
 
+  if (!stripe) {
+    throw new Error("Stripe client is not initialized");
+  }
+
   console.log('Creating S-Class subscription products...');
 
-  const existingProducts = await stripe.products.search({ 
+  const existingProducts = await stripe.products.search({
     query: "name:'S-Class Membership'" 
   });
   

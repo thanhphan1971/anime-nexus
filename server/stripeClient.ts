@@ -1,7 +1,7 @@
 import Stripe from "stripe";
 
 // Keep the API version explicit so behavior is stable across deploys.
-const STRIPE_API_VERSION = "2025-12-15.clover" as const;
+const STRIPE_API_VERSION = "2026-01-28.clover" as const;
 
 function looksLikeStripeSecretKey(key: string): boolean {
   // covers sk_test_ / sk_live_ / newer formats still start with sk_
