@@ -62,12 +62,16 @@ import {
   type InsertAdminAuditLog,
   type SecurityMetricsEvent,
   type InsertSecurityMetricsEvent,
+  type Banner,
+  type BannerCard,  
   users,
   posts,
   postLikes,
   cards,
   cardCategories,
   userCards,
+  banners,
+  bannerCards,
   marketListings,
   communities,
   communityMessages,
@@ -125,21 +129,23 @@ export interface IStorage {
   countSummonSharesToday(userId: string, today: Date): Promise<number>;
   
   // Card operations
-  getAllCards(): Promise<Card[]>;
-  getActiveCards(): Promise<Card[]>;
-  getStandardBannerCards(): Promise<Card[]>;
-  getCard(id: string): Promise<Card | undefined>;
-  createCard(card: InsertCard): Promise<Card>;
-  updateCard(id: string, updates: Partial<Card>): Promise<Card | undefined>;
-  deleteCard(id: string): Promise<void>;
-  archiveCard(id: string): Promise<void>;
-  unarchiveCard(id: string): Promise<void>;
-  getCardOwnerCount(id: string): Promise<number>;
-  getCardsWithOwnerCounts(): Promise<Array<Card & { ownerCount: number }>>;
-  getUserCards(userId: string): Promise<Array<UserCard & { card: Card }>>;
-  addCardToUser(userCard: InsertUserCard): Promise<UserCard>;
-  getCatalogCards(options: { page?: number; limit?: number; rarities?: string[]; sortOrder?: 'newest' | 'oldest' }): Promise<{ cards: Card[]; total: number; page: number; totalPages: number }>;
-  
+getAllCards(): Promise<Card[]>;
+getActiveCards(): Promise<Card[]>;
+getActiveBanners(): Promise<Banner[]>;
+getBannerByKey(key: string): Promise<Banner | undefined>;
+getBannerCards(bannerId: string): Promise<(BannerCard & { card: Card })[]>;
+getStandardBannerCards(): Promise<Card[]>;
+getCard(id: string): Promise<Card | undefined>;
+createCard(card: InsertCard): Promise<Card>;
+updateCard(id: string, updates: Partial<Card>): Promise<Card | undefined>;
+deleteCard(id: string): Promise<void>;
+archiveCard(id: string): Promise<void>;
+unarchiveCard(id: string): Promise<void>;
+getCardOwnerCount(id: string): Promise<number>;
+getCardsWithOwnerCounts(): Promise<Array<Card & { ownerCount: number }>>;
+getUserCards(userId: string): Promise<Array<UserCard & { card: Card }>>;
+addCardToUser(userCard: InsertUserCard): Promise<UserCard>;
+getCatalogCards(options: { page?: number; limit?: number; rarities?: string[]; sortOrder?: 'newest' | 'oldest' }): Promise<{ cards: Card[]; total: number; page: number; totalPages: number }>;
   // Card scheduling operations
   getScheduledCards(): Promise<Card[]>;
   getCardsForPool(pool: string): Promise<Card[]>;
@@ -528,30 +534,67 @@ export class DbStorage implements IStorage {
   }
 
   // Card operations
-  async getAllCards(): Promise<Card[]> {
-    return await db.select().from(cards);
-  }
+async getAllCards(): Promise<Card[]> {
+  return await db.select().from(cards);
+}
 
-  async getActiveCards(): Promise<Card[]> {
-    return await db.select().from(cards).where(eq(cards.isArchived, false));
-  }
+async getActiveCards(): Promise<Card[]> {
+  return await db.select().from(cards).where(eq(cards.isArchived, false));
+}
 
-  async getStandardBannerCards(): Promise<Card[]> {
-    return await db.select().from(cards).where(
-      and(
-        eq(cards.isArchived, false),
-        eq(cards.isStandard, true),
-        eq(cards.isEventLimited, false),
-        eq(cards.isPremiumOnly, false),
-        eq(cards.status, 'active')
-      )
-    );
-  }
+async getActiveBanners(): Promise<Banner[]> {
+  return await db
+    .select()
+    .from(banners)
+    .where(eq(banners.isActive, true));
+}
 
-  async getCard(id: string): Promise<Card | undefined> {
-    const result = await db.select().from(cards).where(eq(cards.id, id)).limit(1);
-    return result[0];
-  }
+async getBannerByKey(key: string): Promise<Banner | undefined> {
+  const [banner] = await db
+    .select()
+    .from(banners)
+    .where(eq(banners.key, key));
+
+  return banner;
+}
+
+async getBannerCards(
+  bannerId: string
+): Promise<(BannerCard & { card: Card })[]> {
+  const rows = await db
+    .select({
+      id: bannerCards.id,
+      bannerId: bannerCards.bannerId,
+      cardId: bannerCards.cardId,
+      rarity: bannerCards.rarity,
+      isFeatured: bannerCards.isFeatured,
+      weight: bannerCards.weight,
+      createdAt: bannerCards.createdAt,
+      card: cards,
+    })
+    .from(bannerCards)
+    .innerJoin(cards, eq(cards.id, bannerCards.cardId))
+    .where(eq(bannerCards.bannerId, bannerId));
+
+  return rows;
+}
+
+async getStandardBannerCards(): Promise<Card[]> {
+  return await db.select().from(cards).where(
+    and(
+      eq(cards.isArchived, false),
+      eq(cards.isStandard, true),
+      eq(cards.isEventLimited, false),
+      eq(cards.isPremiumOnly, false),
+      eq(cards.status, 'active')
+    )
+  );
+}
+
+async getCard(id: string): Promise<Card | undefined> {
+  const result = await db.select().from(cards).where(eq(cards.id, id)).limit(1);
+  return result[0];
+}
 
   async createCard(insertCard: InsertCard): Promise<Card> {
     const result = await db.insert(cards).values(insertCard).returning();

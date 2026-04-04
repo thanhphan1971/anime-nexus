@@ -17,7 +17,8 @@ import {
   insertDrawSchema,
   insertPrizeSchema,
   insertCardCategorySchema,
-} from "@shared/schema";  
+  type Banner,
+} from "@shared/schema";
 
 import { verifySupabaseToken, optionalSupabaseAuth, requireAdmin } from "./lib/supabaseAuth";
 import { calculateAgeBand } from "./lib/dbAdapter";
@@ -1068,7 +1069,44 @@ function pickRandomFromPool<T>(items: T[]): T | null {
   return items[Math.floor(Math.random() * items.length)];
 }
 
-  // Paid summon endpoint
+function rollBannerRarity(banner: Banner): "Common" | "Rare" | "Epic" | "Legendary" | "Mythic" {
+  const roll = Math.floor(Math.random() * 10000) + 1;
+
+  if (roll <= banner.commonRate) return "Common";
+  if (roll <= banner.commonRate + banner.rareRate) return "Rare";
+  if (roll <= banner.commonRate + banner.rareRate + banner.epicRate) return "Epic";
+  if (roll <= banner.commonRate + banner.rareRate + banner.epicRate + banner.legendaryRate) return "Legendary";
+  return "Mythic";
+}
+
+function pickWeightedBannerCard<T extends { weight: number }>(items: T[]): T {
+  const totalWeight = items.reduce((sum, item) => sum + item.weight, 0);
+
+  if (totalWeight <= 0) {
+    throw new Error("Banner pool has invalid total weight");
+  }
+
+  let roll = Math.random() * totalWeight;
+
+  for (const item of items) {
+    roll -= item.weight;
+    if (roll <= 0) return item;
+  }
+
+  return items[items.length - 1];
+}
+
+app.get("/api/banners", async (_req, res) => {
+  try {
+    const activeBanners = await storage.getActiveBanners();
+    return res.json(activeBanners);
+  } catch (error) {
+    console.error("[GET /api/banners] error", error);
+    return res.status(500).json({ error: "Failed to load banners" });
+  }
+});
+
+// Paid summon endpoint
 app.post("/api/cards/summon", verifySupabaseToken, async (req, res) => {
   try {
     if (!req.dbUser) {
@@ -1081,87 +1119,118 @@ app.post("/api/cards/summon", verifySupabaseToken, async (req, res) => {
   userId: user.id,
 });
 
-    console.log("[PAID SUMMON USER]", {
-      userId: user.id,
-      tokensBefore: user.tokens,
-      isPremium: user.isPremium,
-      paidSummonsToday: user.paidSummonsToday,
-      paidSummonsResetAt: user.paidSummonsResetAt,
-      paidReminderShownToday: user.paidReminderShownToday,
-    });
+   console.log("[PAID SUMMON USER]", {
+  userId: user.id,
+  tokensBefore: user.tokens,
+  isPremium: user.isPremium,
+  paidSummonsToday: user.paidSummonsToday,
+  paidSummonsResetAt: user.paidSummonsResetAt,
+  paidReminderShownToday: user.paidReminderShownToday,
+});
 
-    const summonCost = 100;
+const summonCost = 100;
 
-    if (user.tokens < summonCost) {
-      return res.status(400).json({ error: "Insufficient tokens" });
-    }
+const bannerKey =
+  typeof req.body?.bannerKey === "string" && req.body.bannerKey.trim()
+    ? req.body.bannerKey.trim()
+    : "standard";
 
-    const allCards = await storage.getActiveCards();
+const banner = await storage.getBannerByKey(bannerKey);
 
-    console.log("[PAID SUMMON] active cards count", allCards.length);
+if (!banner) {
+  return res.status(404).json({ error: "Banner not found" });
+}
 
-    if (allCards.length === 0) {
-      return res.status(400).json({ error: "No cards available in the gacha pool" });
-    }
+if (user.tokens < summonCost) {
+  return res.status(400).json({ error: "Insufficient tokens" });
+}
+
+    const bannerPool = await storage.getBannerCards(banner.id);
+
+console.log("[PAID SUMMON] banner pool", {
+  bannerKey: banner.key,
+  bannerName: banner.name,
+  poolSize: bannerPool.length,
+});
+
+if (bannerPool.length === 0) {
+  return res.status(400).json({ error: "Banner has no cards configured" });
+}
 
     const numPulls = user.isPremium ? 2 : 1;
 const pulledCards: any[] = [];
 
 for (let i = 0; i < numPulls; i++) {
-  const rarityRoll = rollPaidSummonRarity();
+  const rarityRoll = rollBannerRarity(banner);
 
-  let rarityPool = allCards.filter(
-    (card: any) => String(card.rarity || "").toLowerCase() === rarityRoll
+  let rarityPool = bannerPool.filter(
+    (entry) =>
+      String(entry.rarity || "").toLowerCase() === rarityRoll.toLowerCase() &&
+      !entry.card.isArchived
   );
 
-  if (rarityPool.length === 0 && rarityRoll === "mythic") {
-    rarityPool = allCards.filter(
-      (card: any) => String(card.rarity || "").toLowerCase() === "legendary"
+  if (rarityPool.length === 0 && rarityRoll === "Mythic") {
+    rarityPool = bannerPool.filter(
+      (entry) =>
+        String(entry.rarity || "").toLowerCase() === "legendary" &&
+        !entry.card.isArchived
     );
   }
 
   if (
     rarityPool.length === 0 &&
-    (rarityRoll === "mythic" || rarityRoll === "legendary")
+    (rarityRoll === "Mythic" || rarityRoll === "Legendary")
   ) {
-    rarityPool = allCards.filter(
-      (card: any) => String(card.rarity || "").toLowerCase() === "epic"
+    rarityPool = bannerPool.filter(
+      (entry) =>
+        String(entry.rarity || "").toLowerCase() === "epic" &&
+        !entry.card.isArchived
     );
   }
 
   if (
     rarityPool.length === 0 &&
-    (rarityRoll === "mythic" || rarityRoll === "legendary" || rarityRoll === "epic")
+    (rarityRoll === "Mythic" ||
+      rarityRoll === "Legendary" ||
+      rarityRoll === "Epic")
   ) {
-    rarityPool = allCards.filter(
-      (card: any) => String(card.rarity || "").toLowerCase() === "rare"
+    rarityPool = bannerPool.filter(
+      (entry) =>
+        String(entry.rarity || "").toLowerCase() === "rare" &&
+        !entry.card.isArchived
     );
   }
 
   if (rarityPool.length === 0) {
-    rarityPool = allCards.filter(
-      (card: any) => String(card.rarity || "").toLowerCase() === "common"
+    rarityPool = bannerPool.filter(
+      (entry) =>
+        String(entry.rarity || "").toLowerCase() === "common" &&
+        !entry.card.isArchived
     );
   }
 
   if (rarityPool.length === 0) {
-    rarityPool = allCards;
+    rarityPool = bannerPool.filter((entry) => !entry.card.isArchived);
   }
 
-  const randomCard = pickRandomFromPool(rarityPool);
-
-  if (!randomCard) {
+  if (rarityPool.length === 0) {
     return res.status(400).json({ error: "No summonable card found" });
   }
+
+  const selectedEntry = pickWeightedBannerCard(rarityPool);
+  const randomCard = selectedEntry.card;
 
   console.log("[PAID SUMMON ROLL]", {
     userId: user.id,
     pullIndex: i + 1,
+    bannerKey: banner.key,
     rarityRoll,
     rarityPoolSize: rarityPool.length,
-    selectedCardId: (randomCard as any).id,
-    selectedCardName: (randomCard as any).name,
-    selectedCardRarity: (randomCard as any).rarity,
+    selectedCardId: randomCard.id,
+    selectedCardName: randomCard.name,
+    selectedCardRarity: randomCard.rarity,
+    selectedCardWeight: selectedEntry.weight,
+    isFeatured: selectedEntry.isFeatured,
   });
 
   pulledCards.push(randomCard);
@@ -1263,11 +1332,15 @@ console.log("[PAID SUMMON FINAL TOKEN CHECK]", {
 });
 
     res.json({
-      cards: pulledCards,
-      showPaidSummonReminder: showReminder,
-      tokensRemaining: newTokenBalance,
-      summonCost,
-    });
+  cards: pulledCards,
+  banner: {
+    key: banner.key,
+    name: banner.name,
+  },
+  showPaidSummonReminder: showReminder,
+  tokensRemaining: newTokenBalance,
+  summonCost,
+});
   } catch (error: any) {
     console.error("[PAID SUMMON FATAL]", {
       message: error instanceof Error ? error.message : String(error),

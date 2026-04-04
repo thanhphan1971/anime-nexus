@@ -1,5 +1,14 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  text,
+  varchar,
+  integer,
+  boolean,
+  timestamp,
+  jsonb,
+  uniqueIndex,
+} from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -24,7 +33,6 @@ export const users = pgTable("users", {
   isPremium: boolean("is_premium").notNull().default(false),
   premiumStartDate: timestamp("premium_start_date"),
   premiumEndDate: timestamp("premium_end_date"),
-
   // ✅ NEW: whether the subscription is set to cancel at period end (Stripe cancel_at_period_end)
   willCancelAtPeriodEnd: boolean("will_cancel_at_period_end").notNull().default(false),
 
@@ -157,6 +165,18 @@ export const userCards = pgTable("user_cards", {
   cardId: varchar("card_id").notNull().references(() => cards.id, { onDelete: 'cascade' }),
   acquiredAt: timestamp("acquired_at").notNull().defaultNow(),
 });
+export const userCardHistory = pgTable("user_card_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  cardId: varchar("card_id").notNull().references(() => cards.id, { onDelete: "cascade" }),
+  acquiredAt: timestamp("acquired_at").notNull().defaultNow(),
+  source: text("source").notNull(),
+  costTokens: integer("cost_tokens").default(0).notNull(),
+  rarity: text("rarity").notNull(),
+  banner: text("banner").default("standard"),
+  pullNumber: integer("pull_number"),
+});
+
 
 // Marketplace Listings
 export const marketListings = pgTable("market_listings", {
@@ -167,6 +187,53 @@ export const marketListings = pgTable("market_listings", {
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+export const banners = pgTable("banners", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  key: text("key").notNull().unique(),
+  name: text("name").notNull(),
+  description: text("description"),
+  type: text("type").notNull(), // "permanent" | "featured" | "seasonal"
+  isActive: boolean("is_active").notNull().default(true),
+
+  startsAt: timestamp("starts_at"),
+  endsAt: timestamp("ends_at"),
+
+  commonRate: integer("common_rate").notNull(),
+  rareRate: integer("rare_rate").notNull(),
+  epicRate: integer("epic_rate").notNull(),
+  legendaryRate: integer("legendary_rate").notNull(),
+  mythicRate: integer("mythic_rate").notNull(),
+
+  featuredLegendaryRate: integer("featured_legendary_rate"),
+  featuredMythicRate: integer("featured_mythic_rate"),
+
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const bannerCards = pgTable(
+  "banner_cards",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    bannerId: varchar("banner_id")
+      .notNull()
+      .references(() => banners.id, { onDelete: "cascade" }),
+    cardId: varchar("card_id")
+      .notNull()
+      .references(() => cards.id, { onDelete: "cascade" }),
+    rarity: text("rarity").notNull(),
+    isFeatured: boolean("is_featured").notNull().default(false),
+    weight: integer("weight").notNull().default(1),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    bannerCardUnique: uniqueIndex("banner_cards_banner_card_unique").on(
+      table.bannerId,
+      table.cardId
+    ),
+  })
+);
 
 // Communities (chat rooms)
 export const communities = pgTable("communities", {
@@ -471,16 +538,26 @@ export const parentNotifications = pgTable("parent_notifications", {
 });
 
 // Token Ledger - idempotent token crediting with unique constraint
-export const tokenLedger = pgTable("token_ledger", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
-  source: text("source").notNull(),
-  purchaseRequestId: varchar("purchase_request_id").notNull().references(() => purchaseRequests.id, { onDelete: 'cascade' }),
-  deltaTokens: integer("delta_tokens").notNull(),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-}, (table) => ({
-  uniqueSourcePurchase: sql`UNIQUE (source, purchase_request_id)`,
-}));
+export const tokenLedger = pgTable(
+  "token_ledger",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    userId: varchar("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    source: text("source").notNull(),
+    purchaseRequestId: varchar("purchase_request_id")
+      .notNull()
+      .references(() => purchaseRequests.id, { onDelete: "cascade" }),
+    deltaTokens: integer("delta_tokens").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    tokenLedgerSourcePurchaseRequestUnique: uniqueIndex(
+      "token_ledger_source_purchase_request_unique"
+    ).on(table.source, table.purchaseRequestId),
+  })
+);
 
 // Watchlist Items - user's anime tracking list (AniList integration)
 export const watchlistItems = pgTable("watchlist_items", {
@@ -678,6 +755,17 @@ export const insertMarketListingSchema = createInsertSchema(marketListings).omit
   isActive: true,
 });
 
+export const insertBannerSchema = createInsertSchema(banners).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertBannerCardSchema = createInsertSchema(bannerCards).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertCommunitySchema = createInsertSchema(communities).omit({
   id: true,
   createdAt: true,
@@ -842,6 +930,12 @@ export type InsertUserCard = z.infer<typeof insertUserCardSchema>;
 export type UserCard = typeof userCards.$inferSelect;
 
 export type InsertMarketListing = z.infer<typeof insertMarketListingSchema>;
+export type InsertBanner = z.infer<typeof insertBannerSchema>;
+export type Banner = typeof banners.$inferSelect;
+
+export type InsertBannerCard = z.infer<typeof insertBannerCardSchema>;
+export type BannerCard = typeof bannerCards.$inferSelect;
+
 export type MarketListing = typeof marketListings.$inferSelect;
 
 export type InsertCommunity = z.infer<typeof insertCommunitySchema>;
