@@ -1235,10 +1235,20 @@ for (let i = 0; i < numPulls; i++) {
 
   pulledCards.push(randomCard);
 
-  await storage.addCardToUser({
-    userId: user.id,
-    cardId: randomCard.id,
-  });
+await storage.addCardToUser({
+  userId: user.id,
+  cardId: randomCard.id,
+});
+
+await storage.createUserCardHistory({
+  userId: user.id,
+  cardId: randomCard.id,
+  source: "paid_summon",
+  costTokens: summonCost,
+  rarity: randomCard.rarity,
+  banner: banner.key,
+  pullNumber: i + 1,
+});
 }
 
     const newTokenBalance = user.tokens - summonCost;
@@ -1462,6 +1472,16 @@ console.log("[PAID SUMMON FINAL TOKEN CHECK]", {
 await storage.addCardToUser({
   userId: user.id,
   cardId: pulledCard.id,
+});
+
+await storage.createUserCardHistory({
+  userId: user.id,
+  cardId: pulledCard.id,
+  source: "free_summon",
+  costTokens: 0,
+  rarity: pulledCard.rarity,
+  banner: "standard",
+  pullNumber: 1,
 });
 
       // Update free summons counter

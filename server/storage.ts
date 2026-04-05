@@ -70,6 +70,7 @@ import {
   cards,
   cardCategories,
   userCards,
+  userCardHistory,
   banners,
   bannerCards,
   marketListings,
@@ -145,6 +146,17 @@ getCardOwnerCount(id: string): Promise<number>;
 getCardsWithOwnerCounts(): Promise<Array<Card & { ownerCount: number }>>;
 getUserCards(userId: string): Promise<Array<UserCard & { card: Card }>>;
 addCardToUser(userCard: InsertUserCard): Promise<UserCard>;
+
+createUserCardHistory(data: {
+  userId: string;
+  cardId: string;
+  source: string;
+  costTokens?: number;
+  rarity: string;
+  banner?: string;
+  pullNumber?: number;
+}): Promise<void>;
+  
 getCatalogCards(options: { page?: number; limit?: number; rarities?: string[]; sortOrder?: 'newest' | 'oldest' }): Promise<{ cards: Card[]; total: number; page: number; totalPages: number }>;
   // Card scheduling operations
   getScheduledCards(): Promise<Card[]>;
@@ -661,6 +673,26 @@ async getCard(id: string): Promise<Card | undefined> {
     const result = await db.insert(userCards).values(insertUserCard).returning();
     return result[0];
   }
+
+async createUserCardHistory(data: {
+  userId: string;
+  cardId: string;
+  source: string;
+  costTokens?: number;
+  rarity: string;
+  banner?: string;
+  pullNumber?: number;
+}): Promise<void> {
+  await db.insert(userCardHistory).values({
+    userId: data.userId,
+    cardId: data.cardId,
+    source: data.source,
+    costTokens: data.costTokens ?? 0,
+    rarity: data.rarity,
+    banner: data.banner ?? "standard",
+    pullNumber: data.pullNumber ?? null,
+  });
+}
 
   async getCatalogCards(options: { page?: number; limit?: number; rarities?: string[]; sortOrder?: 'newest' | 'oldest' }): Promise<{ cards: Card[]; total: number; page: number; totalPages: number }> {
     const page = options.page || 1;
