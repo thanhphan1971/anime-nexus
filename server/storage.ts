@@ -9,6 +9,8 @@ import {
   type InsertCardCategory,
   type UserCard,
   type InsertUserCard,
+  type InsertUserCardHistory,
+  type UserCardHistory,
   type MarketListing,
   type InsertMarketListing,
   type Community,
@@ -119,6 +121,11 @@ export interface IStorage {
   incrementUserTokens(userId: string, amount: number): Promise<void>;
   updateUserSupabaseId(id: string, supabaseUserId: string): Promise<User | undefined>;
   getAllUsers(): Promise<User[]>;
+
+    // User Card History (summon history)
+  createUserCardHistory(entry: InsertUserCardHistory): Promise<UserCardHistory>;
+  getUserCardHistory(userId: string, limit?: number): Promise<UserCardHistory[]>;
+  getUserCardHistoryCount(userId: string): Promise<number>;
   
   // Post operations
   createPost(post: InsertPost): Promise<Post>;
@@ -147,16 +154,6 @@ getCardsWithOwnerCounts(): Promise<Array<Card & { ownerCount: number }>>;
 getUserCards(userId: string): Promise<Array<UserCard & { card: Card }>>;
 addCardToUser(userCard: InsertUserCard): Promise<UserCard>;
 
-createUserCardHistory(data: {
-  userId: string;
-  cardId: string;
-  source: string;
-  costTokens?: number;
-  rarity: string;
-  banner?: string;
-  pullNumber?: number;
-}): Promise<void>;
-  
 getCatalogCards(options: { page?: number; limit?: number; rarities?: string[]; sortOrder?: 'newest' | 'oldest' }): Promise<{ cards: Card[]; total: number; page: number; totalPages: number }>;
   // Card scheduling operations
   getScheduledCards(): Promise<Card[]>;
@@ -674,49 +671,64 @@ async getCard(id: string): Promise<Card | undefined> {
     return result[0];
   }
 
-async createUserCardHistory(data: {
-  userId: string;
-  cardId: string;
-  source: string;
-  costTokens?: number;
-  rarity: string;
-  banner?: string;
-  pullNumber?: number;
-}): Promise<void> {
+async createUserCardHistory(entry: InsertUserCardHistory): Promise<UserCardHistory> {
   console.log("STORAGE_HISTORY_MARKER_20260405_A");
-  console.log("[STORAGE createUserCardHistory] start", data);  
+  console.log("[STORAGE createUserCardHistory] start", entry);
 
-  await db.insert(userCardHistory).values({
-    userId: data.userId,
-    cardId: data.cardId,
-    source: data.source,
-    costTokens: data.costTokens ?? 0,
-    rarity: data.rarity,
-    banner: data.banner ?? "standard",
-    pullNumber: data.pullNumber ?? null,
-  });
+  const [row] = await db
+    .insert(userCardHistory)
+    .values({
+      userId: entry.userId,
+      cardId: entry.cardId,
+      source: entry.source,
+      costTokens: entry.costTokens ?? 0,
+      rarity: entry.rarity,
+      banner: entry.banner ?? "standard",
+      pullNumber: entry.pullNumber ?? null,
+    })
+    .returning();
 
   console.log("[STORAGE createUserCardHistory] inserted", {
-    userId: data.userId,
-    cardId: data.cardId,
-    source: data.source,
+    userId: row.userId,
+    cardId: row.cardId,
+    source: row.source,
+    id: row.id,
   });
+
+  return row;
 }
 
-  async getCatalogCards(options: { page?: number; limit?: number; rarities?: string[]; sortOrder?: 'newest' | 'oldest' }): Promise<{ cards: Card[]; total: number; page: number; totalPages: number }> {
-    const page = options.page || 1;
-    const limit = options.limit || 20;
-    const offset = (
-      page - 1) * limit;
-    const sortOrder = options.sortOrder || 'newest';
-    
-    // Build conditions: only released, non-archived cards
-    let conditions = and(eq(cards.isReleased, true), eq(cards.isArchived, false));
-    
-    // Filter by rarities if provided - using parameterized inArray for safety
-    if (options.rarities && options.rarities.length > 0) {
-      conditions = and(conditions, inArray(cards.rarity, options.rarities));
-    }
+async getUserCardHistory(userId: string, limit = 50): Promise<UserCardHistory[]> {
+  return await db
+    .select()
+    .from(userCardHistory)
+    .where(eq(userCardHistory.userId, userId))
+    .orderBy(desc(userCardHistory.acquiredAt))
+    .limit(limit);
+}
+
+async getUserCardHistoryCount(userId: string): Promise<number> {
+  const result = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(userCardHistory)
+    .where(eq(userCardHistory.userId, userId));
+
+  return result[0]?.count ?? 0;
+}
+
+async getCatalogCards(options: { page?: number; limit?: number; rarities?: string[]; sortOrder?: 'newest' | 'oldest' }): Promise<{ cards: Card[]; total: number; page: number; totalPages: number }> {
+  const page = options.page || 1;
+  const limit = options.limit || 20;
+  const offset = (page - 1) * limit;
+  const sortOrder = options.sortOrder || 'newest';
+
+  // Build conditions: only released, non-archived cards
+  let conditions = and(eq(cards.isReleased, true), eq(cards.isArchived, false));
+
+  // Filter by rarities if provided - using parameterized inArray for safety
+  if (options.rarities && options.rarities.length > 0) {
+    conditions = and(conditions, inArray(cards.rarity, options.rarities));
+  }
     
     // Get total count
     const countResult = await db

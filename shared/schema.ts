@@ -929,6 +929,9 @@ export type Card = typeof cards.$inferSelect;
 export type InsertUserCard = z.infer<typeof insertUserCardSchema>;
 export type UserCard = typeof userCards.$inferSelect;
 
+export type InsertUserCardHistory = typeof userCardHistory.$inferInsert;
+export type UserCardHistory = typeof userCardHistory.$inferSelect;
+
 export type InsertMarketListing = z.infer<typeof insertMarketListingSchema>;
 export type InsertBanner = z.infer<typeof insertBannerSchema>;
 export type Banner = typeof banners.$inferSelect;

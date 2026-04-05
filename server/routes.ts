@@ -1159,7 +1159,8 @@ if (bannerPool.length === 0) {
 
     const numPulls = user.isPremium ? 2 : 1;
 const pulledCards: any[] = [];
-
+const historyCountBefore = await storage.getUserCardHistoryCount(user.id);
+    
 for (let i = 0; i < numPulls; i++) {
   const rarityRoll = rollBannerRarity(banner);
 
@@ -1234,7 +1235,9 @@ for (let i = 0; i < numPulls; i++) {
   });
 
   pulledCards.push(randomCard);
-
+  
+const pullNumber = historyCountBefore + i + 1;
+  
 await storage.addCardToUser({
   userId: user.id,
   cardId: randomCard.id,
@@ -1249,7 +1252,7 @@ console.log("[PAID SUMMON HISTORY WRITE]", {
   costTokens: summonCost,
   rarity: randomCard.rarity,
   banner: banner.key,
-  pullNumber: i + 1,
+  pullNumber,
 });
 
 await storage.createUserCardHistory({
@@ -1259,7 +1262,7 @@ await storage.createUserCardHistory({
   costTokens: summonCost,
   rarity: randomCard.rarity,
   banner: banner.key,
-  pullNumber: i + 1,
+  pullNumber,
 });
 }
 
