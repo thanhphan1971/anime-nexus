@@ -683,6 +683,8 @@ async createUserCardHistory(data: {
   banner?: string;
   pullNumber?: number;
 }): Promise<void> {
+  console.log("[STORAGE createUserCardHistory] start", data);
+
   await db.insert(userCardHistory).values({
     userId: data.userId,
     cardId: data.cardId,
@@ -692,12 +694,19 @@ async createUserCardHistory(data: {
     banner: data.banner ?? "standard",
     pullNumber: data.pullNumber ?? null,
   });
+
+  console.log("[STORAGE createUserCardHistory] inserted", {
+    userId: data.userId,
+    cardId: data.cardId,
+    source: data.source,
+  });
 }
 
   async getCatalogCards(options: { page?: number; limit?: number; rarities?: string[]; sortOrder?: 'newest' | 'oldest' }): Promise<{ cards: Card[]; total: number; page: number; totalPages: number }> {
     const page = options.page || 1;
     const limit = options.limit || 20;
-    const offset = (page - 1) * limit;
+    const offset = (
+      page - 1) * limit;
     const sortOrder = options.sortOrder || 'newest';
     
     // Build conditions: only released, non-archived cards
