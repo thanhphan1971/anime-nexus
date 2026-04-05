@@ -70,6 +70,13 @@ app.get("/api/deploy-marker", (_req, res) => {
   });
 });
 
+app.get("/api/boot-check", (_req, res) => {
+  res.json({
+    marker: "BOOT_MARKER_HISTORY_20260405_A",
+    time: new Date().toISOString(),
+  });
+});
+
 // Replit healthcheck protection
 // Replit healthcheck hits "/" while the app boots.
 // Return 200 immediately until the frontend is ready.
