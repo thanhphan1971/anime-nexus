@@ -50,27 +50,41 @@ function stripeIsConfigured(): boolean {
 }
   
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
-  // -------------------------------------------------------
-  // ENV CHECK (temporary debug endpoint - remove after testing)
-  // -------------------------------------------------------
-  app.get("/api/envcheck", (_req, res) => {
-    res.json({
-      APP_RUNTIME: process.env.APP_RUNTIME || null,
-      NODE_ENV: process.env.NODE_ENV || null,
+ 
+// -------------------------------------------------------
+// ENV CHECK (temporary debug endpoint - remove after testing)
+// -------------------------------------------------------
+app.get("/api/envcheck", (_req, res) => {
+  res.json({
+    APP_RUNTIME: process.env.APP_RUNTIME || null,
+    NODE_ENV: process.env.NODE_ENV || null,
 
-      // Presence only (no secret values)
-      STRIPE_WEBHOOK_SECRET: !!process.env.STRIPE_WEBHOOK_SECRET,
-      STRIPE_SECRET_KEY: !!process.env.STRIPE_SECRET_KEY,
-      STRIPE_PUBLISHABLE_KEY: !!process.env.STRIPE_PUBLISHABLE_KEY,
+    // Presence only (no secret values)
+    STRIPE_WEBHOOK_SECRET: !!process.env.STRIPE_WEBHOOK_SECRET,
+    STRIPE_SECRET_KEY: !!process.env.STRIPE_SECRET_KEY,
+    STRIPE_PUBLISHABLE_KEY: !!process.env.STRIPE_PUBLISHABLE_KEY,
 
-      keysStartingSTRIPE: Object.keys(process.env)
-        .filter((k) => k.startsWith("STRIPE"))
-        .sort(),
-    });
+    keysStartingSTRIPE: Object.keys(process.env)
+      .filter((k) => k.startsWith("STRIPE"))
+      .sort(),
   });
+});
 
+app.get("/api/user-card-history", verifySupabaseToken, async (req, res) => {
+  try {
+    if (!req.dbUser) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
 
-  // ================= AUTH ROUTES =================
+    const history = await storage.getUserCardHistory(req.dbUser.id, 50);
+    res.json({ history });
+  } catch (error: any) {
+    console.error("[USER CARD HISTORY ERROR]", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ================= AUTH ROUTES =================
 
   app.post("/api/auth/signup", async (req, res) => {
     try {
