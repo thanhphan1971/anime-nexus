@@ -12,6 +12,8 @@ console.log("[BOOT MARKER TOP]", {
   now: new Date().toISOString(),
 });
 
+console.log("BOOT_MARKER_HISTORY_20260405_A");
+
 // --------------------------------------------------
 // App + server
 // --------------------------------------------------
