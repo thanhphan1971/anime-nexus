@@ -683,7 +683,8 @@ async createUserCardHistory(data: {
   banner?: string;
   pullNumber?: number;
 }): Promise<void> {
-  console.log("[STORAGE createUserCardHistory] start", data);
+  console.log("STORAGE_HISTORY_MARKER_20260405_A");
+  console.log("[STORAGE createUserCardHistory] start", data);  
 
   await db.insert(userCardHistory).values({
     userId: data.userId,

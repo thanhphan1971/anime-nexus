@@ -1240,6 +1240,8 @@ await storage.addCardToUser({
   cardId: randomCard.id,
 });
 
+console.log("PAID_HISTORY_MARKER_20260405_A");
+  
 console.log("[PAID SUMMON HISTORY WRITE]", {
   userId: user.id,
   cardId: randomCard.id,
