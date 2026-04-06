@@ -1498,6 +1498,8 @@ console.log("[PAID SUMMON FINAL TOKEN CHECK]", {
   cardRarity: pulledCard.rarity,
 });
 
+const pullNumber = (await storage.getUserCardHistoryCount(user.id)) + 1;      
+
 await storage.addCardToUser({
   userId: user.id,
   cardId: pulledCard.id,
@@ -1510,7 +1512,7 @@ console.log("[FREE SUMMON HISTORY WRITE]", {
   costTokens: 0,
   rarity: pulledCard.rarity,
   banner: "standard",
-  pullNumber: 1,
+  pullNumber,
 });
       
 await storage.createUserCardHistory({
@@ -1520,7 +1522,7 @@ await storage.createUserCardHistory({
   costTokens: 0,
   rarity: pulledCard.rarity,
   banner: "standard",
-  pullNumber: 1,
+  pullNumber,
 });
 
       // Update free summons counter
