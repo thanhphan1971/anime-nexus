@@ -30,6 +30,7 @@ export const users = pgTable("users", {
   followers: integer("followers").notNull().default(0),
   following: integer("following").notNull().default(0),
   tokens: integer("tokens").notNull().default(500),
+  sparks: integer("sparks").notNull().default(0),
   isPremium: boolean("is_premium").notNull().default(false),
   premiumStartDate: timestamp("premium_start_date"),
   premiumEndDate: timestamp("premium_end_date"),
@@ -38,7 +39,8 @@ export const users = pgTable("users", {
 
   isBanned: boolean("is_banned").notNull().default(false),
   isAdmin: boolean("is_admin").notNull().default(false),
-  animeInterests: text("anime_interests").array().default(sql`ARRAY[]::text[]`),
+  animeInterests
+    : text("anime_interests").array().default(sql`ARRAY[]::text[]`),
   theme: text("theme").default('cyberpunk'),
   birthDate: timestamp("birth_date"),
 
@@ -926,6 +928,12 @@ export type CardCategory = typeof cardCategories.$inferSelect;
 export type InsertCard = z.infer<typeof insertCardSchema>;
 export type Card = typeof cards.$inferSelect;
 
+export type Banner = typeof banners.$inferSelect;
+export type InsertBanner = typeof banners.$inferInsert;
+
+export type BannerCard = typeof bannerCards.$inferSelect;
+export type InsertBannerCard = typeof bannerCards.$inferInsert;
+
 export type InsertUserCard = z.infer<typeof insertUserCardSchema>;
 export type UserCard = typeof userCards.$inferSelect;
 
@@ -933,12 +941,6 @@ export type InsertUserCardHistory = typeof userCardHistory.$inferInsert;
 export type UserCardHistory = typeof userCardHistory.$inferSelect;
 
 export type InsertMarketListing = z.infer<typeof insertMarketListingSchema>;
-export type InsertBanner = z.infer<typeof insertBannerSchema>;
-export type Banner = typeof banners.$inferSelect;
-
-export type InsertBannerCard = z.infer<typeof insertBannerCardSchema>;
-export type BannerCard = typeof bannerCards.$inferSelect;
-
 export type MarketListing = typeof marketListings.$inferSelect;
 
 export type InsertCommunity = z.infer<typeof insertCommunitySchema>;

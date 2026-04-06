@@ -1120,6 +1120,16 @@ app.get("/api/banners", async (_req, res) => {
   }
 });
 
+app.get("/api/sparks", verifySupabaseToken, async (req, res) => {
+  if (!req.dbUser) {
+    return res.status(401).json({ error: "Not authenticated" });
+  }
+
+  return res.json({
+    sparks: req.dbUser.sparks ?? 0,
+  });
+});  
+  
 // Paid summon endpoint
 app.post("/api/cards/summon", verifySupabaseToken, async (req, res) => {
   try {
@@ -1292,6 +1302,10 @@ await storage.createUserCardHistory({
     await storage.updateUser(user.id, {
       tokens: newTokenBalance,
     });
+
+    await storage.updateUser(user.id, {
+  sparks: (user.sparks ?? 0) + 1,
+});
 
     let paidSummonsToday = user.paidSummonsToday || 0;
     let paidResetAt = user.paidSummonsResetAt ? new Date(user.paidSummonsResetAt) : null;

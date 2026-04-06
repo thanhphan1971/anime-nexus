@@ -122,10 +122,16 @@ export interface IStorage {
   updateUserSupabaseId(id: string, supabaseUserId: string): Promise<User | undefined>;
   getAllUsers(): Promise<User[]>;
 
-    // User Card History (summon history)
+  // User Card History (summon history)
   createUserCardHistory(entry: InsertUserCardHistory): Promise<UserCardHistory>;
   getUserCardHistory(userId: string, limit?: number): Promise<UserCardHistory[]>;
   getUserCardHistoryCount(userId: string): Promise<number>;
+
+  // Banners
+  getActiveBanners(): Promise<Banner[]>;
+  getBannerByKey(key: string): Promise<Banner | undefined>;
+  getBannerCards(bannerId: string): Promise<Array<BannerCard & { card: Card }>>;
+  
   
   // Post operations
   createPost(post: InsertPost): Promise<Post>;
@@ -139,9 +145,7 @@ export interface IStorage {
   // Card operations
 getAllCards(): Promise<Card[]>;
 getActiveCards(): Promise<Card[]>;
-getActiveBanners(): Promise<Banner[]>;
-getBannerByKey(key: string): Promise<Banner | undefined>;
-getBannerCards(bannerId: string): Promise<(BannerCard & { card: Card })[]>;
+
 getStandardBannerCards(): Promise<Card[]>;
 getCard(id: string): Promise<Card | undefined>;
 createCard(card: InsertCard): Promise<Card>;
