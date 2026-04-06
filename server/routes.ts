@@ -1130,18 +1130,6 @@ app.get("/api/sparks", verifySupabaseToken, async (req, res) => {
   });
 });  
 
-app.post("/api/dev/add-tokens", verifySupabaseToken, async (req, res) => {
-  if (!req.dbUser) return res.status(401).json({ error: "Not authenticated" });
-
-  const newBalance = (req.dbUser.tokens ?? 0) + 1000;
-
-  await storage.updateUser(req.dbUser.id, {
-    tokens: newBalance,
-  });
-
-  res.json({ tokens: newBalance });
-});  
-  
 // Paid summon endpoint
 app.post("/api/cards/summon", verifySupabaseToken, async (req, res) => {
   try {
