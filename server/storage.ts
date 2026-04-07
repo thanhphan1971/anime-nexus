@@ -65,7 +65,10 @@ import {
   type SecurityMetricsEvent,
   type InsertSecurityMetricsEvent,
   type Banner,
-  type BannerCard,  
+  type BannerCard,
+  type UserBannerSparks,
+  type InsertUserBannerSparks,
+  userBannerSparks,
   users,
   posts,
   postLikes,
@@ -417,56 +420,7 @@ export class DbStorage implements IStorage {
     return result[0];
   }
 
-  async getUserBannerSparks(userId: string, bannerKey: string) {
-  const [row] = await db
-    .select()
-    .from(userBannerSparks)
-    .where(
-      and(
-        eq(userBannerSparks.userId, userId),
-        eq(userBannerSparks.bannerKey, bannerKey)
-      )
-    )
-    .limit(1);
-
-  return row;
-}
-
-async incrementUserBannerSparks(userId: string, bannerKey: string, amount: number) {
-  const existing = await this.getUserBannerSparks(userId, bannerKey);
-
-  if (!existing) {
-    await db.insert(userBannerSparks).values({
-      userId,
-      bannerKey,
-      sparks: amount,
-    });
-  } else {
-    await db
-      .update(userBannerSparks)
-      .set({
-        sparks: existing.sparks + amount,
-        updatedAt: new Date(),
-      })
-      .where(eq(userBannerSparks.id, existing.id));
-  }
-}
-
-async spendUserBannerSparks(userId: string, bannerKey: string, amount: number) {
-  const existing = await this.getUserBannerSparks(userId, bannerKey);
-
-  if (!existing || existing.sparks < amount) {
-    throw new Error("Not enough banner sparks");
-  }
-
-  await db
-    .update(userBannerSparks)
-    .set({
-      sparks: existing.sparks - amount,
-      updatedAt: new Date(),
-    })
-    .where(eq(userBannerSparks.id, existing.id));
-}
+  
 
   async awardXp(userId: string, amount: number): Promise<User | undefined> {
   const user = await this.getUser(userId);
