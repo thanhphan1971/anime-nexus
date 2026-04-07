@@ -1161,10 +1161,7 @@ app.get("/api/sparks", verifySupabaseToken, async (req, res) => {
     stack: error?.stack,
     error,
   });
-  return res.status(500).json({
-    error: "Failed to load sparks",
-    detail: error?.message ?? String(error),
-  });
+  return res.status(500).json({ error: "Failed to load sparks" });
 }
 });
   
