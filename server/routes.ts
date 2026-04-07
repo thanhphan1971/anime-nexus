@@ -1380,7 +1380,7 @@ await storage.createUserCardHistory({
       tokens: newTokenBalance,
     });
 
-    await storage.incrementUserBannerSparks(user.id, banner.key, 1);
+    await storage.incrementUserBannerSparks(user.id, bannerKey, 1);
 
     let paidSummonsToday = user.paidSummonsToday || 0;
     let paidResetAt = user.paidSummonsResetAt ? new Date(user.paidSummonsResetAt) : null;
