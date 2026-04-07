@@ -66,8 +66,6 @@ import {
   type InsertSecurityMetricsEvent,
   type Banner,
   type BannerCard,
-  type UserBannerSparks,
-  type InsertUserBannerSparks,
   userBannerSparks,
   users,
   posts,
@@ -109,6 +107,8 @@ import {
 import { db } from "./db";
 import { eq, and, sql, desc, ne, inArray, lte, lt, asc, gt, isNull } from "drizzle-orm";
 import { calculateLevelFromXp } from "./lib/leveling";
+// Sparks types (local inference from schema)
+type UserBannerSparksRow = typeof userBannerSparks.$inferSelect;
 
 export interface IStorage {
   // User operations
@@ -134,6 +134,10 @@ export interface IStorage {
   getActiveBanners(): Promise<Banner[]>;
   getBannerByKey(key: string): Promise<Banner | undefined>;
   getBannerCards(bannerId: string): Promise<Array<BannerCard & { card: Card }>>;
+
+  // Sparks
+getUserBannerSparks(userId: string, bannerKey: string): Promise<UserBannerSparksRow | null>;
+spendUserBannerSparks(userId: string, bannerKey: string, amount: number): Promise<void>;
   
   
   // Post operations
@@ -457,6 +461,35 @@ export class DbStorage implements IStorage {
   async getAllUsers(): Promise<User[]> {
     return await db.select().from(users).where(eq(users.isBanned, false));
   }
+
+  async getUserBannerSparks(userId: string, bannerKey: string): Promise<UserBannerSparksRow | null> {
+  const rows = await db
+    .select()
+    .from(userBannerSparks)
+    .where(
+      and(
+        eq(userBannerSparks.userId, userId),
+        eq(userBannerSparks.bannerKey, bannerKey)
+      )
+    )
+    .limit(1);
+
+  return rows[0] ?? null;
+}
+
+async spendUserBannerSparks(userId: string, bannerKey: string, amount: number): Promise<void> {
+  await db
+    .update(userBannerSparks)
+    .set({
+      sparks: sql`${userBannerSparks.sparks} - ${amount}`,
+    })
+    .where(
+      and(
+        eq(userBannerSparks.userId, userId),
+        eq(userBannerSparks.bannerKey, bannerKey)
+      )
+    );
+}
 
   // Post operations
   async createPost(insertPost: InsertPost): Promise<Post> {
