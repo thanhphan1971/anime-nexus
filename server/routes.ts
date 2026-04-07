@@ -1125,19 +1125,33 @@ app.get("/api/sparks", verifySupabaseToken, async (req, res) => {
     return res.status(401).json({ error: "Not authenticated" });
   }
 
-  return res.json({
-    sparks: req.dbUser.sparks ?? 0,
-  });
-});  
+  const bannerKey =
+    typeof req.query?.bannerKey === "string" && req.query.bannerKey.trim()
+      ? req.query.bannerKey.trim()
+      : "standard";
 
-  app.post("/api/sparks/redeem", verifySupabaseToken, async (req, res) => {
+  const sparkRow = await storage.getUserBannerSparks(req.dbUser.id, bannerKey);
+
+  return res.json({
+    sparks: sparkRow?.sparks ?? 0,
+  });
+});
+  
+app.post("/api/sparks/redeem", verifySupabaseToken, async (req, res) => {
   if (!req.dbUser) {
     return res.status(401).json({ error: "Not authenticated" });
   }
 
   const user = req.dbUser;
 
-  if ((user.sparks ?? 0) < 50) {
+  const bannerKey =
+    typeof req.body?.bannerKey === "string" && req.body.bannerKey.trim()
+      ? req.body.bannerKey.trim()
+      : "standard";
+
+  const sparkRow = await storage.getUserBannerSparks(user.id, bannerKey);
+
+  if (!sparkRow || sparkRow.sparks < 50) {
     return res.status(400).json({ error: "Not enough sparks" });
   }
 
@@ -1157,15 +1171,13 @@ app.get("/api/sparks", verifySupabaseToken, async (req, res) => {
     cardId: reward.id,
   });
 
-  await storage.updateUser(user.id, {
-    sparks: user.sparks - 50,
-  });
+  await storage.spendUserBannerSparks(user.id, bannerKey, 50);
 
   res.json({
     reward,
-    sparksRemaining: user.sparks - 50,
+    sparksRemaining: sparkRow.sparks - 50,
   });
-});
+});  
 
 // Paid summon endpoint
 app.post("/api/cards/summon", verifySupabaseToken, async (req, res) => {
@@ -1340,9 +1352,7 @@ await storage.createUserCardHistory({
       tokens: newTokenBalance,
     });
 
-    await storage.updateUser(user.id, {
-  sparks: (user.sparks ?? 0) + 1,
-});
+    await storage.incrementUserBannerSparks(user.id, banner.key, 1);
 
     let paidSummonsToday = user.paidSummonsToday || 0;
     let paidResetAt = user.paidSummonsResetAt ? new Date(user.paidSummonsResetAt) : null;

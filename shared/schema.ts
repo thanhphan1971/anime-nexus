@@ -100,6 +100,15 @@ export const users = pgTable("users", {
   paidReminderShownToday: boolean("paid_reminder_shown_today").notNull().default(false), // Whether reminder was shown today
 });
 
+export const userBannerSparks = pgTable("user_banner_sparks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  bannerKey: text("banner_key").notNull(),
+  sparks: integer("sparks").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 // Posts table
 export const posts = pgTable("posts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
