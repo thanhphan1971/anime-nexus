@@ -1130,6 +1130,43 @@ app.get("/api/sparks", verifySupabaseToken, async (req, res) => {
   });
 });  
 
+  app.post("/api/sparks/redeem", verifySupabaseToken, async (req, res) => {
+  if (!req.dbUser) {
+    return res.status(401).json({ error: "Not authenticated" });
+  }
+
+  const user = req.dbUser;
+
+  if ((user.sparks ?? 0) < 50) {
+    return res.status(400).json({ error: "Not enough sparks" });
+  }
+
+  const epicCards = await storage.getActiveCards();
+  const epicPool = epicCards.filter(
+    (c) => String(c.rarity).toLowerCase() === "epic"
+  );
+
+  if (epicPool.length === 0) {
+    return res.status(400).json({ error: "No epic cards available" });
+  }
+
+  const reward = epicPool[Math.floor(Math.random() * epicPool.length)];
+
+  await storage.addCardToUser({
+    userId: user.id,
+    cardId: reward.id,
+  });
+
+  await storage.updateUser(user.id, {
+    sparks: user.sparks - 50,
+  });
+
+  res.json({
+    reward,
+    sparksRemaining: user.sparks - 50,
+  });
+});
+
 // Paid summon endpoint
 app.post("/api/cards/summon", verifySupabaseToken, async (req, res) => {
   try {
