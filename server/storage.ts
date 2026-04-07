@@ -477,6 +477,23 @@ export class DbStorage implements IStorage {
   return rows[0] ?? null;
 }
 
+async incrementUserBannerSparks(userId: string, bannerKey: string, amount: number): Promise<void> {
+  await db
+    .insert(userBannerSparks)
+    .values({
+      userId,
+      bannerKey,
+      sparks: amount,
+    })
+    .onConflictDoUpdate({
+      target: [userBannerSparks.userId, userBannerSparks.bannerKey],
+      set: {
+        sparks: sql`${userBannerSparks.sparks} + ${amount}`,
+        updatedAt: new Date(),
+      },
+    });
+}
+
 async spendUserBannerSparks(userId: string, bannerKey: string, amount: number): Promise<void> {
   await db
     .update(userBannerSparks)
@@ -490,7 +507,6 @@ async spendUserBannerSparks(userId: string, bannerKey: string, amount: number): 
       )
     );
 }
-
   // Post operations
   async createPost(insertPost: InsertPost): Promise<Post> {
     const result = await db.insert(posts).values(insertPost).returning();
