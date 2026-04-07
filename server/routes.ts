@@ -1121,20 +1121,48 @@ app.get("/api/banners", async (_req, res) => {
 });
 
 app.get("/api/sparks", verifySupabaseToken, async (req, res) => {
-  if (!req.dbUser) {
-    return res.status(401).json({ error: "Not authenticated" });
+  try {
+    console.log("[SPARKS ROUTE] start", {
+      hasDbUser: !!req.dbUser,
+      userId: req.dbUser?.id,
+      bannerKeyRaw: req.query?.bannerKey,
+    });
+
+    if (!req.dbUser) {
+      console.log("[SPARKS ROUTE] no db user");
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    const bannerKey =
+      typeof req.query?.bannerKey === "string" && req.query.bannerKey.trim()
+        ? req.query.bannerKey.trim()
+        : "standard";
+
+    console.log("[SPARKS ROUTE] before storage.getUserBannerSparks", {
+      userId: req.dbUser.id,
+      bannerKey,
+    });
+
+    const sparkRow = await storage.getUserBannerSparks(
+      req.dbUser.id,
+      bannerKey
+    );
+
+    console.log("[SPARKS ROUTE] after storage.getUserBannerSparks", {
+      sparkRow,
+    });
+
+    return res.json({
+      sparks: sparkRow?.sparks ?? 0,
+    });
+  } catch (error: any) {
+    console.error("[SPARKS ROUTE] fatal", {
+      message: error?.message,
+      stack: error?.stack,
+      error,
+    });
+    return res.status(500).json({ error: "Failed to load sparks" });
   }
-
-  const bannerKey =
-    typeof req.query?.bannerKey === "string" && req.query.bannerKey.trim()
-      ? req.query.bannerKey.trim()
-      : "standard";
-
-  const sparkRow = await storage.getUserBannerSparks(req.dbUser.id, bannerKey);
-
-  return res.json({
-    sparks: sparkRow?.sparks ?? 0,
-  });
 });
   
 app.post("/api/sparks/redeem", verifySupabaseToken, async (req, res) => {
