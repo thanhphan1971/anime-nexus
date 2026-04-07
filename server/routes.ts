@@ -1156,13 +1156,16 @@ app.get("/api/sparks", verifySupabaseToken, async (req, res) => {
       sparks: sparkRow?.sparks ?? 0,
     });
   } catch (error: any) {
-    console.error("[SPARKS ROUTE] fatal", {
-      message: error?.message,
-      stack: error?.stack,
-      error,
-    });
-    return res.status(500).json({ error: "Failed to load sparks" });
-  }
+  console.error("[SPARKS ROUTE] fatal", {
+    message: error?.message,
+    stack: error?.stack,
+    error,
+  });
+  return res.status(500).json({
+    error: "Failed to load sparks",
+    detail: error?.message ?? String(error),
+  });
+}
 });
   
 app.post("/api/sparks/redeem", verifySupabaseToken, async (req, res) => {
