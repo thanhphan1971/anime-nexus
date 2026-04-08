@@ -1376,11 +1376,43 @@ await storage.createUserCardHistory({
       tokensAfter: newTokenBalance,
     });
 
-    await storage.updateUser(user.id, {
-      tokens: newTokenBalance,
-    });
+    console.log("[PAID SUMMON] before updateUser", {
+  userId: user.id,
+  bannerKey,
+  oldTokens: user.tokens,
+  newTokenBalance,
+});
 
-    await storage.incrementUserBannerSparks(user.id, bannerKey, 1);
+await storage.updateUser(user.id, {
+  tokens: newTokenBalance,
+});
+
+console.log("[PAID SUMMON] after updateUser", {
+  userId: user.id,
+  bannerKey,
+  newTokenBalance,
+});
+
+console.log("[PAID SUMMON] before incrementUserBannerSparks", {
+  userId: user.id,
+  bannerKey,
+  amount: 1,
+});
+
+await storage.incrementUserBannerSparks(user.id, bannerKey, 1);
+
+console.log("[PAID SUMMON] after incrementUserBannerSparks", {
+  userId: user.id,
+  bannerKey,
+});
+
+const sparkRowAfterIncrement = await storage.getUserBannerSparks(user.id, bannerKey);
+
+console.log("[PAID SUMMON] spark row after increment", {
+  userId: user.id,
+  bannerKey,
+  sparkRowAfterIncrement,
+});
 
     let paidSummonsToday = user.paidSummonsToday || 0;
     let paidResetAt = user.paidSummonsResetAt ? new Date(user.paidSummonsResetAt) : null;
