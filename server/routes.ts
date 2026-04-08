@@ -1378,7 +1378,7 @@ await storage.createUserCardHistory({
 
     console.log("[PAID SUMMON] before updateUser", {
   userId: user.id,
-  bannerKey,
+  bannerKey: banner.key,
   oldTokens: user.tokens,
   newTokenBalance,
 });
@@ -1389,28 +1389,28 @@ await storage.updateUser(user.id, {
 
 console.log("[PAID SUMMON] after updateUser", {
   userId: user.id,
-  bannerKey,
+  bannerKey: banner.key,
   newTokenBalance,
 });
 
 console.log("[PAID SUMMON] before incrementUserBannerSparks", {
   userId: user.id,
-  bannerKey,
+  bannerKey: banner.key,
   amount: 1,
 });
 
-await storage.incrementUserBannerSparks(user.id, bannerKey, 1);
+await storage.incrementUserBannerSparks(user.id, banner.key, 1);
 
 console.log("[PAID SUMMON] after incrementUserBannerSparks", {
   userId: user.id,
-  bannerKey,
+  bannerKey: banner.key,
 });
 
-const sparkRowAfterIncrement = await storage.getUserBannerSparks(user.id, bannerKey);
+const sparkRowAfterIncrement = await storage.getUserBannerSparks(user.id, banner.key);
 
 console.log("[PAID SUMMON] spark row after increment", {
   userId: user.id,
-  bannerKey,
+  bannerKey: banner.key,
   sparkRowAfterIncrement,
 });
 
