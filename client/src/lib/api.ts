@@ -249,9 +249,14 @@ export function useSummonCards() {
         body: JSON.stringify({ count, bannerKey }),
       }),
 
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["userCards"] });
-      queryClient.invalidateQueries({ queryKey: ["users"] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["userCards"] });
+      await queryClient.invalidateQueries({ queryKey: ["users"] });
+
+      await queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/cards/catalog"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/sparks"] });
     },
   });
 }
@@ -356,9 +361,15 @@ export function useUpdateCard() {
         body: JSON.stringify(updates),
       }),
 
-    onSuccess: (_data, _variables, _context) => {
-  queryClient.invalidateQueries({ queryKey: ["userCards"] });
-  queryClient.invalidateQueries({ queryKey: ["users"] });
+  onSuccess: async (_data, _variables, _context) => {
+  await queryClient.invalidateQueries({ queryKey: ["userCards"] });
+  await queryClient.invalidateQueries({ queryKey: ["users"] });
+
+  // 🔥 critical fixes
+  await queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+  await queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+  await queryClient.invalidateQueries({ queryKey: ["/api/cards/catalog"] });
+  await queryClient.invalidateQueries({ queryKey: ["/api/sparks"] });
 },
   });
 }
