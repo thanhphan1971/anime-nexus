@@ -99,6 +99,7 @@ export default function GamePage() {
   const [score, setScore] = useState(0);
   const [fracturesStabilized, setFracturesStabilized] = useState(0);
   const [result, setResult] = useState<any>(null);
+  const [latestClaimResult, setLatestClaimResult] = useState<any>(null);
   const [shareToChronicle, setShareToChronicle] = useState(true);
   const [activeTab, setActiveTab] = useState('play');
   const [showRewardsEndedModal, setShowRewardsEndedModal] = useState(false);
@@ -158,6 +159,7 @@ export default function GamePage() {
   const endGameCalledRef = useRef(false);
 
   const resetGame = useCallback(() => {
+    setLatestClaimResult(null);
     setPhase('selection');
     setSelectedTrial(null);
     setCurrentSession(null);
@@ -402,7 +404,7 @@ export default function GamePage() {
 
               {phase === 'result' && result && (
                 <ResultScreen
-                  result={result}
+                  result={latestClaimResult ?? result}
                   shareToChronicle={shareToChronicle}
                   setShareToChronicle={setShareToChronicle}
                   onClaimReward={handleClaimReward}
