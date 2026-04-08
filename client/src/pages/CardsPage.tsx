@@ -1,37 +1,32 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect, useRef } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Coins, Sparkles, Layers, ShoppingBag, ArrowRightLeft, Filter, Search, ShieldCheck, Gift, Star, Crown, Loader2, Book, Clock } from "lucide-react";
+import { Coins, Sparkles, Layers, ShoppingBag, ArrowRightLeft, Filter, Search, ShieldCheck, Gift, Star, Crown, Loader2, Book, Clock, Share2, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
-import { useUserCards, useSummonCards, useMarketListings, usePurchaseListing, useFreeGachaStatus, useFreeSummon, useShareSummon } from "@/lib/api";
-import { Share2, Check } from "lucide-react";
+import { useUserCards, useSummonCards, useSummonHistory, useMarketListings, usePurchaseListing, useFreeGachaStatus, useFreeSummon, useShareSummon } from "@/lib/api";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
 import { format } from "date-fns";
 
 const RARITY_FILTERS = ["All", "Common", "Rare", "Epic", "Legendary", "Mythic"] as const;
 
-function getInitialMode(): string {
-  if (typeof window === 'undefined') return 'summon';
-  const params = new URLSearchParams(window.location.search);
-  const mode = params.get('mode');
-  if (mode === 'paid' || mode === 'free') return 'summon';
-  return 'summon';
-}
-
 export default function CardsPage() {
   const { user, refreshUser } = useAuth();
   const { data: userCards, isLoading: cardsLoading } = useUserCards(user?.id);
-const queryClient = useQueryClient();
+  const queryClient = useQueryClient();
   const { data: marketListings, isLoading: marketLoading } = useMarketListings();
   const summonCards = useSummonCards();
+  const { data: summonHistory, isLoading: isHistoryLoading } = useSummonHistory(10);
   const purchaseListing = usePurchaseListing();
-  const [, setLocation] = useLocation();
+  const [liveTokenBalance, setLiveTokenBalance] = useState<number | null>(null);
+  const [summonError, setSummonError] = useState<string | null>(null);
+  const [, setLocation] = u
+    seLocation();
   const [reward, setReward] = useState<any>(null);
   const [rarityFilter, setRarityFilter] = useState<string>("All");
   const [isFreeLoading, setIsFreeLoading] = useState(false);
@@ -73,6 +68,9 @@ const queryClient = useQueryClient();
     return userCard.card.rarity === rarityFilter;
   });
 
+  const displayedTokens =
+  liveTokenBalance !== null ? liveTokenBalance : user?.tokens ?? 0;
+  
   const getResetTimeString = () => {
     if (!freeStatus?.nextResetAt) return "12:00 AM";
     try {
@@ -114,18 +112,24 @@ const queryClient = useQueryClient();
     return;
   }
   
-if ((user.tokens || 0) < cost) {
-  toast.error(`Insufficient tokens! Need ${cost} tokens to pull x${count}.`);
-  return;
-}
+  if ((user.tokens || 0) < cost) {
+    toast.error(`Insufficient tokens! Need ${cost} tokens to pull x${count}.`);
+    return;
+  }
 
-try {
+  setSummonError(null);
+
+  try {
   const summonPayload = {
     count,
     bannerKey: selectedBanner,
   };
 
-  const result = await summonCards.mutateAsync(summonPayload as any);
+const result = await summonCards.mutateAsync(summonPayload as any);
+
+if (typeof result?.tokensRemaining === "number") {
+  setLiveTokenBalance(result.tokensRemaining);
+}
 
   setReward(result.cards);
   setHasShared(false);
@@ -148,7 +152,9 @@ try {
     }, 1500);
   }
 } catch (error: any) {
-  toast.error(error.message || "Summon failed");
+  const message = error?.message || "Summon failed";
+  setSummonError(message);
+  toast.error(message);
 }
 };
 
@@ -204,7 +210,7 @@ try {
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-2 px-3 py-1.5 bg-black/40 rounded-lg whitespace-nowrap" data-testid="text-tokens">
             <Coins className="h-4 w-4 text-yellow-400" />
-            <span className="font-mono font-bold text-yellow-400">{(user?.tokens || 0).toLocaleString()}</span>
+            <span className="font-mono font-bold text-yellow-400">{displayedTokens.toLocaleString()}</span>
             <span className="text-xs text-muted-foreground">Current Balance</span>
           </div>
           {user?.isPremium && (
@@ -331,12 +337,12 @@ try {
                     <p className="text-xs text-muted-foreground">{user?.isPremium ? "2x S-Class Pull" : "Single Pull"}</p>
                     
                     <div className="mt-4 flex items-center gap-2 bg-black/40 px-3 py-1.5 rounded-lg">
-                      <Coins className="h-4 w-4 text-yellow-400" />
-                      <span className="font-mono font-bold text-yellow-400">{(user?.tokens || 0).toLocaleString()}</span>
-                      <span className="text-xs text-muted-foreground">Current Balance</span>
-                    </div>
+  <Coins className="h-4 w-4 text-yellow-400" />
+  <span className="font-mono font-bold text-yellow-400">{displayedTokens.toLocaleString()}</span>
+  <span className="text-xs text-muted-foreground">Current Balance</span>
+</div>
 
-                    <div className="mt-4 w-full">
+<div className="mt-4 w-full">
   <p className="text-xs text-muted-foreground mb-2">Select Banner</p>
   <div className="flex flex-wrap gap-2">
     {banners?.map((banner: any) => (
@@ -354,14 +360,18 @@ try {
     ))}
   </div>
 </div>
-                    
-                    <div className="mt-4 space-y-2 w-full">
 
-  {/* Pull x10 — Primary */}
+{summonError && (
+  <div className="mb-3 w-full rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-300">
+    {summonError}
+  </div>
+)}
+
+<div className="mt-4 space-y-2 w-full">
   <Button
     size="lg"
-    onClick={() => handleSummon(10)} // Pass 10 for x10 pulls
-    disabled={false} // Requires 1000 tokens for 10 pulls
+    onClick={() => handleSummon(10)}
+    disabled={summonCards.isPending || displayedTokens < 1000}
     className="w-full bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-400 hover:to-amber-400 text-black font-bold py-6 text-lg shadow-lg"
     data-testid="button-paid-summon-10"
   >
@@ -373,24 +383,22 @@ try {
     Best value • Faster opening
   </p>
 
-  {/* Pull x1 — Secondary */}
   <Button
     variant="outline"
     size="sm"
-    onClick={() => handleSummon(1)} // Pass 1 for single pull
-    disabled={(user?.tokens || 0) < 100} // Requires 100 tokens for single pull
+    onClick={() => handleSummon(1)}
+    disabled={summonCards.isPending || displayedTokens < 100}
     className="w-full border-yellow-500/40 text-yellow-400 hover:bg-yellow-500/10"
     data-testid="button-paid-summon-1"
   >
     <Sparkles className="h-5 w-5 mr-2" />
     Pull x1 (100 Tokens)
   </Button>
-
 </div>
-                    
-                    {(user?.tokens || 0) < 100 && (
-                      <p className="text-xs text-red-400 mt-2">Not enough tokens</p>
-                    )}
+
+{displayedTokens < 100 && (
+  <p className="text-xs text-red-400 mt-2">Not enough tokens</p>
+)}                    
                   </div>
                 </div>
               </div>
@@ -480,6 +488,45 @@ try {
             )}
           </AnimatePresence>
           </div>
+        
+        <div className="mt-8 rounded-xl border border-white/10 p-4">
+  <h3 className="mb-4 text-lg font-bold">Recent Summons</h3>
+
+  {isHistoryLoading ? (
+    <div className="text-sm text-muted-foreground">Loading history...</div>
+  ) : summonHistory?.length ? (
+    <div className="space-y-3">
+      {summonHistory.map((entry: any) => (
+        <div
+          key={entry.id}
+          className="flex items-center justify-between rounded-lg border border-white/10 p-3"
+        >
+          <div>
+            <div className="font-medium">
+              {entry.cardName ?? entry.card?.name ?? "Unknown card"}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {entry.rarity ?? "Unknown"} • {entry.summonType ?? "paid"}
+            </div>
+          </div>
+
+          <div className="text-right text-xs text-muted-foreground">
+            <div>{entry.tokenCost ?? 0} tokens</div>
+            <div>
+              {new Date(entry.createdAt || entry.pulledAt).toLocaleString()}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  ) : (
+    <div className="text-sm text-muted-foreground">
+      No summon history yet.
+    </div>
+  )}
+</div>
+
+          
         </TabsContent>
 
         {/* COLLECTION TAB */}

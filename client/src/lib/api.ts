@@ -242,12 +242,13 @@ export function useSummonCards() {
   const queryClient = useQueryClient();
 
   return useMutation<any, any, { count: 1 | 10; bannerKey?: string }>({
-    mutationFn: ({ count, bannerKey }) =>
-      apiCall("/api/cards/summon", {
+    mutationFn: async ({ count, bannerKey }) => {
+      return await apiCall("/api/cards/summon", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ count, bannerKey }),
-      }),
+      });
+    },
 
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["userCards"] });
@@ -257,7 +258,15 @@ export function useSummonCards() {
       await queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/cards/catalog"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/sparks"] });
+      await queryClient.invalidateQueries({ queryKey: ["summonHistory"] });
     },
+  });
+}
+
+export function useSummonHistory(limit = 20) {
+  return useQuery({
+    queryKey: ["summonHistory", limit],
+    queryFn: () => apiCall(`/api/summon-history?limit=${limit}`),
   });
 }
 
