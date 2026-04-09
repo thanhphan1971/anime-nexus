@@ -5,10 +5,36 @@ import { Card, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Coins, Sparkles, Layers, ShoppingBag, ArrowRightLeft, Filter, Search, ShieldCheck, Gift, Star, Crown, Loader2, Book, Clock, Share2, Check } from "lucide-react";
+import {
+  Coins,
+  Sparkles,
+  Layers,
+  ShoppingBag,
+  ArrowRightLeft,
+  Filter,
+  Search,
+  ShieldCheck,
+  Gift,
+  Star,
+  Crown,
+  Loader2,
+  Book,
+  Clock,
+  Share2,
+  Check,
+} from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
-import { useUserCards, useSummonCards, useSummonHistory, useMarketListings, usePurchaseListing, useFreeGachaStatus, useFreeSummon, useShareSummon } from "@/lib/api";
+import {
+  useUserCards,
+  useSummonCards,
+  useSummonHistory,
+  useMarketListings,
+  usePurchaseListing,
+  useFreeGachaStatus,
+  useFreeSummon,
+  useShareSummon,
+} from "@/lib/api";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
 import { format } from "date-fns";
@@ -21,56 +47,58 @@ export default function CardsPage() {
   const queryClient = useQueryClient();
   const { data: marketListings, isLoading: marketLoading } = useMarketListings();
   const summonCards = useSummonCards();
-  const { data: summonHistory, isLoading: isHistoryLoading } = useSummonHistory(10);
+  const { data: summonHistory = [], isLoading: isHistoryLoading } = useSummonHistory(10);
   const purchaseListing = usePurchaseListing();
+  const { data: freeStatus, refetch: refetchFreeStatus } = useFreeGachaStatus();
+  const freeSummonMutation = useFreeSummon();
+  const shareSummon = useShareSummon();
+
   const [liveTokenBalance, setLiveTokenBalance] = useState<number | null>(null);
   const [summonError, setSummonError] = useState<string | null>(null);
-  const [, setLocation] = u
-    seLocation();
   const [reward, setReward] = useState<any>(null);
   const [rarityFilter, setRarityFilter] = useState<string>("All");
   const [isFreeLoading, setIsFreeLoading] = useState(false);
   const [hasShared, setHasShared] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
   const [shareDismissed, setShareDismissed] = useState(false);
-  const [selectedBanner, setSelectedBanner] = useState("standard"); 
+  const [selectedBanner, setSelectedBanner] = useState("standard");
+
+  const [, setLocation] = useLocation();
   const paidSummonRef = useRef<HTMLDivElement>(null);
   const freeSummonRef = useRef<HTMLDivElement>(null);
-  const shareSummon = useShareSummon();
-  
+  const rewardSectionRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const mode = params.get('mode');
+    const mode = params.get("mode");
+
     const scrollTimeout = setTimeout(() => {
-      if (mode === 'paid' && paidSummonRef.current) {
-        paidSummonRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      } else if (mode === 'free' && freeSummonRef.current) {
-        freeSummonRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (mode === "paid" && paidSummonRef.current) {
+        paidSummonRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+      } else if (mode === "free" && freeSummonRef.current) {
+        freeSummonRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
       }
     }, 500);
+
     return () => clearTimeout(scrollTimeout);
   }, []);
 
-  const { data: freeStatus, refetch: refetchFreeStatus } = useFreeGachaStatus();
-  const freeSummonMutation = useFreeSummon();
-
   const { data: banners } = useQuery({
-  queryKey: ["banners"],
-  queryFn: async () => {
-    const res = await fetch("/api/banners");
-    if (!res.ok) throw new Error("Failed to load banners");
-    return res.json();
-  },
-});
+    queryKey: ["banners"],
+    queryFn: async () => {
+      const res = await fetch("/api/banners");
+      if (!res.ok) throw new Error("Failed to load banners");
+      return res.json();
+    },
+  });
 
   const filteredCards = userCards?.filter((userCard: any) => {
     if (rarityFilter === "All") return true;
     return userCard.card.rarity === rarityFilter;
   });
 
-  const displayedTokens =
-  liveTokenBalance !== null ? liveTokenBalance : user?.tokens ?? 0;
-  
+  const displayedTokens = liveTokenBalance !== null ? liveTokenBalance : user?.tokens ?? 0;
+
   const getResetTimeString = () => {
     if (!freeStatus?.nextResetAt) return "12:00 AM";
     try {
@@ -80,23 +108,39 @@ export default function CardsPage() {
     }
   };
 
+  const scrollToReward = () => {
+    setTimeout(() => {
+      rewardSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    }, 100);
+  };
+
   const handleFreeSummon = async () => {
     if (!user) {
       toast.error("Please sign in to summon");
       return;
     }
+
     if (!freeStatus || freeStatus.remainingToday <= 0) {
       toast.error("No free summons remaining today!");
       return;
     }
+
     setIsFreeLoading(true);
+
     try {
       const result = await freeSummonMutation.mutateAsync();
       setReward(result.card);
       setHasShared(false);
+      setShareDismissed(false);
+
       await refetchFreeStatus();
       await refreshUser();
-      toast.success(`Summoned ${result.card?.name || 'a card'}!`);
+
+      toast.success(`Summoned ${result.card?.name || "a card"}!`);
+      scrollToReward();
     } catch (error: any) {
       toast.error(error.message || "Summon failed");
     } finally {
@@ -111,8 +155,8 @@ export default function CardsPage() {
     toast.error("Please sign in to summon");
     return;
   }
-  
-  if ((user.tokens || 0) < cost) {
+
+  if (displayedTokens < cost) {
     toast.error(`Insufficient tokens! Need ${cost} tokens to pull x${count}.`);
     return;
   }
@@ -120,57 +164,63 @@ export default function CardsPage() {
   setSummonError(null);
 
   try {
-  const summonPayload = {
-    count,
-    bannerKey: selectedBanner,
-  };
+    const summonPayload = {
+      count,
+      bannerKey: selectedBanner,
+    };
 
-const result = await summonCards.mutateAsync(summonPayload as any);
+    const result = await summonCards.mutateAsync(summonPayload as any);
 
-if (typeof result?.tokensRemaining === "number") {
-  setLiveTokenBalance(result.tokensRemaining);
-}
+    if (typeof result?.tokensRemaining === "number") {
+      setLiveTokenBalance(result.tokensRemaining);
+    } else {
+      setLiveTokenBalance((prev) =>
+        prev !== null ? prev - cost : (user?.tokens ?? 0) - cost
+      );
+    }
 
-  setReward(result.cards);
-  setHasShared(false);
-  setShareDismissed(false);
+    setReward(result.cards ?? result.card ?? null);
+    setHasShared(false);
+    setShareDismissed(false);
 
-  await refreshUser();
-  await queryClient.invalidateQueries({ queryKey: ["userCards", user?.id] });
+    toast.success(
+      `Pulled x${count}: received ${result.cards?.length || (result.card ? 1 : 0)} card(s)!`
+    );
+    scrollToReward();
 
-  toast.success(`Pulled x${count}: received ${result.cards?.length || 0} card(s)!`);
+    void refreshUser();
+    void queryClient.invalidateQueries({ queryKey: ["userCards", user?.id] });
+    void queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+    void queryClient.invalidateQueries({ queryKey: ["summonHistory"] });
 
-  if (result.showPaidSummonReminder) {
-    setTimeout(() => {
-      toast.info(
-        "You've summoned a lot today.\nFree daily summons reset at 7:00 PM.",
-        {
+    if (result.showPaidSummonReminder) {
+      setTimeout(() => {
+        toast.info("You've summoned a lot today.\nFree daily summons reset at 7:00 PM.", {
           description: "Weekly and monthly draws are capped for fairness.",
           duration: 6000,
-        }
-      );
-    }, 1500);
+        });
+      }, 1500);
+    }
+  } catch (error: any) {
+    const message = error?.message || "Summon failed";
+    setSummonError(message);
+    toast.error(message);
   }
-} catch (error: any) {
-  const message = error?.message || "Summon failed";
-  setSummonError(message);
-  toast.error(message);
-}
 };
 
   const handleShareToFeed = async () => {
     if (!reward) return;
-    
+
     const cards = Array.isArray(reward) ? reward : [reward];
     if (cards.length === 0) return;
-    
+
     const card = cards[0];
-    
+
     setIsSharing(true);
     try {
       await shareSummon.mutateAsync({
         cardId: card.id,
-        source: 'paid',
+        source: "paid",
       });
       setHasShared(true);
       toast.success("Shared to Feed!");
@@ -182,367 +232,479 @@ if (typeof result?.tokensRemaining === "number") {
   };
 
   const handleBackToSummons = () => {
-    setReward(null);
-    setHasShared(false);
-    setShareDismissed(false);
-  };
+  setReward(null);
+  setHasShared(false);
+  setShareDismissed(false);
+  setSummonError(null);
 
-  const handleDismissShare = () => {
-    setShareDismissed(true);
-  };
+  setTimeout(() => {
+    paidSummonRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+  }, 100);
+};
+
+const handleDismissShare = () => {
+  setShareDismissed(true);
+};
 
   return (
     <div className="space-y-6 pb-24">
-      {/* Header Bar */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-card/30 p-4 rounded-xl border border-white/10 backdrop-blur-md sticky top-0 z-10">
+      <div className="sticky top-0 z-10 flex flex-col items-start gap-4 rounded-xl border border-white/10 bg-card/30 p-4 backdrop-blur-md md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-2xl font-display font-bold neon-text">CARDS HUB</h1>
-          <p className="text-xs text-muted-foreground max-w-[240px]">Summon rare anime cards, build your collection, and trade with others</p>
+          <h1 className="neon-text font-display text-2xl font-bold">CARDS HUB</h1>
+          <p className="max-w-[240px] text-xs text-muted-foreground">
+            Summon rare anime cards, build your collection, and trade with others
+          </p>
         </div>
-        <Button 
-          size="default" 
-          onClick={() => setLocation("/cards/catalog")} 
+
+        <Button
+          size="default"
+          onClick={() => setLocation("/cards/catalog")}
           data-testid="button-view-catalog"
-          className="bg-gradient-to-r from-purple-600 to-cyan-500 hover:from-purple-500 hover:to-cyan-400 text-white font-bold text-base shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 transition-all hover:scale-105"
+          className="bg-gradient-to-r from-purple-600 to-cyan-500 text-base font-bold text-white shadow-lg shadow-purple-500/30 transition-all hover:scale-105 hover:from-purple-500 hover:to-cyan-400 hover:shadow-purple-500/50"
         >
-          <Book className="h-5 w-5 mr-2" /> Catalog
+          <Book className="mr-2 h-5 w-5" /> Catalog
         </Button>
+
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-black/40 rounded-lg whitespace-nowrap" data-testid="text-tokens">
+          <div
+            className="flex items-center gap-2 rounded-lg bg-black/40 px-3 py-1.5 whitespace-nowrap"
+            data-testid="text-tokens"
+          >
             <Coins className="h-4 w-4 text-yellow-400" />
             <span className="font-mono font-bold text-yellow-400">{displayedTokens.toLocaleString()}</span>
             <span className="text-xs text-muted-foreground">Current Balance</span>
           </div>
+
           {user?.isPremium && (
-            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 font-bold text-sm">
+            <div className="flex items-center gap-2 rounded-full border border-yellow-500/20 bg-yellow-500/10 px-3 py-1 text-sm font-bold text-yellow-500">
               <Crown className="h-4 w-4" /> S-Class
             </div>
           )}
         </div>
       </div>
 
-      {/* S-Class Banner */}
       {!user?.isPremium && (
-        <div className="bg-gradient-to-r from-yellow-500/20 via-purple-500/20 to-transparent p-3 rounded-lg border border-white/10 flex items-center justify-between">
+        <div className="flex items-center justify-between rounded-lg border border-white/10 bg-gradient-to-r from-yellow-500/20 via-purple-500/20 to-transparent p-3">
           <div className="flex items-center gap-3">
             <Crown className="h-5 w-5 text-yellow-400" />
-            <p className="text-sm font-medium"><span className="text-yellow-400 font-bold">Upgrade to S-Class</span> for 2x pulls + Luck Boost.</p>
+            <p className="text-sm font-medium">
+              <span className="font-bold text-yellow-400">Upgrade to S-Class</span> for 2x pulls + Luck Boost.
+            </p>
           </div>
-          <Button size="sm" variant="secondary" className="h-7 text-xs" onClick={() => setLocation("/sclass")}>View Perks</Button>
+          <Button size="sm" variant="secondary" className="h-7 text-xs" onClick={() => setLocation("/sclass")}>
+            View Perks
+          </Button>
         </div>
       )}
 
       <Tabs defaultValue="summon" className="w-full">
-        <TabsList className="w-full bg-card/50 border border-white/10 p-1 mb-6 grid grid-cols-4">
-          <TabsTrigger value="summon"><Sparkles className="h-4 w-4 md:mr-2" /><span className="hidden md:inline">Summon</span></TabsTrigger>
-          <TabsTrigger value="collection"><Layers className="h-4 w-4 md:mr-2" /><span className="hidden md:inline">Collection</span></TabsTrigger>
-          <TabsTrigger value="market"><ShoppingBag className="h-4 w-4 md:mr-2" /><span className="hidden md:inline">Market</span></TabsTrigger>
-          <TabsTrigger value="offers"><ArrowRightLeft className="h-4 w-4 md:mr-2" /><span className="hidden md:inline">Offers</span></TabsTrigger>
+        <TabsList className="mb-6 grid w-full grid-cols-4 border border-white/10 bg-card/50 p-1">
+          <TabsTrigger value="summon">
+            <Sparkles className="h-4 w-4 md:mr-2" />
+            <span className="hidden md:inline">Summon</span>
+          </TabsTrigger>
+          <TabsTrigger value="collection">
+            <Layers className="h-4 w-4 md:mr-2" />
+            <span className="hidden md:inline">Collection</span>
+          </TabsTrigger>
+          <TabsTrigger value="market">
+            <ShoppingBag className="h-4 w-4 md:mr-2" />
+            <span className="hidden md:inline">Market</span>
+          </TabsTrigger>
+          <TabsTrigger value="offers">
+            <ArrowRightLeft className="h-4 w-4 md:mr-2" />
+            <span className="hidden md:inline">Offers</span>
+          </TabsTrigger>
         </TabsList>
 
-        {/* SUMMON TAB */}
         <TabsContent value="summon" className="space-y-6">
-          {/* Rules & Info Section - Always Visible */}
-          <div className="bg-gradient-to-r from-purple-500/10 via-primary/10 to-cyan-500/10 border border-white/10 rounded-xl p-4 mb-4">
-            <h3 className="font-display font-bold text-lg text-primary mb-3 flex items-center gap-2">
+          <div className="mb-4 rounded-xl border border-white/10 bg-gradient-to-r from-purple-500/10 via-primary/10 to-cyan-500/10 p-4">
+            <h3 className="mb-3 flex items-center gap-2 font-display text-lg font-bold text-primary">
               <Sparkles className="h-5 w-5" /> How Summoning Works
             </h3>
-            <div className="text-sm space-y-3">
+
+            <div className="space-y-3 text-sm">
               <p className="text-muted-foreground">
-                Spend <strong className="text-yellow-400">100 Tokens</strong> to summon a random anime card. 
-                The system will randomly select a card from one of the 5 rarity categories below. 
-                Higher rarities are harder to get but more valuable!
+                Spend <strong className="text-yellow-400">100 Tokens</strong> to summon a random anime card. The
+                system will randomly select a card from one of the 5 rarity categories below. Higher rarities are
+                harder to get but more valuable!
               </p>
-              <div className="grid md:grid-cols-2 gap-4">
+
+              <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <p className="font-bold text-white">What You Win:</p>
-                  <p className="text-muted-foreground"><strong className="text-white">Free Users:</strong> 1 random card per summon</p>
-                  <p className="text-muted-foreground"><strong className="text-yellow-400">S-Class Members:</strong> 2 random cards + higher luck for rare drops</p>
+                  <p className="text-muted-foreground">
+                    <strong className="text-white">Free Users:</strong> 1 random card per summon
+                  </p>
+                  <p className="text-muted-foreground">
+                    <strong className="text-yellow-400">S-Class Members:</strong> 2 random cards + higher luck for rare
+                    drops
+                  </p>
                 </div>
+
                 <div className="space-y-2">
                   <p className="font-bold text-white">Card Rarities:</p>
                   <div className="flex flex-wrap gap-1.5">
-                    <Badge variant="outline" className="text-xs border-gray-500 text-gray-400">Common</Badge>
-                    <Badge variant="outline" className="text-xs border-blue-500 text-blue-400">Rare</Badge>
-                    <Badge variant="outline" className="text-xs border-purple-500 text-purple-400">Epic</Badge>
-                    <Badge variant="outline" className="text-xs border-yellow-500 text-yellow-400">Legendary</Badge>
-                    <Badge variant="outline" className="text-xs border-pink-500 text-pink-400">Mythic</Badge>
+                    <Badge variant="outline" className="border-gray-500 text-xs text-gray-400">
+                      Common
+                    </Badge>
+                    <Badge variant="outline" className="border-blue-500 text-xs text-blue-400">
+                      Rare
+                    </Badge>
+                    <Badge variant="outline" className="border-purple-500 text-xs text-purple-400">
+                      Epic
+                    </Badge>
+                    <Badge variant="outline" className="border-yellow-500 text-xs text-yellow-400">
+                      Legendary
+                    </Badge>
+                    <Badge variant="outline" className="border-pink-500 text-xs text-pink-400">
+                      Mythic
+                    </Badge>
                   </div>
                 </div>
               </div>
             </div>
-            <div className="mt-3 pt-3 border-t border-white/10 text-xs text-muted-foreground">
-              <strong className="text-white">What can you do with cards?</strong> Collect them and showcase your favorites on your profile. Build your deck and complete your collection!
+
+            <div className="mt-3 border-t border-white/10 pt-3 text-xs text-muted-foreground">
+              <strong className="text-white">What can you do with cards?</strong> Collect them and showcase your
+              favorites on your profile. Build your deck and complete your collection!
             </div>
-            
-            {/* Free Summon Rules */}
-            <div className="mt-3 pt-3 border-t border-white/10">
-              <p className="font-bold text-white text-sm mb-2">Free Daily Summon Rules:</p>
-              <div className="text-xs space-y-1.5 text-muted-foreground">
-                <p className="flex items-start gap-2"><span className="text-purple-400">•</span> Every account receives 1 free summon per day</p>
-                <p className="flex items-start gap-2"><span className="text-yellow-400">•</span> S-Class members receive 2 free summons per day</p>
-                <p className="flex items-start gap-2"><span className="text-cyan-400">•</span> Free summons can ONLY be used on the Standard Banner</p>
-                <p className="flex items-start gap-2"><span className="text-cyan-400">•</span> Standard Banner contains permanent, non-limited cards</p>
-                <p className="flex items-start gap-2"><span className="text-pink-400">•</span> Event-limited and premium-only cards are excluded</p>
-                <p className="flex items-start gap-2"><span className="text-pink-400">•</span> Free summons have lower rare drop rates than paid summons</p>
-                <p className="flex items-start gap-2"><span className="text-gray-400">•</span> Free summons do not carry over if unused</p>
-                <p className="flex items-start gap-2"><span className="text-gray-400">•</span> Daily reset occurs at 12:00 AM local time</p>
+
+            <div className="mt-3 border-t border-white/10 pt-3">
+              <p className="mb-2 text-sm font-bold text-white">Free Daily Summon Rules:</p>
+              <div className="space-y-1.5 text-xs text-muted-foreground">
+                <p className="flex items-start gap-2">
+                  <span className="text-purple-400">•</span> Every account receives 1 free summon per day
+                </p>
+                <p className="flex items-start gap-2">
+                  <span className="text-yellow-400">•</span> S-Class members receive 2 free summons per day
+                </p>
+                <p className="flex items-start gap-2">
+                  <span className="text-cyan-400">•</span> Free summons can ONLY be used on the Standard Banner
+                </p>
+                <p className="flex items-start gap-2">
+                  <span className="text-cyan-400">•</span> Standard Banner contains permanent, non-limited cards
+                </p>
+                <p className="flex items-start gap-2">
+                  <span className="text-pink-400">•</span> Event-limited and premium-only cards are excluded
+                </p>
+                <p className="flex items-start gap-2">
+                  <span className="text-pink-400">•</span> Free summons have lower rare drop rates than paid summons
+                </p>
+                <p className="flex items-start gap-2">
+                  <span className="text-gray-400">•</span> Free summons do not carry over if unused
+                </p>
+                <p className="flex items-start gap-2">
+                  <span className="text-gray-400">•</span> Daily reset occurs at 12:00 AM local time
+                </p>
               </div>
             </div>
           </div>
 
-          <div className="min-h-[400px] flex flex-col items-center justify-center relative">
-          <AnimatePresence mode="wait">
-            {!reward && !summonCards.isPending && !isFreeLoading && (
-              <div className="text-center space-y-6 w-full max-w-2xl">
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div ref={freeSummonRef} className="relative bg-gradient-to-br from-green-500/10 to-emerald-500/5 border-2 border-green-500/30 rounded-xl p-6 flex flex-col items-center">
-                    <Gift className="h-12 w-12 mb-4 text-green-400" />
-                    <p className="font-display font-bold text-xl text-green-400">FREE SUMMON</p>
-                    <p className="text-xs text-muted-foreground mt-2">Standard Banner</p>
-                    <p className="text-xs text-muted-foreground">{user?.isPremium ? "2 daily summons" : "1 daily summon"}</p>
-                    
-                    {freeStatus && (
-                      <div className="mt-4 flex items-center gap-2 bg-green-500/10 px-3 py-1.5 rounded-full">
-                        <Star className="h-4 w-4 text-yellow-400" />
-                        <span className="font-bold text-white text-sm" data-testid="text-free-remaining">
-                          {freeStatus.remainingToday} / {freeStatus.dailyFreeLimit}
-                        </span>
-                      </div>
-                    )}
-                    
-                    <Button 
-                      size="lg" 
-                      onClick={handleFreeSummon} 
-                      disabled={!freeStatus || freeStatus.remainingToday <= 0}
-                      className="mt-4 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 disabled:opacity-50 text-white font-bold px-6 w-full"
-                      data-testid="button-free-summon"
+          <div className="relative flex min-h-[400px] flex-col items-center justify-center">
+            <AnimatePresence mode="wait">
+              {!reward && !summonCards.isPending && !isFreeLoading && (
+                <div className="w-full max-w-2xl space-y-6 text-center">
+                  <div className="grid gap-6 md:grid-cols-2">
+                    <div
+                      ref={freeSummonRef}
+                      className="relative flex flex-col items-center rounded-xl border-2 border-green-500/30 bg-gradient-to-br from-green-500/10 to-emerald-500/5 p-6"
                     >
-                      <Gift className="h-5 w-5 mr-2" />
-                      {freeStatus && freeStatus.remainingToday > 0 ? "Free Summon" : "No Summons Left"}
-                    </Button>
-                    
-                    {freeStatus && freeStatus.remainingToday <= 0 && (
-                      <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        Resets at {getResetTimeString()}
+                      <Gift className="mb-4 h-12 w-12 text-green-400" />
+                      <p className="font-display text-xl font-bold text-green-400">FREE SUMMON</p>
+                      <p className="mt-2 text-xs text-muted-foreground">Standard Banner</p>
+                      <p className="text-xs text-muted-foreground">
+                        {user?.isPremium ? "2 daily summons" : "1 daily summon"}
                       </p>
-                    )}
-                  </div>
 
-                  <div ref={paidSummonRef} className="relative bg-gradient-to-br from-yellow-500/10 to-amber-500/5 border-2 border-yellow-500/30 rounded-xl p-6 flex flex-col items-center">
-                    <Coins className="h-12 w-12 mb-4 text-yellow-400" />
-                    <p className="font-display font-bold text-xl text-yellow-400">PAID SUMMON</p>
-                    <p className="text-xs text-muted-foreground mt-2">Cost: 100 Tokens</p>
-                    <p className="text-xs text-muted-foreground">{user?.isPremium ? "2x S-Class Pull" : "Single Pull"}</p>
-                    
-                    <div className="mt-4 flex items-center gap-2 bg-black/40 px-3 py-1.5 rounded-lg">
-  <Coins className="h-4 w-4 text-yellow-400" />
-  <span className="font-mono font-bold text-yellow-400">{displayedTokens.toLocaleString()}</span>
-  <span className="text-xs text-muted-foreground">Current Balance</span>
-</div>
+                      {freeStatus && (
+                        <div className="mt-4 flex items-center gap-2 rounded-full bg-green-500/10 px-3 py-1.5">
+                          <Star className="h-4 w-4 text-yellow-400" />
+                          <span className="text-sm font-bold text-white" data-testid="text-free-remaining">
+                            {freeStatus.remainingToday} / {freeStatus.dailyFreeLimit}
+                          </span>
+                        </div>
+                      )}
 
-<div className="mt-4 w-full">
-  <p className="text-xs text-muted-foreground mb-2">Select Banner</p>
-  <div className="flex flex-wrap gap-2">
-    {banners?.map((banner: any) => (
-      <button
-        key={banner.key}
-        onClick={() => setSelectedBanner(banner.key)}
-        className={`px-3 py-2 rounded-md border text-sm transition ${
-          selectedBanner === banner.key
-            ? "bg-yellow-500 text-black border-yellow-400"
-            : "bg-black/30 text-white border-white/10 hover:border-yellow-500/50"
-        }`}
-      >
-        {banner.name}
-      </button>
-    ))}
-  </div>
-</div>
+                      <Button
+                        size="lg"
+                        onClick={handleFreeSummon}
+                        disabled={!freeStatus || freeStatus.remainingToday <= 0 || isFreeLoading}
+                        className="mt-4 w-full bg-gradient-to-r from-green-600 to-emerald-600 px-6 font-bold text-white hover:from-green-500 hover:to-emerald-500 disabled:opacity-50"
+                        data-testid="button-free-summon"
+                      >
+                        <Gift className="mr-2 h-5 w-5" />
+                        {isFreeLoading
+                          ? "Summoning..."
+                          : freeStatus && freeStatus.remainingToday > 0
+                          ? "Free Summon"
+                          : "No Summons Left"}
+                      </Button>
 
-{summonError && (
-  <div className="mb-3 w-full rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-300">
-    {summonError}
-  </div>
-)}
+                      {freeStatus && freeStatus.remainingToday <= 0 && (
+                        <p className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
+                          <Clock className="h-3 w-3" />
+                          Resets at {getResetTimeString()}
+                        </p>
+                      )}
+                    </div>
 
-<div className="mt-4 space-y-2 w-full">
-  <Button
-    size="lg"
-    onClick={() => handleSummon(10)}
-    disabled={summonCards.isPending || displayedTokens < 1000}
-    className="w-full bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-400 hover:to-amber-400 text-black font-bold py-6 text-lg shadow-lg"
-    data-testid="button-paid-summon-10"
-  >
-    <Sparkles className="h-5 w-5 mr-2" />
-    Pull x10 (1000 Tokens)
-  </Button>
+                    <div
+                      ref={paidSummonRef}
+                      className="relative flex flex-col items-center rounded-xl border-2 border-yellow-500/30 bg-gradient-to-br from-yellow-500/10 to-amber-500/5 p-6"
+                    >
+                      <Coins className="mb-4 h-12 w-12 text-yellow-400" />
+                      <p className="font-display text-xl font-bold text-yellow-400">PAID SUMMON</p>
+                      <p className="mt-2 text-xs text-muted-foreground">Cost: 100 Tokens</p>
+                      <p className="text-xs text-muted-foreground">
+                        {user?.isPremium ? "2x S-Class Pull" : "Single Pull"}
+                      </p>
 
-  <p className="text-[11px] text-center text-muted-foreground">
-    Best value • Faster opening
-  </p>
+                      <div className="mt-4 flex items-center gap-2 rounded-lg bg-black/40 px-3 py-1.5">
+                        <Coins className="h-4 w-4 text-yellow-400" />
+                        <span className="font-mono font-bold text-yellow-400">
+                          {displayedTokens.toLocaleString()}
+                        </span>
+                        <span className="text-xs text-muted-foreground">Current Balance</span>
+                      </div>
 
-  <Button
-    variant="outline"
-    size="sm"
-    onClick={() => handleSummon(1)}
-    disabled={summonCards.isPending || displayedTokens < 100}
-    className="w-full border-yellow-500/40 text-yellow-400 hover:bg-yellow-500/10"
-    data-testid="button-paid-summon-1"
-  >
-    <Sparkles className="h-5 w-5 mr-2" />
-    Pull x1 (100 Tokens)
-  </Button>
-</div>
+                      <div className="mt-4 w-full">
+                        <p className="mb-2 text-xs text-muted-foreground">Select Banner</p>
+                        <div className="flex flex-wrap gap-2">
+                          {banners?.map((banner: any) => (
+                            <button
+                              key={banner.key}
+                              onClick={() => setSelectedBanner(banner.key)}
+                              className={`rounded-md border px-3 py-2 text-sm transition ${
+                                selectedBanner === banner.key
+                                  ? "border-yellow-400 bg-yellow-500 text-black"
+                                  : "border-white/10 bg-black/30 text-white hover:border-yellow-500/50"
+                              }`}
+                            >
+                              {banner.name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
 
-{displayedTokens < 100 && (
-  <p className="text-xs text-red-400 mt-2">Not enough tokens</p>
-)}                    
+                      {summonError && (
+                        <div className="mb-3 mt-4 w-full rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-300">
+                          {summonError}
+                        </div>
+                      )}
+
+                      <div className="mt-4 w-full space-y-2">
+                        <Button
+                          size="lg"
+                          onClick={() => handleSummon(10)}
+                          disabled={summonCards.isPending || displayedTokens < 1000}
+                          className="w-full bg-gradient-to-r from-yellow-500 to-amber-500 py-6 text-lg font-bold text-black shadow-lg hover:from-yellow-400 hover:to-amber-400"
+                          data-testid="button-paid-summon-10"
+                        >
+                          <Sparkles className="mr-2 h-5 w-5" />
+                          {summonCards.isPending ? "Summoning..." : "Pull x10 (1000 Tokens)"}
+                        </Button>
+
+                        <p className="text-center text-[11px] text-muted-foreground">Best value • Faster opening</p>
+
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleSummon(1)}
+                          disabled={summonCards.isPending || displayedTokens < 100}
+                          className="w-full border-yellow-500/40 text-yellow-400 hover:bg-yellow-500/10"
+                          data-testid="button-paid-summon-1"
+                        >
+                          <Sparkles className="mr-2 h-5 w-5" />
+                          {summonCards.isPending ? "Summoning..." : "Pull x1 (100 Tokens)"}
+                        </Button>
+                      </div>
+
+                      {displayedTokens < 100 && (
+                        <p className="mt-2 text-xs text-red-400">Not enough tokens</p>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {(summonCards.isPending || isFreeLoading) && (
-              <motion.div
-                initial={{ scale: 0, rotate: 0 }}
-                animate={{ scale: 1.5, rotate: 360 }}
-                exit={{ scale: 2, opacity: 0 }}
-                className="flex items-center justify-center"
-              >
-                <div className="w-40 h-40 rounded-full border-4 border-primary border-t-transparent animate-spin blur-sm" />
-              </motion.div>
-            )}
+              {(summonCards.isPending || isFreeLoading) && (
+                <motion.div
+                  initial={{ scale: 0, rotate: 0 }}
+                  animate={{ scale: 1.5, rotate: 360 }}
+                  exit={{ scale: 2, opacity: 0 }}
+                  className="flex items-center justify-center"
+                >
+                  <div className="h-40 w-40 animate-spin rounded-full border-4 border-primary border-t-transparent blur-sm" />
+                </motion.div>
+              )}
 
-            {reward && (
-              <motion.div
-                initial={{ scale: 0, y: 50 }}
-                animate={{ scale: 1, y: 0 }}
-                className="text-center space-y-6 w-full"
-              >
-                <h3 className="font-display font-bold text-xl text-primary">
-                  {Array.isArray(reward) ? `You received ${reward.length} card${reward.length > 1 ? 's' : ''}!` : 'You received a card!'}
-                </h3>
-                <div className={`flex justify-center gap-4 ${Array.isArray(reward) && reward.length > 1 ? 'flex-wrap' : ''}`}>
-                  {(Array.isArray(reward) ? reward : [reward]).map((card: any, index: number) => (
-                    <div key={card?.id || index} className="relative w-56 aspect-[3/4] rounded-xl overflow-hidden border-4 border-yellow-500 shadow-[0_0_50px_hsl(45,100%,50%,0.5)]">
-                      <img src={card?.image} alt={card?.name} className="w-full h-full object-cover" />
-                      <div className="absolute bottom-0 inset-x-0 bg-black/80 p-3 text-white">
-                        <Badge className="bg-yellow-500 text-black mb-1 text-xs">{card?.rarity}</Badge>
-                        <h2 className="text-sm font-bold">{card?.name}</h2>
+              {reward && (
+                <div ref={rewardSectionRef} className="w-full">
+                  <motion.div
+                    initial={{ scale: 0, y: 50 }}
+                    animate={{ scale: 1, y: 0 }}
+                    className="w-full space-y-6 text-center"
+                  >
+                    <h3 className="font-display text-xl font-bold text-primary">
+                      {Array.isArray(reward)
+                        ? `You received ${reward.length} card${reward.length > 1 ? "s" : ""}!`
+                        : "You received a card!"}
+                    </h3>
+
+                    <div
+                      className={`flex justify-center gap-4 ${
+                        Array.isArray(reward) && reward.length > 1 ? "flex-wrap" : ""
+                      }`}
+                    >
+                      {(Array.isArray(reward) ? reward : [reward]).map((card: any, index: number) => (
+                        <div
+                          key={card?.id || index}
+                          className="relative aspect-[3/4] w-56 overflow-hidden rounded-xl border-4 border-yellow-500 shadow-[0_0_50px_hsl(45,100%,50%,0.5)]"
+                        >
+                          <img src={card?.image} alt={card?.name} className="h-full w-full object-cover" />
+                          <div className="absolute inset-x-0 bottom-0 bg-black/80 p-3 text-white">
+                            <Badge className="mb-1 bg-yellow-500 text-xs text-black">{card?.rarity}</Badge>
+                            <h2 className="text-sm font-bold">{card?.name}</h2>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {!shareDismissed && (
+                      <div className="mx-auto max-w-sm rounded-xl border border-white/10 bg-card/60 p-4">
+                        {hasShared ? (
+                          <div className="flex items-center justify-center gap-2 font-medium text-green-400">
+                            <Check className="h-5 w-5" />
+                            Shared to Feed!
+                          </div>
+                        ) : (
+                          <>
+                            <p className="mb-2 text-center text-xs text-muted-foreground">Share your pull?</p>
+                            <div className="flex justify-center gap-3">
+                              <Button
+                                onClick={handleShareToFeed}
+                                disabled={isSharing}
+                                className="bg-gradient-to-r from-cyan-600 to-purple-600 font-bold text-white hover:from-cyan-500 hover:to-purple-500"
+                                data-testid="button-share-to-feed"
+                              >
+                                {isSharing ? (
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Share2 className="mr-2 h-4 w-4" />
+                                )}
+                                Share to Feed
+                              </Button>
+
+                              <Button
+                                variant="ghost"
+                                onClick={handleDismissShare}
+                                className="text-muted-foreground hover:text-white"
+                                data-testid="button-not-now"
+                              >
+                                Not now
+                              </Button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    <Button
+                      size="lg"
+                      onClick={handleBackToSummons}
+                      className="bg-gradient-to-r from-purple-600 to-cyan-600 px-8 font-bold text-white hover:from-purple-500 hover:to-cyan-500"
+                      data-testid="button-back-to-summons"
+                    >
+                      <Sparkles className="mr-2 h-5 w-5" />
+                      Back to Summons
+                    </Button>
+                  </motion.div>
+                </div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          <div className="mt-8 rounded-xl border border-white/10 p-4">
+            <h3 className="mb-4 text-lg font-bold">Recent Summons</h3>
+
+            {isHistoryLoading ? (
+              <div className="text-sm text-muted-foreground">Loading history...</div>
+            ) : summonHistory.length ? (
+              <div className="space-y-3">
+                {summonHistory.map((entry: any) => {
+                  const rarity = entry.rarity ?? entry.card?.rarity ?? "Unknown";
+                  const rarityClass =
+                    rarity === "Mythic"
+                      ? "border-pink-500/40"
+                      : rarity === "Legendary"
+                      ? "border-yellow-500/40"
+                      : rarity === "Epic"
+                      ? "border-purple-500/40"
+                      : rarity === "Rare"
+                      ? "border-blue-500/40"
+                      : "border-white/10";
+
+                  const imageSrc = entry.cardImage ?? entry.card?.image ?? entry.image ?? null;
+
+                  return (
+                    <div
+                      key={entry.id}
+                      className={`flex items-center justify-between rounded-lg border p-3 ${rarityClass}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        {imageSrc ? (
+                          <img
+                            src={imageSrc}
+                            alt={entry.cardName ?? entry.card?.name ?? "Card"}
+                            className="h-12 w-10 rounded border border-white/10 object-cover"
+                          />
+                        ) : (
+                          <div className="h-12 w-10 rounded border border-white/10 bg-white/5" />
+                        )}
+
+                        <div>
+                          <div className="font-medium">{entry.cardName ?? entry.card?.name ?? "Unknown card"}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {rarity} • {entry.summonType ?? "paid"} •{" "}
+                            {entry.bannerName || entry.bannerKey || "Standard"}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="text-right text-xs text-muted-foreground">
+                        <div>{entry.tokenCost ?? 0} tokens</div>
+                        <div>{new Date(entry.createdAt || entry.pulledAt).toLocaleString()}</div>
                       </div>
                     </div>
-                  ))}
-                </div>
-                
-                {/* Share to Feed Panel */}
-                {!shareDismissed && (
-                  <div className="bg-card/60 border border-white/10 rounded-xl p-4 max-w-sm mx-auto">
-                    {hasShared ? (
-                      <div className="flex items-center justify-center gap-2 text-green-400 font-medium">
-                        <Check className="h-5 w-5" />
-                        Shared to Feed!
-                      </div>
-                    ) : (
-                      <>
-                        <p className="text-xs text-center text-muted-foreground mb-2">Share your pull?</p>
-                        <div className="flex gap-3 justify-center">
-                          <Button
-                            onClick={handleShareToFeed}
-                            disabled={isSharing}
-                            className="bg-gradient-to-r from-cyan-600 to-purple-600 hover:from-cyan-500 hover:to-purple-500 text-white font-bold"
-                            data-testid="button-share-to-feed"
-                          >
-                            {isSharing ? (
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            ) : (
-                              <Share2 className="h-4 w-4 mr-2" />
-                            )}
-                            Share to Feed
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            onClick={handleDismissShare}
-                            className="text-muted-foreground hover:text-white"
-                            data-testid="button-not-now"
-                          >
-                            Not now
-                          </Button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                )}
-
-                <Button 
-                  size="lg" 
-                  onClick={handleBackToSummons} 
-                  className="bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500 text-white font-bold px-8"
-                  data-testid="button-back-to-summons"
-                >
-                  <Sparkles className="h-5 w-5 mr-2" />
-                  Back to Summons
-                </Button>
-              </motion.div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-sm text-muted-foreground">No summon history yet.</div>
             )}
-          </AnimatePresence>
           </div>
-        
-        <div className="mt-8 rounded-xl border border-white/10 p-4">
-  <h3 className="mb-4 text-lg font-bold">Recent Summons</h3>
-
-  {isHistoryLoading ? (
-    <div className="text-sm text-muted-foreground">Loading history...</div>
-  ) : summonHistory?.length ? (
-    <div className="space-y-3">
-      {summonHistory.map((entry: any) => (
-        <div
-          key={entry.id}
-          className="flex items-center justify-between rounded-lg border border-white/10 p-3"
-        >
-          <div>
-            <div className="font-medium">
-              {entry.cardName ?? entry.card?.name ?? "Unknown card"}
-            </div>
-            <div className="text-xs text-muted-foreground">
-              {entry.rarity ?? "Unknown"} • {entry.summonType ?? "paid"}
-            </div>
-          </div>
-
-          <div className="text-right text-xs text-muted-foreground">
-            <div>{entry.tokenCost ?? 0} tokens</div>
-            <div>
-              {new Date(entry.createdAt || entry.pulledAt).toLocaleString()}
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  ) : (
-    <div className="text-sm text-muted-foreground">
-      No summon history yet.
-    </div>
-  )}
-</div>
-
-          
         </TabsContent>
 
-        {/* COLLECTION TAB */}
         <TabsContent value="collection" className="space-y-6">
-          <div className="text-center pb-4 border-b border-white/10 mb-4">
-            <p className="text-sm text-muted-foreground">View all the anime cards you've collected through summoning and trading</p>
+          <div className="mb-4 border-b border-white/10 pb-4 text-center">
+            <p className="text-sm text-muted-foreground">
+              View all the anime cards you've collected through summoning and trading
+            </p>
           </div>
+
           <div className="flex gap-2 overflow-x-auto pb-2">
-            {RARITY_FILTERS.map(filter => (
-              <Badge 
-                key={filter} 
-                variant="outline" 
+            {RARITY_FILTERS.map((filter) => (
+              <Badge
+                key={filter}
+                variant="outline"
                 className={`cursor-pointer transition-all ${
-                  rarityFilter === filter 
-                    ? "bg-primary text-white border-primary" 
-                    : "hover:bg-primary/20 hover:border-primary/50"
+                  rarityFilter === filter
+                    ? "border-primary bg-primary text-white"
+                    : "hover:border-primary/50 hover:bg-primary/20"
                 }`}
                 onClick={() => setRarityFilter(filter)}
                 data-testid={`filter-${filter.toLowerCase()}`}
@@ -551,69 +713,79 @@ if (typeof result?.tokensRemaining === "number") {
               </Badge>
             ))}
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
             {cardsLoading ? (
               <div className="col-span-full flex justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
             ) : filteredCards && filteredCards.length > 0 ? (
               filteredCards.map((userCard: any) => (
-                <Card key={userCard.id} className="bg-card/40 border-white/10 overflow-hidden hover:border-primary/50 transition-all group cursor-pointer">
+                <Card
+                  key={userCard.id}
+                  className="group cursor-pointer overflow-hidden border-white/10 bg-card/40 transition-all hover:border-primary/50"
+                >
                   <div className="relative aspect-[3/4]">
-                    <img src={userCard.card.image} className="w-full h-full object-cover" />
-                    <Badge className="absolute top-2 right-2 bg-black/60 backdrop-blur-md border-white/10">{userCard.card.rarity}</Badge>
+                    <img src={userCard.card.image} className="h-full w-full object-cover" />
+                    <Badge className="absolute top-2 right-2 border-white/10 bg-black/60 backdrop-blur-md">
+                      {userCard.card.rarity}
+                    </Badge>
                   </div>
-                  <CardFooter className="p-2 text-xs font-bold justify-center">
-                    {userCard.card.name}
-                  </CardFooter>
+                  <CardFooter className="justify-center p-2 text-xs font-bold">{userCard.card.name}</CardFooter>
                 </Card>
               ))
             ) : (
-              <div className="col-span-full text-center py-12 text-muted-foreground">
-                <Layers className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <div className="col-span-full py-12 text-center text-muted-foreground">
+                <Layers className="mx-auto mb-4 h-12 w-12 opacity-50" />
                 <p>No cards yet. Try summoning some!</p>
               </div>
             )}
           </div>
         </TabsContent>
 
-        {/* MARKET TAB */}
         <TabsContent value="market" className="space-y-6">
-          <div className="text-center pb-4 border-b border-white/10 mb-4">
-            <p className="text-sm text-muted-foreground">Buy and sell cards with other players using your tokens</p>
+          <div className="mb-4 border-b border-white/10 pb-4 text-center">
+            <p className="text-sm text-muted-foreground">
+              Buy and sell cards with other players using your tokens
+            </p>
           </div>
+
           <div className="flex gap-2">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Search market..." className="pl-9 bg-card/40" />
+              <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input placeholder="Search market..." className="bg-card/40 pl-9" />
             </div>
-            <Button variant="outline"><Filter className="h-4 w-4" /></Button>
+            <Button variant="outline">
+              <Filter className="h-4 w-4" />
+            </Button>
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {marketLoading ? (
               <div className="col-span-full flex justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
             ) : marketListings && marketListings.length > 0 ? (
               marketListings.map((listing: any) => (
-                <Card key={listing.id} className="flex overflow-hidden bg-card/40 border-white/10">
-                  <div className="w-24 relative">
-                    <img src={listing.card?.image} className="w-full h-full object-cover" />
+                <Card key={listing.id} className="flex overflow-hidden border-white/10 bg-card/40">
+                  <div className="relative w-24">
+                    <img src={listing.card?.image} className="h-full w-full object-cover" />
                   </div>
-                  <div className="flex-1 p-3 flex flex-col justify-between">
+                  <div className="flex flex-1 flex-col justify-between p-3">
                     <div>
-                      <h4 className="font-bold text-sm">{listing.card?.name}</h4>
+                      <h4 className="text-sm font-bold">{listing.card?.name}</h4>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <ShieldCheck className="h-3 w-3 text-green-400" /> {listing.seller?.name || 'Unknown'}
+                        <ShieldCheck className="h-3 w-3 text-green-400" /> {listing.seller?.name || "Unknown"}
                       </div>
                     </div>
-                    <div className="flex justify-between items-end">
+
+                    <div className="flex items-end justify-between">
                       <Badge variant="secondary" className="text-xs">
                         {listing.price} Tokens
                       </Badge>
-                      <Button 
-                        size="sm" 
+
+                      <Button
+                        size="sm"
                         className="h-7 text-xs"
                         onClick={async () => {
                           try {
@@ -633,23 +805,25 @@ if (typeof result?.tokensRemaining === "number") {
                 </Card>
               ))
             ) : (
-              <div className="col-span-full text-center py-12 text-muted-foreground">
-                <ShoppingBag className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <div className="col-span-full py-12 text-center text-muted-foreground">
+                <ShoppingBag className="mx-auto mb-4 h-12 w-12 opacity-50" />
                 <p>No listings yet. Be the first to sell!</p>
               </div>
             )}
           </div>
         </TabsContent>
 
-        {/* OFFERS TAB */}
         <TabsContent value="offers">
-          <div className="text-center pb-4 border-b border-white/10 mb-4">
-            <p className="text-sm text-muted-foreground">View and manage trade offers from other players</p>
+          <div className="mb-4 border-b border-white/10 pb-4 text-center">
+            <p className="text-sm text-muted-foreground">
+              View and manage trade offers from other players
+            </p>
           </div>
-          <div className="text-center py-12 border border-dashed border-white/10 rounded-xl bg-card/20">
-            <ArrowRightLeft className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-xl font-bold mb-2">No Active Offers</h3>
-            <p className="text-muted-foreground max-w-md mx-auto text-sm">
+
+          <div className="rounded-xl border border-dashed border-white/10 bg-card/20 py-12 text-center">
+            <ArrowRightLeft className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+            <h3 className="mb-2 text-xl font-bold">No Active Offers</h3>
+            <p className="mx-auto max-w-md text-sm text-muted-foreground">
               You don't have any incoming trade requests or active offers right now.
             </p>
           </div>
