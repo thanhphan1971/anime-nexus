@@ -250,16 +250,16 @@ export function useSummonCards() {
       });
     },
 
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["userCards"] });
-      await queryClient.invalidateQueries({ queryKey: ["users"] });
+    onSuccess: () => {
+  void queryClient.invalidateQueries({ queryKey: ["userCards"] });
+  void queryClient.invalidateQueries({ queryKey: ["users"] });
 
-      await queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/users"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/cards/catalog"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/sparks"] });
-      await queryClient.invalidateQueries({ queryKey: ["summonHistory"] });
-    },
+  void queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+  void queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+  void queryClient.invalidateQueries({ queryKey: ["/api/cards/catalog"] });
+  void queryClient.invalidateQueries({ queryKey: ["/api/sparks"] });
+  void queryClient.invalidateQueries({ queryKey: ["summonHistory"] });
+},
   });
 }
 

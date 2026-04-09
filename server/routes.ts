@@ -1375,8 +1375,8 @@ await storage.createUserCardHistory({
       tokensBefore: user.tokens,
       tokensAfter: newTokenBalance,
     });
-
-    console.log("[PAID SUMMON] before updateUser", {
+    
+console.log("[PAID SUMMON] before updateUser", {
   userId: user.id,
   bannerKey: banner.key,
   oldTokens: user.tokens,
@@ -1393,123 +1393,151 @@ console.log("[PAID SUMMON] after updateUser", {
   newTokenBalance,
 });
 
-console.log("[PAID SUMMON] before incrementUserBannerSparks", {
+console.log("[SUMMON RESPONSE SENT IMMEDIATELY]", {
   userId: user.id,
-  bannerKey: banner.key,
-  amount: 1,
-});
-
-await storage.incrementUserBannerSparks(user.id, banner.key, 1);
-
-console.log("[PAID SUMMON] after incrementUserBannerSparks", {
-  userId: user.id,
-  bannerKey: banner.key,
-});
-
-const sparkRowAfterIncrement = await storage.getUserBannerSparks(user.id, banner.key);
-
-console.log("[PAID SUMMON] spark row after increment", {
-  userId: user.id,
-  bannerKey: banner.key,
-  sparkRowAfterIncrement,
-});
-
-    let paidSummonsToday = user.paidSummonsToday || 0;
-    let paidResetAt = user.paidSummonsResetAt ? new Date(user.paidSummonsResetAt) : null;
-    let reminderShownToday = user.paidReminderShownToday || false;
-
-    if (needsReset(paidResetAt)) {
-      paidSummonsToday = 0;
-      paidResetAt = getNext7PMETResetTime();
-      reminderShownToday = false;
-
-      await storage.updateUser(user.id, {
-        paidSummonsToday: 0,
-        paidSummonsResetAt: paidResetAt,
-        paidReminderShownToday: false,
-      });
-    }
-
-    paidSummonsToday += 1;
-
-    await storage.updateUser(user.id, {
-      paidSummonsToday,
-    });
-
-    let showReminder = false;
-    if (paidSummonsToday >= PAID_SUMMON_REMINDER.THRESHOLD && !reminderShownToday) {
-      showReminder = true;
-      await storage.updateUser(user.id, {
-        paidReminderShownToday: true,
-      });
-    }
-
-    try {
-      await storage.awardXp(user.id, 15);
-
-      const rarityBonusXp = pulledCards.reduce((sum: number, card: any) => {
-  const rarity = String(card.rarity || "").toLowerCase();
-
-  if (rarity === "epic") return sum + 10;
-  if (rarity === "rare") return sum + 5;
-
-  return sum;
-}, 0);
-
-      if (rarityBonusXp > 0) {
-        await storage.awardXp(user.id, rarityBonusXp);
-      }
-    } catch (xpError) {
-      console.error("[PAID SUMMON XP ERROR]", xpError);
-    }
-
-    console.log("[PAID SUMMON RESPONSE]", {
-      userId: user.id,
-      tokensAfter: newTokenBalance,
-      paidSummonsToday,
-      showPaidSummonReminder: showReminder,
-      cardsPulled: pulledCards.map((card: any) => ({
-        id: card.id,
-        name: card.name,
-        rarity: card.rarity,
-      })),
-    });
-
-    const freshUserAfterSummon = await storage.getUser(user.id);
-
-console.log("[PAID SUMMON FINAL TOKEN CHECK]", {
-  userId: user.id,
-  tokensBeforeRequest: user.tokens,
-  summonCost,
-  expectedTokensAfterCharge: newTokenBalance,
-  dbTokensAfterAllLogic: freshUserAfterSummon?.tokens,
-  paidSummonsToday,
-  pulledCards: pulledCards.map((card: any) => ({
+  tokensAfter: newTokenBalance,
+  cardsPulled: pulledCards.map((card: any) => ({
     id: card.id,
     name: card.name,
     rarity: card.rarity,
   })),
 });
 
-    res.json({
+res.json({
   cards: pulledCards,
   banner: {
     key: banner.key,
     name: banner.name,
   },
-  showPaidSummonReminder: showReminder,
+  showPaidSummonReminder: false,
   tokensRemaining: newTokenBalance,
   summonCost,
 });
+
+try {
+  console.log("[PAID SUMMON] before incrementUserBannerSparks", {
+    userId: user.id,
+    bannerKey: banner.key,
+    amount: 1,
+  });
+
+  await storage.incrementUserBannerSparks(user.id, banner.key, 1);
+
+  console.log("[PAID SUMMON] after incrementUserBannerSparks", {
+    userId: user.id,
+    bannerKey: banner.key,
+  });
+
+  const sparkRowAfterIncrement = await storage.getUserBannerSparks(user.id, banner.key);
+
+  console.log("[PAID SUMMON] spark row after increment", {
+    userId: user.id,
+    bannerKey: banner.key,
+    sparkRowAfterIncrement,
+  });
+
+  let paidSummonsToday = user.paidSummonsToday || 0;
+  let paidResetAt = user.paidSummonsResetAt ? new Date(user.paidSummonsResetAt) : null;
+  let reminderShownToday = user.paidReminderShownToday || false;
+
+  if (needsReset(paidResetAt)) {
+    paidSummonsToday = 0;
+    paidResetAt = getNext7PMETResetTime();
+    reminderShownToday = false;
+
+    await storage.updateUser(user.id, {
+      paidSummonsToday: 0,
+      paidSummonsResetAt: paidResetAt,
+      paidReminderShownToday: false,
+    });
+  }
+
+  paidSummonsToday += 1;
+
+  await storage.updateUser(user.id, {
+    paidSummonsToday,
+  });
+
+  let showReminder = false;
+  if (paidSummonsToday >= PAID_SUMMON_REMINDER.THRESHOLD && !reminderShownToday) {
+    showReminder = true;
+    await storage.updateUser(user.id, {
+      paidReminderShownToday: true,
+    });
+  }
+
+  try {
+    await storage.awardXp(user.id, 15);
+
+    const rarityBonusXp = pulledCards.reduce((sum: number, card: any) => {
+      const rarity = String(card.rarity || "").toLowerCase();
+
+      if (rarity === "epic") return sum + 10;
+      if (rarity === "rare") return sum + 5;
+
+      return sum;
+    }, 0);
+
+    if (rarityBonusXp > 0) {
+      await storage.awardXp(user.id, rarityBonusXp);
+    }
+  } catch (xpError) {
+    console.error("[PAID SUMMON XP ERROR]", xpError);
+  }
+
+  console.log("[PAID SUMMON POST-RESPONSE]", {
+    userId: user.id,
+    tokensAfter: newTokenBalance,
+    paidSummonsToday,
+    showPaidSummonReminder: showReminder,
+    cardsPulled: pulledCards.map((card: any) => ({
+      id: card.id,
+      name: card.name,
+      rarity: card.rarity,
+    })),
+  });
+
+  const freshUserAfterSummon = await storage.getUser(user.id);
+
+  console.log("[PAID SUMMON FINAL TOKEN CHECK]", {
+    userId: user.id,
+    tokensBeforeRequest: user.tokens,
+    summonCost,
+    expectedTokensAfterCharge: newTokenBalance,
+    dbTokensAfterAllLogic: freshUserAfterSummon?.tokens,
+    paidSummonsToday,
+    pulledCards: pulledCards.map((card: any) => ({
+      id: card.id,
+      name: card.name,
+      rarity: card.rarity,
+    })),
+  });
+} catch (postResponseError) {
+  console.error("[PAID SUMMON POST-RESPONSE ERROR]", {
+    message:
+      postResponseError instanceof Error
+        ? postResponseError.message
+        : String(postResponseError),
+    stack: postResponseError instanceof Error ? postResponseError.stack : undefined,
+    error: postResponseError,
+  });
+}
+
   } catch (error: any) {
     console.error("[PAID SUMMON FATAL]", {
       message: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
       error,
     });
-    res.status(500).json({ error: error.message });
+
+    if (!res.headersSent) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    return;
   }
 });
+    
       // ========== FREE DAILY GACHA ENDPOINTS ==========
 
   // Get free summon status for current user
