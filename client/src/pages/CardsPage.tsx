@@ -663,37 +663,41 @@ const handleDismissShare = () => {
 
                   const imageSrc = entry.cardImage ?? entry.card?.image ?? entry.image ?? null;
 
-                  return (
-                    <div
-                      key={entry.id}
-                      className={`flex items-center justify-between rounded-lg border p-3 ${rarityClass}`}
-                    >
-                      <div className="flex items-center gap-3">
-                        {imageSrc ? (
-                          <img
-                            src={imageSrc}
-                            alt={entry.cardName ?? entry.card?.name ?? "Card"}
-                            className="h-12 w-10 rounded border border-white/10 object-cover"
-                          />
-                        ) : (
-                          <div className="h-12 w-10 rounded border border-white/10 bg-white/5" />
-                        )}
+return (
+  <div
+    key={entry.id}
+    className={`flex items-center justify-between rounded-lg border p-3 ${rarityClass}`}
+  >
+    <div className="flex items-center gap-3">
+      {imageSrc ? (
+        <img
+          src={imageSrc}
+          alt={entry.cardName ?? entry.card?.name ?? `Card #${entry.cardId}`}
+          className="h-12 w-10 rounded border border-white/10 object-cover"
+        />
+      ) : (
+        <div className="h-12 w-10 rounded border border-white/10 bg-white/5" />
+      )}
 
-                        <div>
-                          <div className="font-medium">{entry.cardName ?? entry.card?.name ?? "Unknown card"}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {rarity} • {entry.summonType ?? "paid"} •{" "}
-                            {entry.bannerName || entry.bannerKey || "Standard"}
-                          </div>
-                        </div>
-                      </div>
+      <div>
+        <div className="font-medium">
+          {entry.cardName ?? entry.card?.name ?? `Card #${entry.cardId}`}
+        </div>
+        <div className="text-xs text-muted-foreground">
+          {rarity} • {entry.source === "free_summon" ? "free" : "paid"} •{" "}
+          {entry.banner || "Standard"}
+        </div>
+      </div>
+    </div>
 
-                      <div className="text-right text-xs text-muted-foreground">
-                        <div>{entry.tokenCost ?? 0} tokens</div>
-                        <div>{new Date(entry.createdAt || entry.pulledAt).toLocaleString()}</div>
-                      </div>
-                    </div>
-                  );
+    <div className="text-right text-xs text-muted-foreground">
+      <div>{entry.costTokens ?? 0} tokens</div>
+      <div>
+        {entry.acquiredAt ? new Date(entry.acquiredAt).toLocaleString() : "Unknown date"}
+      </div>
+    </div>
+  </div>
+);
                 })}
               </div>
             ) : (
