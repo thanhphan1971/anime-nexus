@@ -250,15 +250,20 @@ export function useSummonCards() {
       });
     },
 
-    onSuccess: () => {
-  void queryClient.invalidateQueries({ queryKey: ["userCards"] });
-  void queryClient.invalidateQueries({ queryKey: ["users"] });
+onSuccess: async () => {
+  await queryClient.invalidateQueries({ queryKey: ["userCards"] });
+  await queryClient.invalidateQueries({ queryKey: ["users"] });
 
-  void queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
-  void queryClient.invalidateQueries({ queryKey: ["/api/users"] });
-  void queryClient.invalidateQueries({ queryKey: ["/api/cards/catalog"] });
-  void queryClient.invalidateQueries({ queryKey: ["/api/sparks"] });
-  void queryClient.invalidateQueries({ queryKey: ["summonHistory"] });
+  await queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+  await queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+  await queryClient.invalidateQueries({ queryKey: ["/api/cards/catalog"] });
+  await queryClient.invalidateQueries({ queryKey: ["/api/sparks"] });
+  await queryClient.invalidateQueries({ queryKey: ["summonHistory"] });
+
+  await queryClient.refetchQueries({ queryKey: ["userCards"], type: "active" });
+  await queryClient.refetchQueries({ queryKey: ["/api/auth/me"], type: "active" });
+  await queryClient.refetchQueries({ queryKey: ["/api/sparks"], type: "active" });
+  await queryClient.refetchQueries({ queryKey: ["summonHistory"], type: "active" });
 },
   });
 }
@@ -266,7 +271,10 @@ export function useSummonCards() {
 export function useSummonHistory(limit = 20) {
   return useQuery({
     queryKey: ["summonHistory", limit],
-    queryFn: () => apiCall(`/api/summon-history?limit=${limit}`),
+    queryFn: async () => {
+      const res = await apiCall(`/api/user-card-history?limit=${limit}`);
+      return res.history ?? [];
+     },
   });
 }
 

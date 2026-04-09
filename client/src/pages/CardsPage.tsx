@@ -92,10 +92,19 @@ export default function CardsPage() {
     },
   });
 
-  const filteredCards = userCards?.filter((userCard: any) => {
+  const filteredCards = [...(userCards || [])]
+  .filter((userCard: any) => {
     if (rarityFilter === "All") return true;
     return userCard.card.rarity === rarityFilter;
+  })
+  .sort((a: any, b: any) => {
+    const dateA = new Date(a.acquiredAt || a.createdAt || 0).getTime();
+    const dateB = new Date(b.acquiredAt || b.createdAt || 0).getTime();
+    return dateB - dateA;
   });
+
+  console.log("[userCards sample]", userCards?.[0]);
+  console.log("[filteredCards sample]", filteredCards?.[0]);
 
   const displayedTokens = liveTokenBalance !== null ? liveTokenBalance : user?.tokens ?? 0;
 
@@ -188,10 +197,14 @@ export default function CardsPage() {
     );
     scrollToReward();
 
-    void refreshUser();
-    void queryClient.invalidateQueries({ queryKey: ["userCards", user?.id] });
-    void queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
-    void queryClient.invalidateQueries({ queryKey: ["summonHistory"] });
+    await refreshUser();
+    await queryClient.invalidateQueries({ queryKey: ["userCards"] });
+    await queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+    await queryClient.invalidateQueries({ queryKey: ["summonHistory"] });
+
+    await queryClient.refetchQueries({ queryKey: ["userCards"], type: "active" });
+    await queryClient.refetchQueries({ queryKey: ["/api/auth/me"], type: "active" });
+    await queryClient.refetchQueries({ queryKey: ["summonHistory"], type: "active" });
 
     if (result.showPaidSummonReminder) {
       setTimeout(() => {
