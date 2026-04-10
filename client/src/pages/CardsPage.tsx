@@ -410,6 +410,11 @@ const handleDismissShare = () => {
           <p className="max-w-[240px] text-xs text-muted-foreground">
             Summon rare anime cards, build your collection, and trade with others
           </p>
+
+<div className="mt-2 rounded-lg border border-red-500 bg-red-500/10 p-3 text-sm text-red-300">
+  CARDS PAGE FILE TEST
+</div>
+          
         </div>
 
         <Button
