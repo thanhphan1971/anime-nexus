@@ -410,10 +410,6 @@ const handleDismissShare = () => {
           <p className="max-w-[240px] text-xs text-muted-foreground">
             Summon rare anime cards, build your collection, and trade with others
           </p>
-
-<div className="mt-2 rounded-lg border border-red-500 bg-red-500/10 p-3 text-sm text-red-300">
-  CARDS PAGE FILE TEST
-</div>
           
         </div>
 
@@ -762,83 +758,130 @@ const handleDismissShare = () => {
                       </div>
 
                       <div className="mt-4 w-full">
-                        <p className="mb-2 text-xs text-muted-foreground">Select Banner</p>
-                        <div className="flex flex-wrap gap-2">
-                          {banners?.map((banner: any) => (
-                            <button
-                              key={banner.key}
-                              onClick={() => setSelectedBanner(banner.key)}
-                              className={`rounded-md border px-3 py-2 text-sm transition ${
-                                selectedBanner === banner.key
-                                  ? "border-yellow-400 bg-yellow-500 text-black"
-                                  : "border-white/10 bg-black/30 text-white hover:border-yellow-500/50"
-                            }`}
-                            >
-                              {banner.name}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
+  <p className="mb-1 text-xs text-muted-foreground">
+    Choose a banner to summon from
+  </p>
+  <p className="mb-2 text-[11px] text-muted-foreground">
+    You have 2 banner choices. Pick one, then choose how many pulls you want.
+  </p>
 
-                      {bestBannerCTA ? (
-  <div className="mt-3 w-full rounded-lg border border-yellow-500/20 bg-yellow-500/5 p-3">
-    <p className="text-xs text-muted-foreground">Banner Insight</p>
-    <p className="mt-1 text-sm font-semibold text-yellow-300">
-      {bestBannerCTA}
+  <div className="flex gap-2">
+    {banners?.map((banner: any) => (
+      <button
+        key={banner.key}
+        onClick={() => setSelectedBanner(banner.key)}
+        className={`rounded-md border px-3 py-2 text-sm transition ${
+          selectedBanner === banner.key
+            ? "border-yellow-400 bg-yellow-500 text-black"
+            : "border-white/10 bg-black/30 text-white hover:border-yellow-500/50"
+        }`}
+      >
+        {banner.name}
+      </button>
+    ))}
+  </div>
+</div>
+
+<p className="mt-3 text-center text-[11px] text-muted-foreground">
+  Click below to summon from your selected banner
+</p>
+
+<div className="mt-4 w-full space-y-2">
+  <Button
+    size="lg"
+    onClick={() => handleSummon(10)}
+    disabled={summonCards.isPending || displayedTokens < 1000}
+    className="w-full bg-gradient-to-r from-yellow-500 to-amber-500 py-6 text-lg font-bold text-black shadow-lg hover:from-yellow-400 hover:to-amber-400"
+    data-testid="button-paid-summon-10"
+  >
+    <Sparkles className="mr-2 h-5 w-5" />
+    {summonCards.isPending ? "Summoning..." : "Click here for 10 pulls (1000 Tokens)"}
+  </Button>
+
+  <p className="text-center text-[11px] text-muted-foreground">
+    Best value • Faster opening
+  </p>
+
+  <Button
+    variant="outline"
+    size="sm"
+    onClick={() => handleSummon(1)}
+    disabled={summonCards.isPending || displayedTokens < 100}
+    className="w-full border-yellow-500/40 text-yellow-400 hover:bg-yellow-500/10"
+    data-testid="button-paid-summon-1"
+  >
+    <Sparkles className="mr-2 h-5 w-5" />
+    {summonCards.isPending ? "Summoning..." : "Click here for 1 pull (100 Tokens)"}
+  </Button>
+</div>
+
+<div className="mt-4 w-full rounded-xl border border-white/10 bg-black/30 p-4">
+  <p className="mb-2 text-xs text-muted-foreground">Your Banner Performance</p>
+
+  {bestBannerCTA ? (
+    <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/5 p-3">
+      <p className="text-xs text-muted-foreground">Strongest Banner</p>
+      <p className="mt-1 text-sm font-semibold text-yellow-300">
+        {bestBannerCTA}
+      </p>
+    </div>
+  ) : (
+    <div className="rounded-lg border border-white/10 bg-black/20 p-3">
+      <p className="text-xs text-muted-foreground">Strongest Banner</p>
+      <p className="mt-1 text-sm text-muted-foreground">
+        No banner leader yet — your next pull could change that.
+      </p>
+    </div>
+  )}
+
+  <div className="mt-2 rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-3">
+    <p className="text-xs text-muted-foreground">Current Banner Performance</p>
+    <p className="mt-1 text-sm font-medium text-cyan-200">
+      {selectedBannerBestRarity
+        ? `Your best pull on this banner so far is ${selectedBannerBestRarity}.`
+        : "You have not landed a notable pull on this banner yet."}
     </p>
   </div>
-) : (
-  <div className="mt-3 w-full rounded-lg border border-white/10 bg-black/20 p-3">
-    <p className="text-xs text-muted-foreground">Banner Insight</p>
-    <p className="mt-1 text-sm text-muted-foreground">
-      No banner leader yet — your next pull could change that.
-    </p>
+</div>
+
+{summonError && (
+  <div className="mb-3 mt-4 w-full rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-300">
+    {summonError}
   </div>
 )}
 
-<div className="mt-2 w-full rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-3">
-  <p className="text-xs text-muted-foreground">Current Banner</p>
-  <p className="mt-1 text-sm font-medium text-cyan-200">
-    {selectedBannerMessage}
+                      <p className="text-[11px] text-muted-foreground text-center">
+  Choose how many cards you want to summon
+</p>
+
+<div className="mt-4 w-full space-y-2">
+  <Button
+    size="lg"
+    onClick={() => handleSummon(10)}
+    disabled={summonCards.isPending || displayedTokens < 1000}
+    className="w-full bg-gradient-to-r from-yellow-500 to-amber-500 py-6 text-lg font-bold text-black shadow-lg hover:from-yellow-400 hover:to-amber-400"
+    data-testid="button-paid-summon-10"
+  >
+    <Sparkles className="mr-2 h-5 w-5" />
+    {summonCards.isPending ? "Summoning..." : "Click to Pull x10 (1000 Tokens)"}
+  </Button>
+
+  <p className="text-center text-[11px] text-muted-foreground">
+    Best value • Faster opening
   </p>
+
+  <Button
+    variant="outline"
+    size="sm"
+    onClick={() => handleSummon(1)}
+    disabled={summonCards.isPending || displayedTokens < 100}
+    className="w-full border-yellow-500/40 text-yellow-400 hover:bg-yellow-500/10"
+    data-testid="button-paid-summon-1"
+  >
+    <Sparkles className="mr-2 h-5 w-5" />
+    {summonCards.isPending ? "Summoning..." : "Click to Pull x1 (100 Tokens)"}
+  </Button>
 </div>
-
-<div className="mt-2 w-full rounded-lg border border-red-500 bg-red-500/10 p-3 text-sm text-red-300">
-  TEMP BANNER TEST
-</div>                      
-
-                      {summonError && (
-                        <div className="mb-3 mt-4 w-full rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-300">
-                          {summonError}
-                        </div>
-                      )}
-
-                      <div className="mt-4 w-full space-y-2">
-                        <Button
-                          size="lg"
-                          onClick={() => handleSummon(10)}
-                          disabled={summonCards.isPending || displayedTokens < 1000}
-                          className="w-full bg-gradient-to-r from-yellow-500 to-amber-500 py-6 text-lg font-bold text-black shadow-lg hover:from-yellow-400 hover:to-amber-400"
-                          data-testid="button-paid-summon-10"
-                        >
-                          <Sparkles className="mr-2 h-5 w-5" />
-                          {summonCards.isPending ? "Summoning..." : "Pull x10 (1000 Tokens)"}
-                        </Button>
-
-                        <p className="text-center text-[11px] text-muted-foreground">Best value • Faster opening</p>
-
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleSummon(1)}
-                          disabled={summonCards.isPending || displayedTokens < 100}
-                          className="w-full border-yellow-500/40 text-yellow-400 hover:bg-yellow-500/10"
-                          data-testid="button-paid-summon-1"
-                        >
-                          <Sparkles className="mr-2 h-5 w-5" />
-                          {summonCards.isPending ? "Summoning..." : "Pull x1 (100 Tokens)"}
-                        </Button>
-                      </div>
 
                       {displayedTokens < 100 && (
                         <p className="mt-2 text-xs text-red-400">Not enough tokens</p>
