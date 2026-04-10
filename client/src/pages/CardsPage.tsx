@@ -216,9 +216,15 @@ const momentumMessage =
     ? "You're on a streak — your next Rare+ pull could be close."
     : null;
 
+const formatBannerName = (key: string) => {
+  if (key === "standard") return "Standard Summon";
+  if (key === "fire_tribe_v1") return "Fire Tribe Rising";
+  return key;
+};
+
 const bestBannerCTA =
   bestBanner && bestBanner.rarity !== "Common"
-    ? `${bestBanner.banner} has been your strongest banner so far`
+    ? `${formatBannerName(bestBanner.banner)} has been your strongest banner so far.`
     : null;
 
 const selectedBannerBestRarity = selectedBanner
@@ -746,7 +752,7 @@ const handleDismissShare = () => {
                       <p className="font-display text-xl font-bold text-yellow-400">PAID SUMMON</p>
                       <p className="mt-2 text-xs text-muted-foreground">Cost: 100 Tokens</p>
                       <p className="text-xs text-muted-foreground">
-                        {user?.isPremium ? "2x S-Class Pull" : "Single Pull"}
+                        {user?.isPremium ? "2x S-Class Pull" : "Choose Your Pull"}
                       </p>
 
                       <div className="mt-4 flex items-center gap-2 rounded-lg bg-black/40 px-3 py-1.5">
@@ -869,12 +875,18 @@ const handleDismissShare = () => {
   <div className="mt-2 rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-3">
     <p className="text-xs text-muted-foreground">Current Banner Performance</p>
     <p className="mt-1 text-sm font-medium text-cyan-200">
-      {selectedBannerBestRarity
-        ? `Your best pull on this banner so far is ${selectedBannerBestRarity}.`
-        : "You have not landed a notable pull on this banner yet."}
+      {selectedBannerMessage}
     </p>
   </div>
 </div>
+
+{momentumMessage && (
+  <div className="mt-2 rounded-lg border border-yellow-500/20 bg-yellow-500/5 p-3">
+    <p className="text-sm font-semibold text-yellow-300">
+      {momentumMessage}
+    </p>
+  </div>
+)}                      
 
 {summonError && (
   <div className="mb-3 mt-4 w-full rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-300">
