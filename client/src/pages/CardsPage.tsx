@@ -54,20 +54,20 @@ export default function CardsPage() {
   const shareSummon = useShareSummon();
 
   const [liveTokenBalance, setLiveTokenBalance] = useState<number | null>(null);
-  const [summonError, setSummonError] = useState<string | null>(null);
-  const [reward, setReward] = useState<any>(null);
-  const [rarityFilter, setRarityFilter] = useState<string>("All");
-  const [isFreeLoading, setIsFreeLoading] = useState(false);
-  const [hasShared, setHasShared] = useState(false);
-  const [isSharing, setIsSharing] = useState(false);
-  const [shareDismissed, setShareDismissed] = useState(false);
-  const [selectedBanner, setSelectedBanner] = useState("standard");
+const [summonError, setSummonError] = useState<string | null>(null);
+const [reward, setReward] = useState<any>(null);
+const [rarityFilter, setRarityFilter] = useState<string>("All");
+const [isFreeLoading, setIsFreeLoading] = useState(false);
+const [hasShared, setHasShared] = useState(false);
+const [isSharing, setIsSharing] = useState(false);
+const [shareDismissed, setShareDismissed] = useState(false);
+const [selectedBanner, setSelectedBanner] = useState("standard");
+const [pullCount, setPullCount] = useState<1 | 10>(10);
 
-  const [, setLocation] = useLocation();
-  const paidSummonRef = useRef<HTMLDivElement>(null);
-  const freeSummonRef = useRef<HTMLDivElement>(null);
-  const rewardSectionRef = useRef<HTMLDivElement>(null);
-
+const [, setLocation] = useLocation();
+const paidSummonRef = useRef<HTMLDivElement>(null);
+const freeSummonRef = useRef<HTMLDivElement>(null);
+const rewardSectionRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const mode = params.get("mode");
@@ -762,8 +762,8 @@ const handleDismissShare = () => {
     Choose a banner to summon from
   </p>
   <p className="mb-2 text-[11px] text-muted-foreground">
-    You have 2 banner choices. Pick one, then choose how many pulls you want.
-  </p>
+  Pick a banner. Your next big pull could be here.
+</p>
 
   <div className="flex gap-2">
     {banners?.map((banner: any) => (
@@ -794,38 +794,58 @@ const handleDismissShare = () => {
   </div>
 </div>
 
-<p className="mt-3 text-center text-[11px] text-muted-foreground">
-  Try your luck
+    <p className="mt-3 text-center text-[11px] text-muted-foreground">
+  Choose your pull
 </p>
 
-<div className="mt-4 w-full space-y-2">
+<div className="mt-3 w-full">
+  <div className="grid grid-cols-2 gap-2">
+    <button
+      type="button"
+      onClick={() => setPullCount(1)}
+      className={`rounded-md border px-3 py-2 text-sm font-semibold transition ${
+        pullCount === 1
+          ? "border-white/30 bg-white text-black"
+          : "border-white/10 bg-black/30 text-white hover:border-white/30"
+      }`}
+    >
+      1 Pull
+    </button>
+
+    <button
+      type="button"
+      onClick={() => setPullCount(10)}
+      className={`rounded-md border px-3 py-2 text-sm font-semibold transition ${
+        pullCount === 10
+          ? "border-yellow-400 bg-yellow-500 text-black"
+          : "border-white/10 bg-black/30 text-white hover:border-yellow-500/50"
+      }`}
+    >
+      10 Pulls
+    </button>
+  </div>
+
+  <p className="mt-2 text-center text-[11px] text-muted-foreground">
+    {pullCount === 10 ? "Best value • Faster opening" : "Quick single summon"}
+  </p>
+</div>
+
+<div className="mt-4 w-full">
   <Button
     size="lg"
-    onClick={() => handleSummon(10)}
-    disabled={summonCards.isPending || displayedTokens < 1000}
+    onClick={() => handleSummon(pullCount)}
+    disabled={summonCards.isPending || displayedTokens < (pullCount === 10 ? 1000 : 100)}
     className="w-full bg-gradient-to-r from-yellow-500 to-amber-500 py-6 text-lg font-bold text-black shadow-lg hover:from-yellow-400 hover:to-amber-400"
-    data-testid="button-paid-summon-10"
+    data-testid="button-paid-summon"
   >
     <Sparkles className="mr-2 h-5 w-5" />
-    {summonCards.isPending ? "Summoning..." : "Click here for 10 pulls (1000 Tokens)"}
+    {summonCards.isPending
+      ? "Summoning..."
+      : pullCount === 10
+        ? "Try your luck — 10 pulls (1000 Tokens)"
+        : "Try your luck — 1 pull (100 Tokens)"}
   </Button>
-
-  <p className="text-center text-[11px] text-muted-foreground">
-    Best value • Faster opening
-  </p>
-
-  <Button
-    variant="outline"
-    size="sm"
-    onClick={() => handleSummon(1)}
-    disabled={summonCards.isPending || displayedTokens < 100}
-    className="w-full border-yellow-500/40 text-yellow-400 hover:bg-yellow-500/10"
-    data-testid="button-paid-summon-1"
-  >
-    <Sparkles className="mr-2 h-5 w-5" />
-    {summonCards.isPending ? "Summoning..." : "Click here for 1 pull (100 Tokens)"}
-  </Button>
-</div>
+</div>                  
 
 <div className="mt-4 w-full rounded-xl border border-white/10 bg-black/30 p-4">
   <p className="mb-2 text-xs text-muted-foreground">Your Banner Performance</p>
@@ -864,9 +884,11 @@ const handleDismissShare = () => {
 
                      
 
-                      {displayedTokens < 100 && (
-                        <p className="mt-2 text-xs text-red-400">Not enough tokens</p>
-                      )}
+                      {displayedTokens < (pullCount === 10 ? 1000 : 100) && (
+  <p className="mt-2 text-xs text-red-400">
+    Not enough tokens for {pullCount === 10 ? "10 pulls" : "1 pull"}
+  </p>
+)}
                     </div>
                   </div>
                 </div>
