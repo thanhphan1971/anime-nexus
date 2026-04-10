@@ -776,7 +776,19 @@ const handleDismissShare = () => {
             : "border-white/10 bg-black/30 text-white hover:border-yellow-500/50"
         }`}
       >
-        {banner.name}
+        <div className="flex flex-col items-start">
+  <span className="font-semibold">{banner.name}</span>
+
+  <span
+  className={`text-[10px] ${
+  selectedBanner === banner.key ? "text-black/80" : "text-muted-foreground"
+}`}
+>
+    {banner.key === "standard"
+      ? "Balanced pulls • Build your collection"
+      : "Limited event • Higher chance for powerful cards"}
+  </span>
+</div>
       </button>
     ))}
   </div>
