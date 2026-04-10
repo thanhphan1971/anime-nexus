@@ -783,7 +783,7 @@ const handleDismissShare = () => {
 </div>
 
 <p className="mt-3 text-center text-[11px] text-muted-foreground">
-  Click below to summon from your selected banner
+  Try your luck
 </p>
 
 <div className="mt-4 w-full space-y-2">
@@ -850,38 +850,7 @@ const handleDismissShare = () => {
   </div>
 )}
 
-                      <p className="text-[11px] text-muted-foreground text-center">
-  Choose how many cards you want to summon
-</p>
-
-<div className="mt-4 w-full space-y-2">
-  <Button
-    size="lg"
-    onClick={() => handleSummon(10)}
-    disabled={summonCards.isPending || displayedTokens < 1000}
-    className="w-full bg-gradient-to-r from-yellow-500 to-amber-500 py-6 text-lg font-bold text-black shadow-lg hover:from-yellow-400 hover:to-amber-400"
-    data-testid="button-paid-summon-10"
-  >
-    <Sparkles className="mr-2 h-5 w-5" />
-    {summonCards.isPending ? "Summoning..." : "Click to Pull x10 (1000 Tokens)"}
-  </Button>
-
-  <p className="text-center text-[11px] text-muted-foreground">
-    Best value • Faster opening
-  </p>
-
-  <Button
-    variant="outline"
-    size="sm"
-    onClick={() => handleSummon(1)}
-    disabled={summonCards.isPending || displayedTokens < 100}
-    className="w-full border-yellow-500/40 text-yellow-400 hover:bg-yellow-500/10"
-    data-testid="button-paid-summon-1"
-  >
-    <Sparkles className="mr-2 h-5 w-5" />
-    {summonCards.isPending ? "Summoning..." : "Click to Pull x1 (100 Tokens)"}
-  </Button>
-</div>
+                     
 
                       {displayedTokens < 100 && (
                         <p className="mt-2 text-xs text-red-400">Not enough tokens</p>
