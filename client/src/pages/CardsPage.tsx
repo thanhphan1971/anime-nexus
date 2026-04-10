@@ -62,7 +62,7 @@ const [hasShared, setHasShared] = useState(false);
 const [isSharing, setIsSharing] = useState(false);
 const [shareDismissed, setShareDismissed] = useState(false);
 const [selectedBanner, setSelectedBanner] = useState("standard");
-const [pullCount, setPullCount] = useState<1 | 10>(10);
+const [pullCount, setPullCount] = useState<1 | 10>(1);
 
 const [, setLocation] = useLocation();
 const paidSummonRef = useRef<HTMLDivElement>(null);
