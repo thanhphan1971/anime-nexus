@@ -798,6 +798,10 @@ const handleDismissShare = () => {
   </p>
 </div>
 
+<div className="mt-2 w-full rounded-lg border border-red-500 bg-red-500/10 p-3 text-sm text-red-300">
+  TEMP BANNER TEST
+</div>                      
+
                       {summonError && (
                         <div className="mb-3 mt-4 w-full rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-300">
                           {summonError}
