@@ -188,6 +188,38 @@ export const userCardHistory = pgTable("user_card_history", {
   pullNumber: integer("pull_number"),
 });
 
+export const summonTransactions = pgTable("summon_transactions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+
+  userId: varchar("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+
+  requestId: text("request_id").notNull().unique(),
+
+  banner: text("banner").notNull().default("standard"),
+  summonCount: integer("summon_count").notNull(),
+
+  tokensBefore: integer("tokens_before").notNull(),
+  tokensAfter: integer("tokens_after"),
+
+  cardsGranted: jsonb("cards_granted")
+    .$type<
+      Array<{
+        id: string;
+        name: string;
+        rarity: string;
+      }>
+    >()
+    .notNull()
+    .default(sql`'[]'::jsonb`),
+
+  status: text("status").notNull().default("pending"),
+  errorMessage: text("error_message"),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+});
 
 // Marketplace Listings
 export const marketListings = pgTable("market_listings", {
@@ -927,6 +959,9 @@ export const insertParentNotificationSchema = createInsertSchema(parentNotificat
 // Export types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
+
+export type SummonTransaction = typeof summonTransactions.$inferSelect;
+export type InsertSummonTransaction = typeof summonTransactions.$inferInsert;
 
 export type InsertPost = z.infer<typeof insertPostSchema>;
 export type Post = typeof posts.$inferSelect;

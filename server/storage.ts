@@ -11,6 +11,8 @@ import {
   type InsertUserCard,
   type InsertUserCardHistory,
   type UserCardHistory,
+  type InsertSummonTransaction,
+  type SummonTransaction,
   type MarketListing,
   type InsertMarketListing,
   type Community,
@@ -126,12 +128,20 @@ export interface IStorage {
   getAllUsers(): Promise<User[]>;
 
   // User Card History (summon history)
-  createUserCardHistory(entry: InsertUserCardHistory): Promise<UserCardHistory>;
-  getUserCardHistory(userId: string, limit?: number): Promise<UserCardHistory[]>;
-  getUserCardHistoryCount(userId: string): Promise<number>;
+createUserCardHistory(entry: InsertUserCardHistory): Promise<UserCardHistory>;
+getUserCardHistory(userId: string, limit?: number): Promise<UserCardHistory[]>;
+getUserCardHistoryCount(userId: string): Promise<number>;
 
-  // Banners
-  getActiveBanners(): Promise<Banner[]>;
+// Summon Transactions (authoritative ledger)
+createSummonTransaction(entry: InsertSummonTransaction): Promise<SummonTransaction>;
+updateSummonTransaction(
+  id: string,
+  updates: Partial<SummonTransaction>
+): Promise<SummonTransaction | undefined>;
+getSummonTransactionByRequestId(requestId: string): Promise<SummonTransaction | undefined>;
+
+// Banners
+getActiveBanners(): Promise<Banner[]>;
   getBannerByKey(key: string): Promise<Banner | undefined>;
   getBannerCards(bannerId: string): Promise<Array<BannerCard & { card: Card }>>;
 
@@ -773,6 +783,41 @@ async getUserCardHistoryCount(userId: string): Promise<number> {
 
   return result[0]?.count ?? 0;
 }
+
+async createSummonTransaction(
+  entry: InsertSummonTransaction
+): Promise<SummonTransaction> {
+  const [transaction] = await db
+    .insert(summonTransactions)
+    .values(entry)
+    .returning();
+
+  return transaction;
+}
+
+async updateSummonTransaction(
+  id: string,
+  updates: Partial<SummonTransaction>
+): Promise<SummonTransaction | undefined> {
+  const [transaction] = await db
+    .update(summonTransactions)
+    .set(updates)
+    .where(eq(summonTransactions.id, id))
+    .returning();
+
+  return transaction;
+}
+
+async getSummonTransactionByRequestId(
+  requestId: string
+): Promise<SummonTransaction | undefined> {
+  const [transaction] = await db
+    .select()
+    .from(summonTransactions)
+    .where(eq(summonTransactions.requestId, requestId));
+
+  return transaction;
+}  
 
 async getCatalogCards(options: { page?: number; limit?: number; rarities?: string[]; sortOrder?: 'newest' | 'oldest' }): Promise<{ cards: Card[]; total: number; page: number; totalPages: number }> {
   const page = options.page || 1;

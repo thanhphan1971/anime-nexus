@@ -1209,12 +1209,16 @@ app.post("/api/sparks/redeem", verifySupabaseToken, async (req, res) => {
 
 // Paid summon endpoint
 app.post("/api/cards/summon", verifySupabaseToken, async (req, res) => {
+  let summonTransactionId: string | null = null;
+  let requestId = "";
+
   try {
     if (!req.dbUser) {
       return res.status(401).json({ error: "Not authenticated" });
     }
 
     const user = req.dbUser;
+    requestId = `summon_${user.id}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
     console.log("[SUMMON ROUTE MARKER]", {
   marker: "PROD_CHECK_6942a09",
   userId: user.id,
@@ -1245,6 +1249,36 @@ if (!banner) {
 if (user.tokens < summonCost) {
   return res.status(400).json({ error: "Insufficient tokens" });
 }
+
+const existingTransaction = await storage.getSummonTransactionByRequestId(requestId);
+
+if (existingTransaction) {
+  return res.status(409).json({ error: "Duplicate summon request" });
+}
+
+const pendingTransaction = await storage.createSummonTransaction({
+  userId: user.id,
+  requestId,
+  banner: banner.key,
+  summonCount: 1,
+  tokensBefore: user.tokens,
+  tokensAfter: null,
+  cardsGranted: [],
+  status: "pending",
+  errorMessage: null,
+  completedAt: null,
+});
+
+summonTransactionId = pendingTransaction.id;
+
+console.log("[SUMMON TRANSACTION CREATED]", {
+  summonTransactionId,
+  requestId,
+  userId: user.id,
+  banner: banner.key,
+  summonCount: 1,
+  tokensBefore: user.tokens,
+});   
 
     const bannerPool = await storage.getBannerCards(banner.id);
 
@@ -1387,6 +1421,33 @@ await storage.updateUser(user.id, {
   tokens: newTokenBalance,
 });
 
+if (summonTransactionId) {
+  await storage.updateSummonTransaction(summonTransactionId, {
+    tokensAfter: newTokenBalance,
+    cardsGranted: pulledCards.map((card: any) => ({
+      id: card.id,
+      name: card.name,
+      rarity: card.rarity,
+    })),
+    status: "completed",
+    completedAt: new Date(),
+    errorMessage: null,
+  });
+
+  console.log("[SUMMON TRANSACTION COMPLETED]", {
+    summonTransactionId,
+    requestId,
+    userId: user.id,
+    tokensBefore: user.tokens,
+    tokensAfter: newTokenBalance,
+    cardsGranted: pulledCards.map((card: any) => ({
+      id: card.id,
+      name: card.name,
+      rarity: card.rarity,
+    })),
+  });
+}   
+
 console.log("[PAID SUMMON] after updateUser", {
   userId: user.id,
   bannerKey: banner.key,
@@ -1523,22 +1584,35 @@ try {
   });
 }
 
-  } catch (error: any) {
-    console.error("[PAID SUMMON FATAL]", {
-      message: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-      error,
-    });
-
-    if (!res.headersSent) {
-      return res.status(500).json({ error: error.message });
+} catch (error: any) {
+  if (summonTransactionId) {
+    try {
+      await storage.updateSummonTransaction(summonTransactionId, {
+        status: "failed",
+        errorMessage:
+          error instanceof Error ? error.message : String(error),
+        completedAt: new Date(),
+      });
+    } catch (txError) {
+      console.error("[SUMMON TX FAIL UPDATE ERROR]", txError);
     }
-
-    return;
   }
+
+  console.error("[PAID SUMMON FATAL]", {
+    message: error instanceof Error ? error.message : String(error),
+    stack: error instanceof Error ? error.stack : undefined,
+    error,
+  });
+
+  if (!res.headersSent) {
+    return res.status(500).json({ error: error.message });
+  }
+
+  return;
+}
 });
-    
-      // ========== FREE DAILY GACHA ENDPOINTS ==========
+
+// ========== FREE DAILY GACHA ENDPOINTS ==========
 
   // Get free summon status for current user
   app.get("/api/gacha/free-status", verifySupabaseToken, async (req, res) => {
