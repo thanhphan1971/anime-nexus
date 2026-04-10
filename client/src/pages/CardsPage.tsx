@@ -273,35 +273,40 @@ const scrollToReward = () => {
 };
 
   const handleFreeSummon = async () => {
-    if (!user) {
-      toast.error("Please sign in to summon");
-      return;
-    }
+  if (!user) {
+    toast.error("Please sign in to summon");
+    return;
+  }
 
-    if (!freeStatus || freeStatus.remainingToday <= 0) {
-      toast.error("No free summons remaining today!");
-      return;
-    }
+  if (!freeStatus || freeStatus.remainingToday <= 0) {
+    toast.error("No free summons remaining today!");
+    return;
+  }
 
-    setIsFreeLoading(true);
+  setIsFreeLoading(true);
+  setSummonError(null);
 
-    try {
-      const result = await freeSummonMutation.mutateAsync();
-      setReward(result.card);
-      setHasShared(false);
-      setShareDismissed(false);
+  try {
+    const result = await freeSummonMutation.mutateAsync();
+    setReward(result.card);
+    setHasShared(false);
+    setShareDismissed(false);
 
-      await refetchFreeStatus();
-      await refreshUser();
+    await queryClient.invalidateQueries({ queryKey: ["userCards"] });
+    await queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+    await queryClient.invalidateQueries({ queryKey: ["/api/users"] });
 
-      toast.success(`Summoned ${result.card?.name || "a card"}!`);
-      scrollToReward();
-    } catch (error: any) {
-      toast.error(error.message || "Summon failed");
-    } finally {
-      setIsFreeLoading(false);
-    }
-  };
+    await refetchFreeStatus();
+    await refreshUser();
+
+    toast.success(`Summoned ${result.card?.name || "a card"}!`);
+    scrollToReward();
+  } catch (error: any) {
+    toast.error(error.message || "Summon failed");
+  } finally {
+    setIsFreeLoading(false);
+  }
+};
 
   const handleSummon = async (count: 1 | 10 = 1) => {
   const cost = 100 * count;
