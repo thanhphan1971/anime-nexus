@@ -767,7 +767,7 @@ const handleDismissShare = () => {
                                 selectedBanner === banner.key
                                   ? "border-yellow-400 bg-yellow-500 text-black"
                                   : "border-white/10 bg-black/30 text-white hover:border-yellow-500/50"
-                              }`}
+                            }`}
                             >
                               {banner.name}
                             </button>
@@ -790,6 +790,13 @@ const handleDismissShare = () => {
     </p>
   </div>
 )}
+
+<div className="mt-2 w-full rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-3">
+  <p className="text-xs text-muted-foreground">Current Banner</p>
+  <p className="mt-1 text-sm font-medium text-cyan-200">
+    {selectedBannerMessage}
+  </p>
+</div>
 
                       {summonError && (
                         <div className="mb-3 mt-4 w-full rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-300">
