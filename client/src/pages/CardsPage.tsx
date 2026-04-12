@@ -400,6 +400,44 @@ const scrollToReward = () => {
     toast.error(message);
   }
 };
+
+const handleShareToFeed = async () => {
+  if (!reward) return;
+
+  const cards = Array.isArray(reward) ? reward : [reward];
+  if (cards.length === 0) return;
+
+  const card = cards[0];
+
+  setIsSharing(true);
+  try {
+    await shareSummon.mutateAsync({
+      cardId: card.id,
+      source: "paid",
+    });
+    setHasShared(true);
+    toast.success("Shared to Feed!");
+  } catch (error: any) {
+    toast.error(error.message || "Failed to share");
+  } finally {
+    setIsSharing(false);
+  }
+};
+
+const handleBackToSummons = () => {
+  setReward(null);
+  setHasShared(false);
+  setShareDismissed(false);
+  setSummonError(null);
+
+  setTimeout(() => {
+    paidSummonRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+  }, 100);
+};
+  
 const handleDismissShare = () => {
   setShareDismissed(true);
 };
@@ -847,42 +885,7 @@ const handleDismissShare = () => {
         ? "Try your luck — 10 pulls (1000 Tokens)"
         : "Try your luck — 1 pull (100 Tokens)"}
   </Button>
-</div>                  
-
-<div className="mt-4 w-full rounded-xl border border-white/10 bg-black/30 p-4">
-  <p className="mb-2 text-xs text-muted-foreground">Your Banner Performance</p>
-
-  {bestBannerCTA ? (
-    <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/5 p-3">
-      <p className="text-xs text-muted-foreground">Strongest Banner</p>
-      <p className="mt-1 text-sm font-semibold text-yellow-300">
-        {bestBannerCTA}
-      </p>
-    </div>
-  ) : (
-    <div className="rounded-lg border border-white/10 bg-black/20 p-3">
-      <p className="text-xs text-muted-foreground">Strongest Banner</p>
-      <p className="mt-1 text-sm text-muted-foreground">
-        No banner leader yet — your next pull could change that.
-      </p>
-    </div>
-  )}
-
-  <div className="mt-2 rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-3">
-    <p className="text-xs text-muted-foreground">Current Banner Performance</p>
-    <p className="mt-1 text-sm font-medium text-cyan-200">
-      {selectedBannerMessage}
-    </p>
-  </div>
-</div>
-
-{momentumMessage && (
-  <div className="mt-2 rounded-lg border border-yellow-500/20 bg-yellow-500/5 p-3">
-    <p className="text-sm font-semibold text-yellow-300">
-      {momentumMessage}
-    </p>
-  </div>
-)}                      
+</div>             
 
 {summonError && (
   <div className="mb-3 mt-4 w-full rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-300">
@@ -998,6 +1001,48 @@ const handleDismissShare = () => {
               )}
             </AnimatePresence>
           </div>
+
+          {/* YOUR SUMMON STORY */}
+<div className="mt-4 w-full max-w-2xl mx-auto">
+  <p className="mb-2 text-xs text-muted-foreground text-center">
+    Your progress so far
+  </p>
+
+  <div className="rounded-xl border border-white/10 bg-black/30 p-4">
+    <p className="mb-2 text-xs text-muted-foreground">Your Banner Performance</p>
+
+    {bestBannerCTA ? (
+      <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/5 p-3">
+        <p className="text-xs text-muted-foreground">Strongest Banner</p>
+        <p className="mt-1 text-sm font-semibold text-yellow-300">
+          {bestBannerCTA}
+        </p>
+      </div>
+    ) : (
+      <div className="rounded-lg border border-white/10 bg-black/20 p-3">
+        <p className="text-xs text-muted-foreground">Strongest Banner</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          No banner leader yet — your next pull could change that.
+        </p>
+      </div>
+    )}
+
+    <div className="mt-2 rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-3">
+      <p className="text-xs text-muted-foreground">Current Banner Performance</p>
+      <p className="mt-1 text-sm font-medium text-cyan-200">
+        {selectedBannerMessage}
+      </p>
+    </div>
+  </div>
+
+  {momentumMessage && (
+    <div className="mt-2 rounded-lg border border-yellow-500/20 bg-yellow-500/5 p-3">
+      <p className="text-sm font-semibold text-yellow-300">
+        {momentumMessage}
+      </p>
+    </div>
+  )}
+</div>
 
           <div className="mt-8 rounded-xl border border-white/10 p-4">
             <h3 className="mb-4 text-lg font-bold">Recent Summons</h3>
