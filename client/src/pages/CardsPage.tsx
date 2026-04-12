@@ -68,6 +68,13 @@ const [, setLocation] = useLocation();
 const paidSummonRef = useRef<HTMLDivElement>(null);
 const freeSummonRef = useRef<HTMLDivElement>(null);
 const rewardSectionRef = useRef<HTMLDivElement>(null);
+
+useEffect(() => {
+  if (typeof user?.tokens === "number") {
+    setLiveTokenBalance(user.tokens);
+  }
+}, [user?.id]);
+  
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const mode = params.get("mode");
@@ -101,11 +108,12 @@ const rewardSectionRef = useRef<HTMLDivElement>(null);
     const dateA = new Date(a.acquiredAt || a.createdAt || 0).getTime();
     const dateB = new Date(b.acquiredAt || b.createdAt || 0).getTime();
     return dateB - dateA;
-  });
+  });  
 
-  
-
-  const displayedTokens = liveTokenBalance !== null ? liveTokenBalance : user?.tokens ?? 0;
+  const displayedTokens =
+  typeof liveTokenBalance === "number"
+    ? liveTokenBalance
+    : user?.tokens ?? 0;
 
 // =========================
 // Collection / summon stats
@@ -329,14 +337,35 @@ const scrollToReward = () => {
       bannerKey: selectedBanner,
     };
 
+    console.log("[PAID SUMMON UI BEFORE]", {
+      userTokens: user?.tokens,
+      liveTokenBalance,
+      displayedTokens,
+      cost,
+      selectedBanner,
+    });
+
     const result = await summonCards.mutateAsync(summonPayload as any);
+
+    console.log("[PAID SUMMON UI RESULT]", {
+      result,
+      userTokensBeforeRefresh: user?.tokens,
+      liveTokenBalanceBeforeRefresh: liveTokenBalance,
+      displayedTokensBeforeRefresh: displayedTokens,
+    });
 
     if (typeof result?.tokensRemaining === "number") {
       setLiveTokenBalance(result.tokensRemaining);
+
+      console.log("[PAID SUMMON UI AFTER SET LIVE]", {
+        tokensRemainingFromServer: result.tokensRemaining,
+      });
     } else {
-      setLiveTokenBalance((prev) =>
-        prev !== null ? prev - cost : (user?.tokens ?? 0) - cost
-      );
+      console.error("[PAID SUMMON] Missing tokensRemaining in response", {
+        result,
+        userTokens: user?.tokens,
+        cost,
+      });
     }
 
     setReward(result.cards ?? result.card ?? null);
@@ -371,44 +400,6 @@ const scrollToReward = () => {
     toast.error(message);
   }
 };
-
-  const handleShareToFeed = async () => {
-    if (!reward) return;
-
-    const cards = Array.isArray(reward) ? reward : [reward];
-    if (cards.length === 0) return;
-
-    const card = cards[0];
-
-    setIsSharing(true);
-    try {
-      await shareSummon.mutateAsync({
-        cardId: card.id,
-        source: "paid",
-      });
-      setHasShared(true);
-      toast.success("Shared to Feed!");
-    } catch (error: any) {
-      toast.error(error.message || "Failed to share");
-    } finally {
-      setIsSharing(false);
-    }
-  };
-
-  const handleBackToSummons = () => {
-  setReward(null);
-  setHasShared(false);
-  setShareDismissed(false);
-  setSummonError(null);
-
-  setTimeout(() => {
-    paidSummonRef.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "center",
-    });
-  }, 100);
-};
-
 const handleDismissShare = () => {
   setShareDismissed(true);
 };
