@@ -1164,31 +1164,6 @@ app.get("/api/sparks", verifySupabaseToken, async (req, res) => {
   return res.status(500).json({ error: "Failed to load sparks" });
 }
 });
-
-  app.post("/api/debug/set-tokens", verifySupabaseToken, async (req, res) => {
-  try {
-    if (!req.dbUser) {
-      return res.status(401).json({ error: "Not authenticated" });
-    }
-
-    const amount =
-      typeof req.body?.amount === "number" ? req.body.amount : 1000;
-
-    await storage.updateUser(req.dbUser.id, {
-      tokens: amount,
-    });
-
-    console.log("[DEBUG SET TOKENS]", {
-      userId: req.dbUser.id,
-      newTokens: amount,
-    });
-
-    return res.json({ success: true, tokens: amount });
-  } catch (error: any) {
-    console.error("[DEBUG SET TOKENS ERROR]", error);
-    return res.status(500).json({ error: "Failed to set tokens" });
-  }
-});
   
 app.post("/api/sparks/redeem", verifySupabaseToken, async (req, res) => {
   if (!req.dbUser) {
