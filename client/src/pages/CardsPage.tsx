@@ -516,137 +516,6 @@ const handleDismissShare = () => {
 
         <TabsContent value="summon" className="space-y-6">
 
-<div className="rounded-xl border border-white/10 bg-card/40 p-4 md:p-5">
-  <div className="mb-4 flex items-center justify-between gap-3">
-    <div>
-      <h3 className="font-display text-lg font-bold text-white">Your Summon Story</h3>
-      <p className="text-xs text-muted-foreground">
-        Truthful stats, framed around progress and momentum
-      </p>
-    </div>
-
-    <Badge variant="outline" className="border-primary/40 text-primary">
-      {totalSummons} summon{totalSummons === 1 ? "" : "s"}
-    </Badge>
-  </div>
-
-  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-    <div className="rounded-xl border border-white/10 bg-black/20 p-4">
-      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Reality Stat</p>
-      <p className="mt-2 text-2xl font-bold text-white">{commonRate}%</p>
-      <p className="mt-1 text-sm text-muted-foreground">Common pulls</p>
-    </div>
-
-    <div className="rounded-xl border border-purple-500/20 bg-purple-500/5 p-4">
-      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Hope Stat</p>
-      <p className="mt-2 text-2xl font-bold text-purple-300">{bestPull || "None yet"}</p>
-      <p className="mt-1 text-sm text-muted-foreground">Best Pull Ever</p>
-    </div>
-
-    <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-4">
-      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Collection Value</p>
-      <p className="mt-2 text-2xl font-bold text-white">
-        {unlockedHigherTier.length ? unlockedHigherTier.join(", ") : "Common"}
-      </p>
-      <p className="mt-1 text-sm text-muted-foreground">Higher-tier rarities unlocked</p>
-    </div>
-
-    <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/5 p-4">
-      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Strongest Banner</p>
-      <p className="mt-2 text-2xl font-bold text-yellow-300">
-        {bestBanner ? bestBanner.banner : "Not enough data"}
-      </p>
-      <p className="mt-1 text-sm text-muted-foreground">
-        {bestBanner ? `Top hit: ${bestBanner.rarity}` : "Pull more to compare banners"}
-      </p>
-      {bestBannerCTA && (
-  <p className="mt-1 text-xs text-muted-foreground">
-    {bestBannerCTA}
-  </p>
-)}
-    </div>
-  </div>
-
-  <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-    <div className="rounded-lg border border-white/10 bg-black/20 p-3">
-      <p className="text-xs text-muted-foreground">Rarest Pulls Unlocked</p>
-      <p className="mt-1 font-semibold text-white">
-        {rarityOrder
-          .filter((rarity) => (rarityCounts[rarity] || 0) > 0 && rarityRank[rarity] >= rarityRank["Rare"])
-          .map((rarity) => `${rarity} ×${rarityCounts[rarity]}`)
-          .join(" • ") || "No Rare+ pulls yet"}
-      </p>
-    </div>
-
-    
-
-    <div className="rounded-lg border border-white/10 bg-black/20 p-3">
-      <p className="text-xs text-muted-foreground">Banner Coverage</p>
-      <p className="mt-1 font-semibold text-white">
-        {Object.keys(bannerCounts).length > 0
-          ? `You've pulled from ${Object.keys(bannerCounts).length} banner${
-              Object.keys(bannerCounts).length > 1 ? "s" : ""
-            }`
-          : "No banner data yet"}
-      </p>
-    </div>
-
-    <div className="rounded-lg border border-white/10 bg-black/20 p-3">
-  <p className="text-xs text-muted-foreground">Free Summon Wins</p>
-  <p className="mt-1 font-semibold text-white">
-    {freeRareCount > 0
-      ? `Free summons already landed ${freeRareCount} Rare+ pull${freeRareCount > 1 ? "s" : ""}`
-      : "No Rare+ free pulls yet"}
-  </p>
-</div>
-
-<div className="rounded-lg border border-white/10 bg-black/20 p-3">
-  <p className="text-xs text-muted-foreground">Collection Size</p>
-  <p className="mt-1 font-semibold text-white">
-    {totalCollectionCards} card{totalCollectionCards === 1 ? "" : "s"} collected
-  </p>
-</div>
-
-</div>
-
-<div className="mt-4 rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4">
-  <p className="text-sm leading-6 text-white">
-    {summaryLine}
-  </p>
-
-  {nextTargetRarity && (
-    <div className="mt-3 rounded-lg border border-purple-500/20 bg-purple-500/5 p-3">
-      <p className="text-xs text-muted-foreground">Next Milestone</p>
-      <p className="mt-1 font-semibold text-white">
-        Your next big unlock: {nextTargetRarity}
-      </p>
-      <p className="text-xs text-muted-foreground">
-  You're building toward higher-tier pulls with each summon
-</p>
-
-<div className="mt-2">
-  <div className="h-2 w-full rounded-full bg-black/30">
-    <div
-      className="h-2 rounded-full bg-purple-500 transition-all"
-      style={{ width: `${progressPercent}%` }}
-    />
-  </div>
-  <p className="mt-1 text-xs text-muted-foreground">
-    {progressPercent}% toward {nextTargetRarity}
-  </p>
-</div>
-    </div>
-  )}
-
-    {momentumMessage && (
-    <div className="mt-2 rounded-lg border border-yellow-500/20 bg-yellow-500/5 p-3">
-      <p className="text-sm font-semibold text-yellow-300">
-        {momentumMessage}
-      </p>
-    </div>
-  )}
-</div>
-
 <div className="mb-4 rounded-xl border border-white/10 bg-gradient-to-r from-purple-500/10 via-primary/10 to-cyan-500/10 p-4">
             <h3 className="mb-3 flex items-center gap-2 font-display text-lg font-bold text-primary">
               <Sparkles className="h-5 w-5" /> How Summoning Works
@@ -1043,6 +912,137 @@ const handleDismissShare = () => {
     </div>
   )}
 </div>
+
+          <div className="mt-6 rounded-xl border border-white/10 bg-card/40 p-4 md:p-5">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <h3 className="font-display text-lg font-bold text-white">Your Summon Story</h3>
+                <p className="text-xs text-muted-foreground">
+                  Truthful stats, framed around progress and momentum
+                </p>
+              </div>
+
+              <Badge variant="outline" className="border-primary/40 text-primary">
+                {totalSummons} summon{totalSummons === 1 ? "" : "s"}
+              </Badge>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-xl border border-white/10 bg-black/20 p-4">
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Reality Stat</p>
+                <p className="mt-2 text-2xl font-bold text-white">{commonRate}%</p>
+                <p className="mt-1 text-sm text-muted-foreground">Common pulls</p>
+              </div>
+
+              <div className="rounded-xl border border-purple-500/20 bg-purple-500/5 p-4">
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Hope Stat</p>
+                <p className="mt-2 text-2xl font-bold text-purple-300">{bestPull || "None yet"}</p>
+                <p className="mt-1 text-sm text-muted-foreground">Best Pull Ever</p>
+              </div>
+
+              <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-4">
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Collection Value</p>
+                <p className="mt-2 text-2xl font-bold text-white">
+                  {unlockedHigherTier.length ? unlockedHigherTier.join(", ") : "Common"}
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">Higher-tier rarities unlocked</p>
+              </div>
+
+              <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/5 p-4">
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Strongest Banner</p>
+                <p className="mt-2 text-2xl font-bold text-yellow-300">
+                  {bestBanner ? bestBanner.banner : "Not enough data"}
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {bestBanner ? `Top hit: ${bestBanner.rarity}` : "Pull more to compare banners"}
+                </p>
+                {bestBannerCTA && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              {bestBannerCTA}
+            </p>
+          )}
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-lg border border-white/10 bg-black/20 p-3">
+                <p className="text-xs text-muted-foreground">Rarest Pulls Unlocked</p>
+                <p className="mt-1 font-semibold text-white">
+                  {rarityOrder
+                    .filter((rarity) => (rarityCounts[rarity] || 0) > 0 && rarityRank[rarity] >= rarityRank["Rare"])
+                    .map((rarity) => `${rarity} ×${rarityCounts[rarity]}`)
+                    .join(" • ") || "No Rare+ pulls yet"}
+                </p>
+              </div>
+
+
+
+              <div className="rounded-lg border border-white/10 bg-black/20 p-3">
+                <p className="text-xs text-muted-foreground">Banner Coverage</p>
+                <p className="mt-1 font-semibold text-white">
+                  {Object.keys(bannerCounts).length > 0
+                    ? `You've pulled from ${Object.keys(bannerCounts).length} banner${
+                        Object.keys(bannerCounts).length > 1 ? "s" : ""
+                      }`
+                    : "No banner data yet"}
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-white/10 bg-black/20 p-3">
+            <p className="text-xs text-muted-foreground">Free Summon Wins</p>
+            <p className="mt-1 font-semibold text-white">
+              {freeRareCount > 0
+                ? `Free summons already landed ${freeRareCount} Rare+ pull${freeRareCount > 1 ? "s" : ""}`
+                : "No Rare+ free pulls yet"}
+            </p>
+          </div>
+
+          <div className="rounded-lg border border-white/10 bg-black/20 p-3">
+            <p className="text-xs text-muted-foreground">Collection Size</p>
+            <p className="mt-1 font-semibold text-white">
+              {totalCollectionCards} card{totalCollectionCards === 1 ? "" : "s"} collected
+            </p>
+          </div>
+
+          </div>
+
+          <div className="mt-4 rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4">
+            <p className="text-sm leading-6 text-white">
+              {summaryLine}
+            </p>
+
+            {nextTargetRarity && (
+              <div className="mt-3 rounded-lg border border-purple-500/20 bg-purple-500/5 p-3">
+                <p className="text-xs text-muted-foreground">Next Milestone</p>
+                <p className="mt-1 font-semibold text-white">
+                  Your next big unlock: {nextTargetRarity}
+                </p>
+                <p className="text-xs text-muted-foreground">
+            You're building toward higher-tier pulls with each summon
+          </p>
+
+          <div className="mt-2">
+            <div className="h-2 w-full rounded-full bg-black/30">
+              <div
+                className="h-2 rounded-full bg-purple-500 transition-all"
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {progressPercent}% toward {nextTargetRarity}
+            </p>
+          </div>
+              </div>
+            )}
+
+              {momentumMessage && (
+              <div className="mt-2 rounded-lg border border-yellow-500/20 bg-yellow-500/5 p-3">
+                <p className="text-sm font-semibold text-yellow-300">
+                  {momentumMessage}
+                </p>
+              </div>
+            )}
+          </div>
 
           <div className="mt-8 rounded-xl border border-white/10 p-4">
             <h3 className="mb-4 text-lg font-bold">Recent Summons</h3>
