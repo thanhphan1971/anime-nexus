@@ -916,7 +916,7 @@ const handleDismissShare = () => {
           <div className="mt-6 rounded-xl border border-white/10 bg-card/40 p-4 md:p-5">
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
-                <h3 className="font-display text-lg font-bold text-white">Your Summon Story</h3>
+                <h3 className="font-display text-lg font-bold text-white">Your Summon Story v2</h3>
                 <p className="text-xs text-muted-foreground">
                   Truthful stats, framed around progress and momentum
                 </p>
