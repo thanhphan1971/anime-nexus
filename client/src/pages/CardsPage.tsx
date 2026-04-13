@@ -82,6 +82,7 @@ useEffect(() => {
     const scrollTimeout = setTimeout(() => {
       if (mode === "paid" && paidSummonRef.current) {
         paidSummonRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+     
       } else if (mode === "free" && freeSummonRef.current) {
         freeSummonRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
       }
@@ -114,6 +115,60 @@ useEffect(() => {
   typeof liveTokenBalance === "number"
     ? liveTokenBalance
     : user?.tokens ?? 0;
+
+// ===== REWARD UI LOGIC (INSERTED HERE) =====
+
+const rewardRarity = reward?.rarity || null;
+
+const rewardHeadline =
+  rewardRarity === "Mythic"
+    ? "💥 MYTHIC PULL"
+    : rewardRarity === "Legendary"
+    ? "👑 LEGENDARY PULL"
+    : rewardRarity === "Epic"
+    ? "🔥 EPIC PULL"
+    : rewardRarity === "Rare"
+    ? "✨ RARE PULL"
+    : reward
+    ? "You pulled a new card"
+    : null;
+
+const rewardSubtext =
+  rewardRarity === "Mythic"
+    ? "An ultra-rare hit. This is a collection-defining pull."
+    : rewardRarity === "Legendary"
+    ? "Huge hit. You just landed one of the highest-tier cards."
+    : rewardRarity === "Epic"
+    ? "Strong pull. This is where the summon starts feeling exciting."
+    : rewardRarity === "Rare"
+    ? "Nice pull. You’re moving beyond commons."
+    : reward
+    ? "Every pull builds your collection and momentum."
+    : null;
+
+const nextPullMessage =
+  rewardRarity === "Mythic"
+    ? "You’re on fire. Press while momentum is hot."
+    : rewardRarity === "Legendary"
+    ? "Big hit. Another pull could turn this into a streak."
+    : rewardRarity === "Epic"
+    ? "That was strong. Your next pull could go even higher."
+    : rewardRarity === "Rare"
+    ? "Nice result. You’re warming up."
+    : reward
+    ? "Every pull gets you closer to your next big hit."
+    : null;
+
+const rewardAccentClass =
+  rewardRarity === "Mythic"
+    ? "border-pink-500/40 bg-pink-500/10"
+    : rewardRarity === "Legendary"
+    ? "border-yellow-500/40 bg-yellow-500/10"
+    : rewardRarity === "Epic"
+    ? "border-purple-500/40 bg-purple-500/10"
+    : rewardRarity === "Rare"
+    ? "border-blue-500/40 bg-blue-500/10"
+    : "border-white/10 bg-black/20";
 
 // =========================
 // Collection / summon stats
@@ -280,7 +335,7 @@ const scrollToReward = () => {
   }, 100);
 };
 
-  const handleFreeSummon = async () => {
+const handleFreeSummon = async () => {
   if (!user) {
     toast.error("Please sign in to summon");
     return;
@@ -295,26 +350,31 @@ const scrollToReward = () => {
   setSummonError(null);
 
   try {
-    const result = await freeSummonMutation.mutateAsync();
-    setReward(result.card);
-    setHasShared(false);
-    setShareDismissed(false);
+   const result = await freeSummonMutation.mutateAsync();
+   setReward(result.card);
+   setHasShared(false);
+   setShareDismissed(false);
 
-    await queryClient.invalidateQueries({ queryKey: ["userCards"] });
-    await queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
-    await queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+   await queryClient.invalidateQueries({ queryKey: ["userCards"] });
+   await queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+   await queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+   await queryClient.invalidateQueries({ queryKey: ["summonHistory"] });
 
-    await refetchFreeStatus();
-    await refreshUser();
+   await refetchFreeStatus();
+   await refreshUser();
 
-    toast.success(`Summoned ${result.card?.name || "a card"}!`);
-    scrollToReward();
-  } catch (error: any) {
-    toast.error(error.message || "Summon failed");
-  } finally {
-    setIsFreeLoading(false);
-  }
-};
+   await queryClient.refetchQueries({ queryKey: ["userCards"], type: "active" });
+   await queryClient.refetchQueries({ queryKey: ["/api/auth/me"], type: "active" });
+   await queryClient.refetchQueries({ queryKey: ["summonHistory"], type: "active" });
+
+   toast.success(`Summoned ${result.card?.name || "a card"}!`);
+   scrollToReward();
+ } catch (error: any) {
+   toast.error(error.message || "Summon failed");
+ } finally {
+   setIsFreeLoading(false);
+ }
+ };
 
   const handleSummon = async (count: 1 | 10 = 1) => {
   const cost = 100 * count;
@@ -737,6 +797,12 @@ const handleDismissShare = () => {
   <p className="mt-2 text-center text-[11px] text-muted-foreground">
     {pullCount === 10 ? "Best value • Faster opening" : "Quick single summon"}
   </p>
+
+  <p className="mt-1 text-center text-xs text-muted-foreground">
+  Every pull builds momentum. Your next big hit could be one summon away.
+</p>
+
+  
 </div>
 
 <div className="mt-4 w-full">
@@ -786,88 +852,149 @@ const handleDismissShare = () => {
               )}
 
               {reward && (
-                <div ref={rewardSectionRef} className="w-full">
-                  <motion.div
-                    initial={{ scale: 0, y: 50 }}
-                    animate={{ scale: 1, y: 0 }}
-                    className="w-full space-y-6 text-center"
-                  >
-                    <h3 className="font-display text-xl font-bold text-primary">
-                      {Array.isArray(reward)
-                        ? `You received ${reward.length} card${reward.length > 1 ? "s" : ""}!`
-                        : "You received a card!"}
-                    </h3>
+  <div ref={rewardSectionRef} className="w-full">
+    <motion.div
+      initial={{ scale: 0.96, y: 30, opacity: 0 }}
+      animate={{ scale: 1, y: 0, opacity: 1 }}
+      className={`w-full space-y-5 rounded-2xl border p-4 md:p-5 ${rewardAccentClass}`}
+    >
+      <div className="text-center">
+        <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+          Summon Result
+        </p>
+        <h3 className="mt-2 font-display text-2xl font-bold text-white">
+          {Array.isArray(reward)
+            ? `🔥 ${reward.length} CARD PULL`
+            : rewardHeadline}
+        </h3>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {Array.isArray(reward)
+            ? "A strong pull. Check what just got added to your collection."
+            : rewardSubtext}
+        </p>
+      </div>
 
-                    <div
-                      className={`flex justify-center gap-4 ${
-                        Array.isArray(reward) && reward.length > 1 ? "flex-wrap" : ""
-                      }`}
-                    >
-                      {(Array.isArray(reward) ? reward : [reward]).map((card: any, index: number) => (
-                        <div
-                          key={card?.id || index}
-                          className="relative aspect-[3/4] w-56 overflow-hidden rounded-xl border-4 border-yellow-500 shadow-[0_0_50px_hsl(45,100%,50%,0.5)]"
-                        >
-                          <img src={card?.image} alt={card?.name} className="h-full w-full object-cover" />
-                          <div className="absolute inset-x-0 bottom-0 bg-black/80 p-3 text-white">
-                            <Badge className="mb-1 bg-yellow-500 text-xs text-black">{card?.rarity}</Badge>
-                            <h2 className="text-sm font-bold">{card?.name}</h2>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+      <div
+        className={`flex justify-center gap-4 ${
+          Array.isArray(reward) && reward.length > 1 ? "flex-wrap" : ""
+        }`}
+      >
+        {(Array.isArray(reward) ? reward : [reward]).map((card: any, index: number) => (
+          <div
+            key={card?.id || index}
+            className="relative aspect-[3/4] w-56 overflow-hidden rounded-xl border-4 border-yellow-500 shadow-[0_0_50px_hsl(45,100%,50%,0.5)]"
+          >
+            <img src={card?.image} alt={card?.name} className="h-full w-full object-cover" />
+            <div className="absolute inset-x-0 bottom-0 bg-black/80 p-3 text-white">
+              <Badge className="mb-1 bg-yellow-500 text-xs text-black">
+                {card?.rarity}
+              </Badge>
+              <h2 className="text-sm font-bold">{card?.name}</h2>
+            </div>
+          </div>
+        ))}
+      </div>
 
-                    {!shareDismissed && (
-                      <div className="mx-auto max-w-sm rounded-xl border border-white/10 bg-card/60 p-4">
-                        {hasShared ? (
-                          <div className="flex items-center justify-center gap-2 font-medium text-green-400">
-                            <Check className="h-5 w-5" />
-                            Shared to Feed!
-                          </div>
-                        ) : (
-                          <>
-                            <p className="mb-2 text-center text-xs text-muted-foreground">Share your pull?</p>
-                            <div className="flex justify-center gap-3">
-                              <Button
-                                onClick={handleShareToFeed}
-                                disabled={isSharing}
-                                className="bg-gradient-to-r from-cyan-600 to-purple-600 font-bold text-white hover:from-cyan-500 hover:to-purple-500"
-                                data-testid="button-share-to-feed"
-                              >
-                                {isSharing ? (
-                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                ) : (
-                                  <Share2 className="mr-2 h-4 w-4" />
-                                )}
-                                Share to Feed
-                              </Button>
+      <div className="grid gap-3 md:grid-cols-3">
+        <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+          <p className="text-xs text-muted-foreground">Rarity</p>
+          <p className="mt-1 font-semibold text-white">
+            {Array.isArray(reward)
+              ? `${reward.length} cards`
+              : reward?.rarity || "Unknown"}
+          </p>
+        </div>
 
-                              <Button
-                                variant="ghost"
-                                onClick={handleDismissShare}
-                                className="text-muted-foreground hover:text-white"
-                                data-testid="button-not-now"
-                              >
-                                Not now
-                              </Button>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    )}
+        <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+          <p className="text-xs text-muted-foreground">Collection Impact</p>
+          <p className="mt-1 font-semibold text-white">
+            +{Array.isArray(reward) ? reward.length : 1} card
+            {Array.isArray(reward) && reward.length > 1 ? "s" : ""} added
+          </p>
+        </div>
 
-                    <Button
-                      size="lg"
-                      onClick={handleBackToSummons}
-                      className="bg-gradient-to-r from-purple-600 to-cyan-600 px-8 font-bold text-white hover:from-purple-500 hover:to-cyan-500"
-                      data-testid="button-back-to-summons"
-                    >
-                      <Sparkles className="mr-2 h-5 w-5" />
-                      Back to Summons
-                    </Button>
-                  </motion.div>
-                </div>
-              )}
+        <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+          <p className="text-xs text-muted-foreground">Momentum</p>
+          <p className="mt-1 font-semibold text-white">
+            {Array.isArray(reward)
+              ? "Big pull. Keep pressing while momentum is hot."
+              : nextPullMessage}
+          </p>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/5 p-3 text-center">
+        <p className="text-sm font-semibold text-yellow-300">
+          {Array.isArray(reward)
+            ? "Strong pull. Your next one could go even higher."
+            : nextPullMessage}
+        </p>
+      </div>
+
+      {!shareDismissed && (
+        <div className="mx-auto max-w-sm rounded-xl border border-white/10 bg-card/60 p-4">
+          {hasShared ? (
+            <div className="flex items-center justify-center gap-2 font-medium text-green-400">
+              <Check className="h-5 w-5" />
+              Shared to Feed!
+            </div>
+          ) : (
+            <>
+              <p className="mb-2 text-center text-xs text-muted-foreground">
+                Share your pull?
+              </p>
+              <div className="flex justify-center gap-3">
+                <Button
+                  onClick={handleShareToFeed}
+                  disabled={isSharing}
+                  className="bg-gradient-to-r from-cyan-600 to-purple-600 font-bold text-white hover:from-cyan-500 hover:to-purple-500"
+                  data-testid="button-share-to-feed"
+                >
+                  {isSharing ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Share2 className="mr-2 h-4 w-4" />
+                  )}
+                  Share to Feed
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  onClick={handleDismissShare}
+                  className="text-muted-foreground hover:text-white"
+                  data-testid="button-not-now"
+                >
+                  Not now
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      <div className="flex flex-col justify-center gap-3 sm:flex-row">
+        <Button
+          size="lg"
+          onClick={() => handleSummon(1)}
+          disabled={summonCards.isPending}
+          className="bg-yellow-500 px-8 font-bold text-black hover:bg-yellow-400 disabled:opacity-50"
+        >
+          Pull Again — 100 Tokens
+        </Button>
+
+        <Button
+          size="lg"
+          onClick={handleBackToSummons}
+          className="bg-gradient-to-r from-purple-600 to-cyan-600 px-8 font-bold text-white hover:from-purple-500 hover:to-cyan-500"
+          data-testid="button-back-to-summons"
+        >
+          <Sparkles className="mr-2 h-5 w-5" />
+          Back to Summons
+        </Button>
+      </div>
+    </motion.div>
+  </div>
+)}
             </AnimatePresence>
           </div>
 
