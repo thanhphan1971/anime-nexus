@@ -1171,103 +1171,153 @@ const handleDismissShare = () => {
             )}
           </div>
 
-          <div className="mt-8 rounded-xl border border-white/10 p-4">
-            <h3 className="mb-4 text-lg font-bold">Recent Summons</h3>
-
-            {isHistoryLoading ? (
-              <div className="text-sm text-muted-foreground">Loading history...</div>
-            ) : summonHistory.length ? (
-              <div className="space-y-3">
-  {summonHistory.map((entry: any, index: number) => {
-                  const rarity = entry.rarity ?? entry.card?.rarity ?? "Unknown";
-                  const rarityClass =
-                    rarity === "Mythic"
-                      ? "border-pink-500/40"
-                      : rarity === "Legendary"
-                      ? "border-yellow-500/40"
-                      : rarity === "Epic"
-                      ? "border-purple-500/40"
-                      : rarity === "Rare"
-                      ? "border-blue-500/40"
-                      : "border-white/10";
-
-const imageSrc = entry.cardImage ?? entry.card?.image ?? entry.image ?? null;
-const isLatest = index === 0;                
-
-return (
-  <div
-  key={entry.id}
-  className={`flex items-center justify-between rounded-lg border p-3 transition-all hover:scale-[1.01] hover:bg-white/5 ${
-  isLatest ? "bg-white/5 shadow-md" : ""
-} ${rarityClass}`}
->
-    <div className="flex items-center gap-3">
-      {imageSrc ? (
-        <img
-          src={imageSrc}
-          alt={entry.cardName ?? entry.card?.name ?? `Card #${entry.cardId}`}
-          className="h-12 w-10 rounded border border-white/10 object-cover"
-        />
-      ) : (
-        <div className="h-12 w-10 rounded border border-white/10 bg-white/5" />
-      )}
-
-      <div>
-        <div
-  className={`font-medium ${
-    rarity === "Mythic"
-      ? "text-pink-400"
-      : rarity === "Legendary"
-      ? "text-yellow-400"
-      : rarity === "Epic"
-      ? "text-purple-400"
-      : rarity === "Rare"
-      ? "text-blue-400"
-      : "text-white"
-  }`}
->
-  {entry.cardName ?? entry.card?.name ?? `Card #${entry.cardId}`}
-</div>
-{isLatest && (
-  <div className="mt-1">
-    <span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-cyan-300">
-      Latest
-    </span>
-  </div>
-)}
-        
-        <div className="text-xs text-muted-foreground">
-  <span className="capitalize">{rarity}</span> •{" "}
-  <span
-    className={
-      entry.source === "free_summon"
-        ? "text-green-400"
-        : "text-yellow-400"
-    }
-  >
-    {entry.source === "free_summon" ? "Free" : "Paid"}
-  </span>{" "}
-  • {entry.banner || "Standard"}
-</div>
-      </div>
+         <div className="mt-8 rounded-2xl border border-white/10 bg-black/30 p-4 md:p-5">
+  <div className="mb-4 flex items-start justify-between gap-3">
+    <div>
+      <h3 className="text-lg font-bold text-white">Recent Pulls</h3>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Your newest cards, recent wins, and summon momentum.
+      </p>
     </div>
 
-    <div className="text-right text-xs text-muted-foreground">
-  <div>{entry.costTokens ?? 0} tokens</div>
-  <div>
-    {entry.acquiredAt
-      ? format(new Date(entry.acquiredAt), "MMM d, h:mm a")
-      : "Unknown"}
+    <div className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-[11px] font-medium text-cyan-200">
+      {summonHistory.length} recent {summonHistory.length === 1 ? "pull" : "pulls"}
+    </div>
   </div>
-</div>
-  </div>
-);
-                })}
+
+  {isHistoryLoading ? (
+    <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-6 text-sm text-muted-foreground">
+      Loading recent pulls...
+    </div>
+  ) : summonHistory.length ? (
+    <div className="space-y-3">
+      {summonHistory.map((entry: any, index: number) => {
+        const rarity = entry.rarity ?? entry.card?.rarity ?? "Unknown";
+        const imageSrc = entry.cardImage ?? entry.card?.image ?? entry.image ?? null;
+        const isLatest = index === 0;
+        const cardName =
+          entry.cardName ?? entry.card?.name ?? `Card #${entry.cardId}`;
+        const isFree = entry.source === "free_summon";
+        const bannerName = entry.banner || "Standard";
+        const acquiredLabel = entry.acquiredAt
+          ? format(new Date(entry.acquiredAt), "MMM d, h:mm a")
+          : "Unknown";
+
+        const rarityBadgeClass =
+          rarity === "Mythic"
+            ? "border-pink-500/30 bg-pink-500/10 text-pink-300"
+            : rarity === "Legendary"
+            ? "border-yellow-500/30 bg-yellow-500/10 text-yellow-300"
+            : rarity === "Epic"
+            ? "border-purple-500/30 bg-purple-500/10 text-purple-300"
+            : rarity === "Rare"
+            ? "border-blue-500/30 bg-blue-500/10 text-blue-300"
+            : "border-white/10 bg-white/5 text-zinc-200";
+
+        const rowBorderClass =
+          rarity === "Mythic"
+            ? "border-pink-500/30"
+            : rarity === "Legendary"
+            ? "border-yellow-500/30"
+            : rarity === "Epic"
+            ? "border-purple-500/30"
+            : rarity === "Rare"
+            ? "border-blue-500/30"
+            : "border-white/10";
+
+        const pullTone =
+          rarity === "Mythic" || rarity === "Legendary"
+            ? "Huge pull"
+            : rarity === "Epic"
+            ? "Strong pull"
+            : rarity === "Rare"
+            ? "Nice hit"
+            : "Added to collection";
+
+        return (
+          <div
+            key={entry.id}
+            className={`group rounded-2xl border bg-gradient-to-r from-white/5 to-white/[0.03] p-3 transition hover:border-cyan-400/30 hover:bg-white/[0.07] ${rowBorderClass} ${
+              isLatest ? "shadow-md ring-1 ring-cyan-400/10" : ""
+            }`}
+          >
+            <div className="flex gap-3">
+              <div className="h-20 w-16 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-black/30">
+                {imageSrc ? (
+                  <img
+                    src={imageSrc}
+                    alt={cardName}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground">
+                    No image
+                  </div>
+                )}
               </div>
-            ) : (
-              <div className="text-sm text-muted-foreground">No summon history yet.</div>
-            )}
+
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="truncate text-sm font-semibold text-white">
+                    {cardName}
+                  </p>
+
+                  <span
+                    className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${rarityBadgeClass}`}
+                  >
+                    {rarity}
+                  </span>
+
+                  {isLatest && (
+                    <span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-cyan-300">
+                      Latest
+                    </span>
+                  )}
+                </div>
+
+                <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
+                  <span
+                    className={`rounded-full border px-2 py-1 ${
+                      isFree
+                        ? "border-green-500/20 bg-green-500/10 text-green-300"
+                        : "border-yellow-500/20 bg-yellow-500/10 text-yellow-300"
+                    }`}
+                  >
+                    {isFree ? "Free Summon" : "Paid Summon"}
+                  </span>
+
+                  <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-zinc-200">
+                    Banner: {bannerName}
+                  </span>
+
+                  {!isFree && (
+                    <span className="rounded-full border border-red-500/20 bg-red-500/10 px-2 py-1 text-red-200">
+                      {entry.costTokens ?? 0} tokens
+                    </span>
+                  )}
+                </div>
+
+                <div className="mt-3 flex items-center justify-between gap-3">
+                  <p className="text-xs text-muted-foreground">{acquiredLabel}</p>
+                  <p className="text-xs font-medium text-cyan-200 opacity-80 transition group-hover:opacity-100">
+                    {pullTone}
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
+        );
+      })}
+    </div>
+  ) : (
+    <div className="rounded-xl border border-dashed border-white/10 bg-white/5 px-4 py-8 text-center">
+      <p className="text-sm font-medium text-white">No pulls yet</p>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Your recent summons will appear here once you start pulling.
+      </p>
+    </div>
+  )}
+</div>
         </div>
         </TabsContent>
 
