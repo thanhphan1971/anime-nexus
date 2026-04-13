@@ -13,6 +13,7 @@ console.log("[BOOT MARKER TOP]", {
 });
 
 console.log("BOOT_MARKER_HISTORY_20260405_A");
+console.log("🔥 SERVER RESTARTED — VERSION V2 🔥");
 
 // --------------------------------------------------
 // App + server
