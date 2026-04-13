@@ -1,6 +1,6 @@
 // server/forceDbEnv.ts
 
-export function forceDbEnv() {
+function forceDbEnv() {
   if (process.env.NODE_ENV !== "production") {
     return;
   }
@@ -9,6 +9,8 @@ export function forceDbEnv() {
     "postgresql://postgres.ufebwbmfbsbluxcshyfi:Vinhlong40supabasedatabase@aws-1-us-east-1.pooler.supabase.com:5432/postgres";
 
   process.env.DATABASE_URL = forcedDbUrl;
+  process.env.SB_DB_URL = forcedDbUrl;
+  process.env.SUPABASE_DATABASE_URL = forcedDbUrl;
 
   try {
     const url = new URL(forcedDbUrl);
@@ -25,8 +27,14 @@ export function forceDbEnv() {
       database: process.env.PGDATABASE,
       user: process.env.PGUSER,
       hasDatabaseUrl: !!process.env.DATABASE_URL,
+      hasSbDbUrl: !!process.env.SB_DB_URL,
+      hasSupabaseDatabaseUrl: !!process.env.SUPABASE_DATABASE_URL,
     });
   } catch (error) {
     console.error("[DB FORCE OVERRIDE ERROR]", error);
   }
 }
+
+forceDbEnv();
+
+export {};
