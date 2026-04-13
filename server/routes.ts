@@ -204,6 +204,13 @@ app.get("/api/user-card-history", verifySupabaseToken, async (req, res) => {
   try {
     const supabaseUser = req.supabaseUser;
 
+    console.log("[AUTH ME DEBUG ENTRY]", {
+  hasSupabaseUser: !!req.supabaseUser,
+  supabaseId: req.supabaseUser?.id,
+  email: req.supabaseUser?.email,
+  hasReqDbUser: !!req.dbUser,
+});
+
     console.log("[auth/me] start", {
       supabaseId: supabaseUser?.id,
       email: supabaseUser?.email,
@@ -216,7 +223,17 @@ app.get("/api/user-card-history", verifySupabaseToken, async (req, res) => {
     }
 
     // 1) Try linked DB user by supabase_user_id
-    let dbUser = await storage.getUserBySupabaseId(supabaseUser.id);
+    let dbUser;
+
+try {
+  dbUser = await storage.getUserBySupabaseId(supabaseUser.id);
+  console.log("[AUTH ME DEBUG] getUserBySupabaseId OK", {
+    found: !!dbUser,
+  });
+} catch (e) {
+  console.error("[AUTH ME DEBUG] getUserBySupabaseId FAILED", e);
+  throw e;
+}
 
     // 2) If not linked yet, try legacy account by email and link it
     if (!dbUser) {
