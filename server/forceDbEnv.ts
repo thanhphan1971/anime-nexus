@@ -1,40 +1,32 @@
-import { URL } from "url";
+// server/forceDbEnv.ts
 
-// =====================================================
-// Force Supabase over Replit Neon injection
-// Runs at import-time (before the rest of the app imports)
-// =====================================================
-(() => {
-  const sbUrl = (process.env.SB_DB_URL || "").trim();
-
-  console.log("[DB] SB_DB_URL present:", !!sbUrl);
-
-  if (!sbUrl) {
-    console.warn("[DB] SB_DB_URL missing — leaving DATABASE_URL/PG* as provided");
+export function forceDbEnv() {
+  if (process.env.NODE_ENV !== "production") {
     return;
   }
 
+  const forcedDbUrl =
+    "postgresql://postgres.ufebwbmfbsbluxcshyfi:Vinhlong40supabasedatabase@aws-1-us-east-1.pooler.supabase.com:5432/postgres";
+
+  process.env.DATABASE_URL = forcedDbUrl;
+
   try {
-    const u = new URL(sbUrl);
+    const url = new URL(forcedDbUrl);
 
-    // Force ORMs / db libs to use Supabase
-    process.env.DATABASE_URL = sbUrl;
+    process.env.PGHOST = url.hostname;
+    process.env.PGPORT = url.port || "5432";
+    process.env.PGUSER = decodeURIComponent(url.username);
+    process.env.PGPASSWORD = decodeURIComponent(url.password);
+    process.env.PGDATABASE = url.pathname.replace(/^\//, "") || "postgres";
 
-    // Force PG* too (Replit injects Neon)
-    process.env.PGHOST = u.hostname;
-    process.env.PGPORT = u.port || "5432";
-    process.env.PGDATABASE = (u.pathname || "").replace(/^\//, "") || "postgres";
-    process.env.PGUSER = decodeURIComponent(u.username || "");
-    process.env.PGPASSWORD = decodeURIComponent(u.password || "");
-
-    if (!process.env.PGSSLMODE) process.env.PGSSLMODE = "require";
-
-    console.log("[DB] Forced DB from SB_DB_URL", {
-      host: u.hostname,
+    console.log("[DB FORCE OVERRIDE]", {
+      host: process.env.PGHOST,
+      port: process.env.PGPORT,
       database: process.env.PGDATABASE,
+      user: process.env.PGUSER,
+      hasDatabaseUrl: !!process.env.DATABASE_URL,
     });
-  } catch (e) {
-    console.error("[FATAL] Invalid SB_DB_URL:", e);
-    throw e;
+  } catch (error) {
+    console.error("[DB FORCE OVERRIDE ERROR]", error);
   }
-})();
+}
